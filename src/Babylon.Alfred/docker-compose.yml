@@ -1,0 +1,6 @@
+﻿services:
+  babylon.alfred.api:
+    image: babylon.alfred.api
+    build:
+      context: .
+      dockerfile: Babylon.Alfred.Api/Dockerfile
