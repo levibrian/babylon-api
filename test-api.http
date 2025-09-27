@@ -1,0 +1,101 @@
+### Get Investment Summary
+GET https://localhost:7192/api/v1/investments
+Accept: application/json
+
+###
+
+### Get All Transactions
+GET https://localhost:7192/api/v1/investments/transactions
+Accept: application/json
+
+###
+
+### Create New Transaction - Nvidia
+POST https://localhost:7192/api/v1/investments/transactions
+Content-Type: application/json
+
+{
+  "assetSymbol": "NVDA",
+  "assetName": "Nvidia",
+  "assetType": 0,
+  "type": 0,
+  "date": "2024-01-15T00:00:00Z",
+  "amount": 25.00,
+  "sharesQuantity": 0.271237,
+  "sharePrice": 92.48,
+  "fees": 1.00,
+  "notes": "Test transaction from Excel data"
+}
+
+###
+
+### Create New Transaction - Apple
+POST https://localhost:7192/api/v1/investments/transactions
+Content-Type: application/json
+
+{
+  "assetSymbol": "AAPL",
+  "assetName": "Apple",
+  "assetType": 0,
+  "type": 0,
+  "date": "2024-01-20T00:00:00Z",
+  "amount": 50.00,
+  "sharesQuantity": 0.25,
+  "sharePrice": 200.00,
+  "fees": 0.00,
+  "notes": "Apple stock purchase"
+}
+
+###
+
+### Get Transactions by Asset
+GET https://localhost:7192/api/v1/investments/transactions?assetSymbol=NVDA
+Accept: application/json
+
+###
+
+### Get Current Holdings
+GET https://localhost:7192/api/v1/investments/holdings
+Accept: application/json
+
+###
+
+### Get Specific Asset Holding
+GET https://localhost:7192/api/v1/investments/holdings/NVDA
+Accept: application/json
+
+###
+
+### Get All Assets
+GET https://localhost:7192/api/v1/investments/assets
+Accept: application/json
+
+###
+
+### Get Transactions by Date Range
+GET https://localhost:7192/api/v1/investments/transactions?startDate=2024-01-01&endDate=2024-12-31
+Accept: application/json
+
+###
+
+### Update Transaction (replace {id} with actual transaction ID)
+PUT https://localhost:7192/api/v1/investments/transactions/{id}
+Content-Type: application/json
+
+{
+  "assetSymbol": "NVDA",
+  "assetName": "Nvidia",
+  "assetType": 0,
+  "type": 0,
+  "date": "2024-01-15T00:00:00Z",
+  "amount": 30.00,
+  "sharesQuantity": 0.271237,
+  "sharePrice": 92.48,
+  "fees": 1.00,
+  "notes": "Updated transaction"
+}
+
+###
+
+### Delete Transaction (replace {id} with actual transaction ID)
+DELETE https://localhost:7192/api/v1/investments/transactions/{id}

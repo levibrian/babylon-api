@@ -1,0 +1,24 @@
+{
+    "recommendations": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "pcislo.nuget-package-manager",
+        "humao.rest-client",
+        "rangav.vscode-thunder-client",
+        "arjun.swagger-viewer",
+        "zainchen.json",
+        "formulahendry.auto-rename-tag",
+        "coenraads.bracket-pair-colorizer-2",
+        "eamodio.gitlens",
+        "usernamehw.errorlens",
+        "streetsidesoftware.code-spell-checker",
+        "ms-mssql.mssql",
+        "erikej.vscode-entity-framework-core-power-tools",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vscode.powershell",
+        "ms-dotnettools.blazorwasm-companion"
+    ]
+}
+
