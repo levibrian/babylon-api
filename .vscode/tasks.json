@@ -1,0 +1,59 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Babylon.Alfred/Babylon.Alfred.sln",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "publish",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj",
+        "/p:PublishProfile=FolderProfile"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "run-api",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "new"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "watch",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "${workspaceFolder}/src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}
+
