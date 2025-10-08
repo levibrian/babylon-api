@@ -1,9 +1,12 @@
+using Babylon.Alfred.Api.Shared.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Babylon.Alfred.Api.Shared.Data;
 
 public class BabylonDbContext : DbContext
 {
+    public DbSet<Transaction> Transactions { get; set; }
+
     public BabylonDbContext(DbContextOptions<BabylonDbContext> options)
         : base(options)
     {
