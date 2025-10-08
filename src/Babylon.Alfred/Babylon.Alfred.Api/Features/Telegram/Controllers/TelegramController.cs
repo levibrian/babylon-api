@@ -23,7 +23,7 @@ public class TelegramController(
 
             if (update.Type is not UpdateType.Message)
                 return BadRequest("Received request was not a message");
-            
+
             if (update.Type is not UpdateType.Message)
             {
                 return BadRequest("Received request was not a message");
@@ -32,7 +32,7 @@ public class TelegramController(
             var message = update.Message!;
             var chatId = message.Chat.Id;
             var text = message.Text;
-            
+
             switch (text)
             {
                 case "/start":
@@ -53,7 +53,7 @@ public class TelegramController(
 
             return Ok();
         }
-        catch(Exception e)
+        catch(Exception)
         {
             return Problem();
         }
