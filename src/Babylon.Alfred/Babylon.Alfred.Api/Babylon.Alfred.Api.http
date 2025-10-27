@@ -1,6 +1,59 @@
 @Babylon.Alfred.Api_HostAddress = http://localhost:5000
 
-GET {{Babylon.Alfred.Api_HostAddress}}/weatherforecast/
+### Get all transactions
+GET {{Babylon.Alfred.Api_HostAddress}}/api/v1/transactions
 Accept: application/json
+
+###
+
+### Create a single transaction
+POST {{Babylon.Alfred.Api_HostAddress}}/api/v1/transactions
+Content-Type: application/json
+
+{
+  "ticker": "AAPL",
+  "companyName": "Apple",
+  "transactionType": 0,
+  "date": "2025-10-27T12:00:00Z",
+  "sharesQuantity": 10,
+  "sharePrice": 150.50,
+  "fees": 5.00
+}
+
+###
+
+### Create multiple transactions (bulk)
+POST {{Babylon.Alfred.Api_HostAddress}}/api/v1/transactions/bulk
+Content-Type: application/json
+
+[
+  {
+    "ticker": "MSFT",
+    "companyName": "Microsoft",
+    "transactionType": 0,
+    "date": "2025-10-27T12:00:00Z",
+    "sharesQuantity": 5,
+    "sharePrice": 300.00,
+    "fees": 5.00
+  },
+  {
+    "ticker": "GOOGL",
+    "companyName": "Alphabet",
+    "transactionType": 0,
+    "date": "2025-10-27T12:00:00Z",
+    "sharesQuantity": 3,
+    "sharePrice": 120.75,
+    "fees": 5.00
+  },
+  {
+    "ticker": "AAPL",
+    "companyName": "Apple",
+    "transactionType": 1,
+    "date": "2025-10-28T14:30:00Z",
+    "sharesQuantity": 2,
+    "sharePrice": 155.25,
+    "fees": 3.00
+  }
+]
 
 ###

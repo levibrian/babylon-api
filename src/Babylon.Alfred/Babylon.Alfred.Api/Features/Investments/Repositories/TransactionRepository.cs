@@ -6,23 +6,23 @@ namespace Babylon.Alfred.Api.Features.Investments.Repositories;
 
 public class TransactionRepository : ITransactionRepository
 {
-    private readonly BabylonDbContext _context;
+    private readonly BabylonDbContext context;
 
     public TransactionRepository(BabylonDbContext context)
     {
-        _context = context;
+        this.context = context;
     }
 
     public async Task<Transaction> AddAsync(Transaction transaction)
     {
-        await _context.Transactions.AddAsync(transaction);
-        await _context.SaveChangesAsync();
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
         return transaction;
     }
 
     public async Task<IEnumerable<Transaction>> GetAllAsync()
     {
-        return await _context.Transactions.ToListAsync();
+        return await context.Transactions.ToListAsync();
     }
 }
 

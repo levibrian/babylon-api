@@ -1,4 +1,5 @@
-﻿services:
+﻿name: babylon-api
+services:
   postgres:
     image: postgres:16-alpine
     container_name: babylon_postgres
@@ -21,6 +22,8 @@
     build:
       context: .
       dockerfile: Babylon.Alfred.Api/Dockerfile
+    ports:
+      - "8000:8080"
     depends_on:
       postgres:
         condition: service_healthy

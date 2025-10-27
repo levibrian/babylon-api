@@ -7,4 +7,5 @@ public interface ITransactionService
 {
     Task<IList<Transaction>> GetAllTransactionsAsync();
     Task<Transaction> CreateAsync(CreateTransactionRequest request);
+    Task<IList<Transaction>> CreateBulkAsync(List<CreateTransactionRequest> requests);
 }
