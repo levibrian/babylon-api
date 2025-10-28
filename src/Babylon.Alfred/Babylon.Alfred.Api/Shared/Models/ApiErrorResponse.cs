@@ -1,3 +1,5 @@
+namespace Babylon.Alfred.Api.Shared.Models;
+
 public class ApiErrorResponse
 {
     public bool Success { get; set; }

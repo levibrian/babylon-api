@@ -1,4 +1,3 @@
-using Babylon.Alfred.Api.Features.Investments.Repositories;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Repositories;
 
@@ -11,6 +10,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<ICompanyService, CompanyService>();
     }
 }
 

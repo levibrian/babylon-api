@@ -1,7 +1,7 @@
 ﻿# Use the official .NET 8 runtime as base image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-EXPOSE 80
+EXPOSE 8080
 EXPOSE 443
 
 # Use the official .NET 8 SDK for building
@@ -36,6 +36,9 @@ COPY --from=publish /app/publish .
 # Create a non-root user
 RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
 USER appuser
+
+# Set environment variable for ASP.NET to listen on port 8080
+ENV ASPNETCORE_URLS=http://+:8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

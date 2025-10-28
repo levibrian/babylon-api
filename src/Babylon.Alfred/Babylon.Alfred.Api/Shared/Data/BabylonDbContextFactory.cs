@@ -1,5 +1,8 @@
+using System;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace Babylon.Alfred.Api.Shared.Data;
 
@@ -7,8 +10,22 @@ public class BabylonDbContextFactory : IDesignTimeDbContextFactory<BabylonDbCont
 {
     public BabylonDbContext CreateDbContext(string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<BabylonDbContext>();
-        optionsBuilder.UseNpgsql("Host=localhost;Database=babylon_dev;Username=postgres;Password=postgres;Port=5432");
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: false)
+            .AddEnvironmentVariables()
+            .Build();
+
+        var connectionString =
+            configuration.GetConnectionString("DefaultConnection")
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration or environment variables.");
+
+        var optionsBuilder = new DbContextOptionsBuilder<BabylonDbContext>()
+            .UseNpgsql(connectionString);
 
         return new BabylonDbContext(optionsBuilder.Options);
     }

@@ -1,92 +1,70 @@
 using Babylon.Alfred.Api.Features.Investments.Models;
-using Babylon.Alfred.Api.Features.Investments.Repositories;
+using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
-public class TransactionService : ITransactionService
+public class TransactionService(ITransactionRepository transactionRepository, ICompanyRepository companyRepository, ILogger<TransactionService> logger)
+    : ITransactionService
 {
-    private readonly ITransactionRepository _transactionRepository;
-    private readonly ICompanyRepository _companyRepository;
-
-    public TransactionService(ITransactionRepository transactionRepository, ICompanyRepository companyRepository)
-    {
-        _transactionRepository = transactionRepository;
-        _companyRepository = companyRepository;
-    }
-
-    public async Task<IList<Transaction>> GetAllTransactionsAsync()
-    {
-        var transactions = await _transactionRepository.GetAllAsync();
-        return transactions.ToList();
-    }
-
-    public async Task<Transaction> CreateAsync(CreateTransactionRequest request)
+    public async Task<Transaction> Create(CreateTransactionRequest request)
     {
         // Validation
         if (string.IsNullOrWhiteSpace(request.Ticker))
         {
-            throw new ArgumentException("Ticker cannot be null or empty", nameof(request.Ticker));
+            throw new ArgumentException("Ticker cannot be null or empty", nameof(request));
         }
 
         if (request.SharesQuantity <= 0)
         {
-            throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request.SharesQuantity));
+            throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request));
         }
 
         if (request.SharePrice <= 0)
         {
-            throw new ArgumentException("SharePrice must be greater than zero", nameof(request.SharePrice));
+            throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
         }
 
-        // If CompanyName is not provided, try to look it up from the companies table
-        string? companyName = request.CompanyName;
-        if (string.IsNullOrWhiteSpace(companyName))
+        var companyFromDb = await companyRepository.GetByTickerAsync(request.Ticker);
+
+        if (companyFromDb is null)
         {
-            var company = await _companyRepository.GetByTickerAsync(request.Ticker);
-            if (company != null)
-            {
-                companyName = company.CompanyName;
-            }
-        }
-        else
-        {
-            // If a company name was provided, update/insert it in the companies table
-            await _companyRepository.AddOrUpdateAsync(new Company
-            {
-                Ticker = request.Ticker,
-                CompanyName = companyName
-            });
+            throw new InvalidOperationException("Company provided not found in our internal database.");
         }
 
         // Map to entity
-        var transaction = new Transaction
+        var transaction = CreateTransaction(request);
+
+        // Save to database
+        return await transactionRepository.Add(transaction);
+    }
+
+    public async Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests)
+    {
+        var createdTransactions = requests
+            .Select(CreateTransaction)
+            .ToList();
+
+        if (createdTransactions.Count == 0)
+        {
+            logger.LogInformation("{CreateBulkAsyncMethod} - No transactions to create. Skipped execution", nameof(CreateBulk));
+            return new List<Transaction>();
+        }
+
+        await transactionRepository.AddBulk(createdTransactions!);
+
+        return createdTransactions;
+    }
+
+    private static Transaction CreateTransaction(CreateTransactionRequest request)
+        => new()
         {
             Ticker = request.Ticker,
-            CompanyName = companyName,
             TransactionType = request.TransactionType,
-            Date = request.Date ?? DateTime.UtcNow,
+            Date = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow,
             SharesQuantity = request.SharesQuantity,
             SharePrice = request.SharePrice,
             Fees = request.Fees,
         };
-
-        // Save to database
-        return await _transactionRepository.AddAsync(transaction);
-    }
-
-    public async Task<IList<Transaction>> CreateBulkAsync(List<CreateTransactionRequest> requests)
-    {
-        var createdTransactions = new List<Transaction>();
-
-        foreach (var request in requests)
-        {
-            var transaction = await CreateAsync(request);
-            createdTransactions.Add(transaction);
-        }
-
-        return createdTransactions;
-    }
 }
-

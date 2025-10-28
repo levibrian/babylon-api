@@ -21,7 +21,7 @@ public class CompanyRepository : ICompanyRepository
     public async Task<Company> AddOrUpdateAsync(Company company)
     {
         var existing = await context.Companies.FindAsync(company.Ticker);
-        
+
         if (existing != null)
         {
             existing.CompanyName = company.CompanyName;
@@ -33,7 +33,7 @@ public class CompanyRepository : ICompanyRepository
             company.LastUpdated = DateTime.UtcNow;
             await context.Companies.AddAsync(company);
         }
-        
+
         await context.SaveChangesAsync();
         return existing ?? company;
     }
@@ -41,6 +41,19 @@ public class CompanyRepository : ICompanyRepository
     public async Task<IEnumerable<Company>> GetAllAsync()
     {
         return await context.Companies.ToListAsync();
+    }
+
+    public async Task<bool> DeleteAsync(string ticker)
+    {
+        var company = await GetByTickerAsync(ticker);
+        if (company == null)
+        {
+            return false;
+        }
+
+        context.Companies.Remove(company);
+        await context.SaveChangesAsync();
+        return true;
     }
 }
 

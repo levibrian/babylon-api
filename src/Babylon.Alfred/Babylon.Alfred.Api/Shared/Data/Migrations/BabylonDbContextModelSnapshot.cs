@@ -22,17 +22,30 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.Transaction", b =>
+            modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.Company", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Ticker")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("CompanyName")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("LastUpdated")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Ticker");
+
+                    b.ToTable("companies", (string)null);
+                });
+
+            modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.Transaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
@@ -46,8 +59,8 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                         .HasColumnType("numeric(18,4)");
 
                     b.Property<decimal>("SharesQuantity")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)");
+                        .HasPrecision(18, 8)
+                        .HasColumnType("numeric(18,8)");
 
                     b.Property<string>("Ticker")
                         .IsRequired()
@@ -58,6 +71,8 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Ticker");
 
                     b.ToTable("transactions", (string)null);
                 });

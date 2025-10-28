@@ -7,5 +7,6 @@ public interface ICompanyRepository
     Task<Company?> GetByTickerAsync(string ticker);
     Task<Company> AddOrUpdateAsync(Company company);
     Task<IEnumerable<Company>> GetAllAsync();
+    Task<bool> DeleteAsync(string ticker);
 }
 

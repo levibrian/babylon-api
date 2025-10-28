@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Babylon.Alfred.Api.Shared.Models;
+using Newtonsoft.Json;
 
 namespace Babylon.Alfred.Api.Shared.Middlewares;
 
