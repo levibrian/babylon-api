@@ -1,0 +1,37 @@
+name: CI - Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore src/Babylon.Alfred/Babylon.Alfred.sln
+
+      - name: Build
+        run: dotnet build src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-build --verbosity normal
+
+      - name: Test Summary
+        if: success()
+        run: echo "✅ All tests passed successfully!"
