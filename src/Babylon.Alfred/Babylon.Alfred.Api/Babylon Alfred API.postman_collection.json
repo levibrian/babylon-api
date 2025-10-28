@@ -1,0 +1,323 @@
+{
+	"info": {
+		"_postman_id": "9a432776-4490-46ea-b259-0491f4b65862",
+		"name": "Babylon Alfred API",
+		"description": "API collection for managing investment portfolio",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "468398"
+	},
+	"item": [
+		{
+			"name": "Portfolio",
+			"item": [
+				{
+					"name": "Get Portfolio",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/portfolio/{{user_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"portfolio",
+								"{{user_id}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Transactions",
+			"item": [
+				{
+					"name": "Create Single Transaction",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ticker\": \"NVDA\",\n  \"transactionType\": \"Buy\",\n  \"date\": \"{{current_date}}\",\n  \"sharesQuantity\": 1,\n  \"sharePrice\": 140.00,\n  \"fees\": 0.00,\n  \"userId\": \"{{user_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/transactions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"transactions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bulk Transactions - Stocks Weekly Buy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n  {\n    \"ticker\": \"AAPL\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.06666667,\n    \"sharePrice\": 210.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"NOVO\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.14,\n    \"sharePrice\": 100.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"ASML\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.02,\n    \"sharePrice\": 700.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"BYD\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.28,\n    \"sharePrice\": 50.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"ADYEN\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.01,\n    \"sharePrice\": 1400.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"GOOGL\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.09523809,\n    \"sharePrice\": 168.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"NVDA\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.11428571,\n    \"sharePrice\": 140.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"ENPH\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.24,\n    \"sharePrice\": 58.33,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"VRTV\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.24,\n    \"sharePrice\": 50.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"NXTG\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.22857143,\n    \"sharePrice\": 61.25,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"MSFT\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.03809524,\n    \"sharePrice\": 420.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"AMZN\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.07692308,\n    \"sharePrice\": 182.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"TSMC\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.08,\n    \"sharePrice\": 175.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"V\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.05714286,\n    \"sharePrice\": 280.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  }\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/transactions/bulk",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"transactions",
+								"bulk"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bulk Transactions - ETFs Weekly Buy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n  {\n    \"ticker\": \"PPFB.DE\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.5,\n    \"sharePrice\": 100.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"IS3N\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.5,\n    \"sharePrice\": 100.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"QDVB\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.6,\n    \"sharePrice\": 100.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"ISDE\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 1.1,\n    \"sharePrice\": 50.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  }\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/transactions/bulk",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"transactions",
+								"bulk"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bulk Transactions - Cryptos Weekly Buy Copy",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n  {\n    \"ticker\": \"BTC\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.00037037,\n    \"sharePrice\": 67500.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"ETH\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.01111111,\n    \"sharePrice\": 2700.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  },\n  {\n    \"ticker\": \"SOL\",\n    \"transactionType\": \"Buy\",\n    //\"date\": \"{{current_date}}\",\n    \"sharesQuantity\": 0.125,\n    \"sharePrice\": 160.00,\n    \"fees\": 0.00,\n    \"userId\": \"{{user_id}}\"\n  }\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/transactions/bulk",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"transactions",
+								"bulk"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Companies",
+			"item": [
+				{
+					"name": "Get All Companies",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"companies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Company by Ticker",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies/NVDA",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"companies",
+								"NVDA"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Company",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ticker\": \"NVDA\",\n  \"companyName\": \"Nvidia Corporation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"companies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Company",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"companyName\": \"NVIDIA Corporation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies/NVDA",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"companies",
+								"NVDA"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Company",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies/NVDA",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"companies",
+								"NVDA"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create All Companies - Bulk",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n  { \"ticker\": \"NVDA\", \"companyName\": \"Nvidia Corporation\" },\n  { \"ticker\": \"MSFT\", \"companyName\": \"Microsoft Corporation\" },\n  { \"ticker\": \"GOOGL\", \"companyName\": \"Alphabet Inc (Google)\" },\n  { \"ticker\": \"V\", \"companyName\": \"Visa Inc\" },\n  { \"ticker\": \"AAPL\", \"companyName\": \"Apple Inc\" },\n  { \"ticker\": \"ADYEN\", \"companyName\": \"Adyen NV\" },\n  { \"ticker\": \"ASML\", \"companyName\": \"ASML Holding NV\" },\n  { \"ticker\": \"NOVO\", \"companyName\": \"Novo Nordisk A/S\" },\n  { \"ticker\": \"TSMC\", \"companyName\": \"Taiwan Semiconductor Manufacturing\" },\n  { \"ticker\": \"AMZN\", \"companyName\": \"Amazon.com Inc\" },\n  { \"ticker\": \"BYD\", \"companyName\": \"BYD Company Limited\" },\n  { \"ticker\": \"ENPH\", \"companyName\": \"Enphase Energy Inc\" },\n  { \"ticker\": \"NXTG\", \"companyName\": \"NextEra Energy Inc\" },\n  { \"ticker\": \"VRTV\", \"companyName\": \"Vertiv Holdings Co\" },\n  { \"ticker\": \"ISDE\", \"companyName\": \"iShares Edge World Momentum USD (Acc)\" },\n  { \"ticker\": \"QDVB\", \"companyName\": \"iShares USA Quality USD (Acc)\" },\n  { \"ticker\": \"IS3N\", \"companyName\": \"iShares Core MSCI World USD (Acc)\" },\n  { \"ticker\": \"PPFB.DE\", \"companyName\": \"iShares Physical Gold USD (Acc)\" },\n  { \"ticker\": \"BTC\", \"companyName\": \"Bitcoin\" },\n  { \"ticker\": \"ETH\", \"companyName\": \"Ethereum\" },\n  { \"ticker\": \"SOL\", \"companyName\": \"Solana\" }\n]"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"companies"
+							]
+						},
+						"description": "Note: You'll need to call this endpoint 21 times (once per company) or create a bulk endpoint"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+			"type": "string"
+		},
+		{
+			"key": "current_date",
+			"value": "2024-10-28T00:00:00Z",
+			"type": "string"
+		}
+	]
+}

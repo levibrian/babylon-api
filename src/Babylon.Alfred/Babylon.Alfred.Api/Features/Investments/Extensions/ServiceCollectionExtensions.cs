@@ -11,6 +11,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<ITransactionService, TransactionService>();
         services.AddScoped<ICompanyService, CompanyService>();
+        services.AddScoped<IPortfolioService, PortfolioService>();
     }
 }
 

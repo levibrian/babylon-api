@@ -1,4 +1,3 @@
-using Babylon.Alfred.Api.Features.Investments.Models;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;

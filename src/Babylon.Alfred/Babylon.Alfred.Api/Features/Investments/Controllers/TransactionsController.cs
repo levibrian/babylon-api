@@ -1,4 +1,3 @@
-using Babylon.Alfred.Api.Features.Investments.Models;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Microsoft.AspNetCore.Mvc;

@@ -1,5 +1,4 @@
 using Babylon.Alfred.Api.Features.Investments.Services;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
@@ -8,11 +7,11 @@ namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 [Route("api/v1/portfolios")]
 public class PortfoliosController(IPortfolioService portfolioService) : ControllerBase
 {
-    [HttpGet("{userId:guid}")]
-    public async Task<IActionResult> Get(string userId)
+    [HttpGet("{userId}")]
+    public async Task<IActionResult> Get(Guid? userId)
     {
-        var portfolio = await portfolioService.GetPortfolio();
+        var portfolio = await portfolioService.GetPortfolio(userId);
 
-        return Ok();
+        return Ok(portfolio);
     }
 }

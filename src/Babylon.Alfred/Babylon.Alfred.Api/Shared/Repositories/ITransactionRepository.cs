@@ -7,5 +7,6 @@ public interface ITransactionRepository
     Task<Transaction> Add(Transaction transaction);
     public Task<IList<Transaction?>> AddBulk(IList<Transaction?> transactions);
     Task<IEnumerable<Transaction>> GetAll();
+    Task<IEnumerable<Transaction>> GetOpenPositionsByUser(Guid userId);
 }
 
