@@ -15,10 +15,18 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         entity.Property(e => e.SharesQuantity).HasPrecision(18, 8);
         entity.Property(e => e.SharePrice).HasPrecision(18, 4);
         entity.Property(e => e.Fees).HasPrecision(18, 4);
+        entity.Property(e => e.UserId);
 
         entity.ToTable("transactions");
 
         entity.HasIndex(e => e.Ticker);
+        entity.HasIndex(e => e.UserId);
+
+        // Transactions -> User Configuration
+        entity.HasOne(t => t.User)
+            .WithMany(u => u.Transactions)
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

@@ -12,6 +12,13 @@ public class Transaction
     public decimal SharePrice { get; set; }
     public decimal Fees { get; set; }
 
+    // Foreign key - required
+    public Guid? UserId { get; set; }
+
+    // Navigation property
+    public User? User { get; set; } = null!;
+
+
     [NotMapped]
     public decimal Amount => SharesQuantity * SharePrice;
 

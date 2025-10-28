@@ -8,6 +8,7 @@ public class BabylonDbContext : DbContext
 {
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Company> Companies { get; set; }
+    public DbSet<User> Users { get; set; }
 
     public BabylonDbContext(DbContextOptions<BabylonDbContext> options)
         : base(options)
@@ -18,6 +19,7 @@ public class BabylonDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new CompanyConfiguration());
         modelBuilder.ApplyConfiguration(new TransactionConfiguration());
     }
