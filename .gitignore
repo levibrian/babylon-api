@@ -396,5 +396,12 @@ FodyWeavers.xsd
 *.msp
 
 # JetBrains Rider
-.idea/
+*.idea/
 *.sln.iml
+
+# --- Terraform Ignore Rules ---
+iac/components/babylon-api/.terraform/
+iac/components/babylon-api/*.tfstate
+iac/components/babylon-api/*.tfstate.backup
+iac/components/babylon-api/*.tfvars
+iac/components/babylon-api/.terraform.lock.hcl
