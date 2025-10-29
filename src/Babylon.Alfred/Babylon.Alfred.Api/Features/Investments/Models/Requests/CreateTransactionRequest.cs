@@ -10,4 +10,6 @@ public class CreateTransactionRequest
     public decimal SharesQuantity { get; set; }
     public decimal SharePrice { get; set; }
     public decimal Fees { get; set; }
+
+    public Guid? UserId { get; set; }
 }

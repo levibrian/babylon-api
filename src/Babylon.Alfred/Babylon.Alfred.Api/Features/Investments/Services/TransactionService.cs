@@ -65,5 +65,6 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
             SharesQuantity = request.SharesQuantity,
             SharePrice = request.SharePrice,
             Fees = request.Fees,
+            UserId = request.UserId ?? Constants.User.RootUserId
         };
 }
