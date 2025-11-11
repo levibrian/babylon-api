@@ -20,6 +20,21 @@ public class CompanyServiceTests
 
     public CompanyServiceTests()
     {
+        // Configure AutoFixture to handle recursive types
+        fixture.Behaviors.OfType<ThrowingRecursionBehavior>()
+            .ToList().ForEach(b => fixture.Behaviors.Remove(b));
+        fixture.Behaviors.Add(new OmitOnRecursionBehavior());
+
+        // Configure AutoFixture to handle DateOnly - prevents invalid date generation
+        fixture.Customize<DateOnly>(composer => composer.FromFactory(() =>
+        {
+            var random = new Random();
+            var year = random.Next(2020, 2030);
+            var month = random.Next(1, 13);
+            var day = random.Next(1, DateTime.DaysInMonth(year, month) + 1);
+            return new DateOnly(year, month, day);
+        }));
+
         sut = autoMocker.CreateInstance<CompanyService>();
     }
 

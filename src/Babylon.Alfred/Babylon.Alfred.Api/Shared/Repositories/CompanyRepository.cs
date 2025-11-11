@@ -18,6 +18,21 @@ public class CompanyRepository : ICompanyRepository
         return await context.Companies.FirstOrDefaultAsync(c => c.Ticker == ticker);
     }
 
+    public async Task<Dictionary<string, Company>> GetByTickersAsync(IEnumerable<string> tickers)
+    {
+        var tickerList = tickers.ToList();
+        if (tickerList.Count == 0)
+        {
+            return new Dictionary<string, Company>();
+        }
+
+        var companies = await context.Companies
+            .Where(c => tickerList.Contains(c.Ticker))
+            .ToListAsync();
+
+        return companies.ToDictionary(c => c.Ticker, c => c);
+    }
+
     public async Task<Company> AddOrUpdateAsync(Company company)
     {
         var existing = await context.Companies.FindAsync(company.Ticker);

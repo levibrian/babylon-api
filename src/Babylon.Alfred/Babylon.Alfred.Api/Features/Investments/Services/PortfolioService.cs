@@ -1,4 +1,5 @@
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
+using Babylon.Alfred.Api.Features.Investments.Shared;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 
@@ -8,118 +9,91 @@ public class PortfolioService(ITransactionRepository transactionRepository, ICom
 {
     public async Task<PortfolioResponse> GetPortfolio(Guid? userId)
     {
-        // Get all Buy transactions for the user
-        var transactions = await transactionRepository.GetOpenPositionsByUser(userId ?? Constants.User.RootUserId);
+        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var transactions = (await transactionRepository.GetOpenPositionsByUser(effectiveUserId)).ToList();
 
-        // Group by ticker
-        var groupedByTicker = transactions.GroupBy(t => t.Ticker);
-
-        var positions = new List<PortfolioPositionDto>();
-
-        foreach (var group in groupedByTicker)
+        if (transactions.Count == 0)
         {
-            var ticker = group.Key;
-
-            // Get company info
-            var company = await companyRepository.GetByTickerAsync(ticker);
-
-            var position = new PortfolioPositionDto
+            return new PortfolioResponse
             {
-                Ticker = ticker,
-                CompanyName = company?.CompanyName ?? ticker, // Fallback to ticker if company not found
-                TotalInvested = group.Sum(t => t.TotalAmount),
-                Transactions = group.Select(t => new PortfolioTransactionDto
-                    {
-                        Id = t.Id,
-                        TransactionType = t.TransactionType,
-                        Date = t.Date,
-                        SharesQuantity = t.SharesQuantity,
-                        SharePrice = t.SharePrice,
-                        Fees = t.Fees,
-                        Amount = t.Amount,
-                        TotalAmount = t.TotalAmount
-                    })
-                    .OrderByDescending(t => t.Date)
-                    .ToList()
+                Positions = [],
+                TotalInvested = 0
             };
-
-            CalculatePositionMetrics(position);
-
-            positions.Add(position);
         }
 
-        // Order positions by total invested (descending)
-        positions = positions
+        var groupedTransactions = transactions.GroupBy(t => t.Ticker).ToList();
+        var positions = await CreatePositionsAsync(groupedTransactions);
+
+        var orderedPositions = positions
             .OrderByDescending(p => p.TotalInvested)
             .ToList();
 
         return new PortfolioResponse
         {
-            Positions = positions,
-            TotalInvested = positions.Sum(p => p.TotalInvested)
+            Positions = orderedPositions,
+            TotalInvested = orderedPositions.Sum(p => p.TotalInvested)
         };
     }
 
-    private static void CalculatePositionMetrics(PortfolioPositionDto position)
+    /// <summary>
+    /// Creates position DTOs from grouped transactions.
+    /// Fetches all companies in a single database query, then processes everything in memory.
+    /// </summary>
+    private async Task<List<PortfolioPositionDto>> CreatePositionsAsync(
+        List<IGrouping<string, Transaction>> groupedTransactions)
     {
-        decimal totalShares = 0;
-        decimal totalCostOfBuys = 0;
+        // Fetch all companies in a single database query
+        var tickers = groupedTransactions.Select(g => g.Key).ToList();
+        var companiesLookup = await companyRepository.GetByTickersAsync(tickers);
 
-        foreach (var transaction in
-                 position.Transactions.OrderBy(t =>
-                     t.Date)) // Assuming a Date property for correct chronological processing
-        {
-            if (transaction.TransactionType == TransactionType.Buy)
-            {
-                // For Buys: Add to shares and total cost
-                totalShares += transaction.SharesQuantity;
-                totalCostOfBuys += transaction.SharesQuantity * transaction.SharePrice;
-            }
-            else if (transaction.TransactionType == TransactionType.Sell)
-            {
-                // For Sells: Subtract from shares, and adjust total cost by the average price of the *remaining* position
-
-                // **Important Note on Cost Basis:**
-                // This calculation uses the "Weighted Average Cost" method for simplicity.
-                // When selling, we reduce the totalCostOfBuys by the average cost of the shares being sold.
-
-                // Calculate the cost basis of the shares being sold
-                decimal averageCostAtSale = 0;
-                if (totalShares > 0)
-                {
-                    averageCostAtSale = totalCostOfBuys / totalShares;
-                }
-
-                // Shares sold cannot exceed total shares
-                var sharesSold = Math.Min(transaction.SharesQuantity, totalShares);
-
-                // Reduce total shares and total cost
-                totalShares -= sharesSold;
-                totalCostOfBuys -= sharesSold * averageCostAtSale;
-
-                // Handle precision issues after selling the entire position
-                if (totalShares == 0)
-                {
-                    totalCostOfBuys = 0;
-                }
-            }
-            // Dividend transactions are ignored for shares/average price calculation.
-            // They affect TotalInvested (profit/loss) but not cost basis of shares held.
-        }
-
-        // Update the DTO properties
-        position.TotalShares = totalShares;
-
-        // Calculate Average Share Price (only if there are shares remaining)
-        if (totalShares > 0)
-        {
-            position.AverageSharePrice = totalCostOfBuys / totalShares;
-            position.TotalInvested = totalCostOfBuys;
-        }
-        else
-        {
-            position.AverageSharePrice = 0;
-            position.TotalInvested = 0;
-        }
+        // Process all positions in memory (can use parallel processing here if needed)
+        return groupedTransactions
+            .Select(group => CreatePosition(group, companiesLookup.GetValueOrDefault(group.Key)))
+            .ToList();
     }
+
+    /// <summary>
+    /// Creates a single position DTO from a group of transactions and company information.
+    /// </summary>
+    private static PortfolioPositionDto CreatePosition(
+        IGrouping<string, Transaction> transactionGroup,
+        Company? company)
+    {
+        var ticker = transactionGroup.Key;
+        var positionTransactions = MapToTransactionDtos(transactionGroup);
+        var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
+        var totalInvested = transactionGroup.Sum(t => t.TotalAmount);
+
+        return new PortfolioPositionDto
+        {
+            Ticker = ticker,
+            CompanyName = company?.CompanyName ?? ticker,
+            TotalInvested = totalInvested,
+            TotalShares = totalShares,
+            AverageSharePrice = averageSharePrice,
+            Transactions = positionTransactions
+        };
+    }
+
+    /// <summary>
+    /// Maps domain transactions to DTOs, ordered by date descending (newest first).
+    /// </summary>
+    private static List<PortfolioTransactionDto> MapToTransactionDtos(
+        IEnumerable<Transaction> transactions)
+    {
+        return transactions
+            .Select(t => new PortfolioTransactionDto
+            {
+                Id = t.Id,
+                TransactionType = t.TransactionType,
+                Date = t.Date,
+                SharesQuantity = t.SharesQuantity,
+                SharePrice = t.SharePrice,
+                Fees = t.Fees,
+                TotalAmount = t.TotalAmount
+            })
+            .OrderByDescending(t => t.Date)
+            .ToList();
+    }
+
 }

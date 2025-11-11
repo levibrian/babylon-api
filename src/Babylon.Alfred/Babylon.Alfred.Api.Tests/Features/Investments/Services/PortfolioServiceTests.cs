@@ -22,6 +22,16 @@ public class PortfolioServiceTests
             .ToList().ForEach(b => fixture.Behaviors.Remove(b));
         fixture.Behaviors.Add(new OmitOnRecursionBehavior());
 
+        // Configure AutoFixture to handle DateOnly - prevents invalid date generation
+        fixture.Customize<DateOnly>(composer => composer.FromFactory(() =>
+        {
+            var random = new Random();
+            var year = random.Next(2020, 2030);
+            var month = random.Next(1, 13);
+            var day = random.Next(1, DateTime.DaysInMonth(year, month) + 1);
+            return new DateOnly(year, month, day);
+        }));
+
         sut = autoMocker.CreateInstance<PortfolioService>();
     }
 
@@ -87,8 +97,17 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("AAPL"))
-            .ReturnsAsync(company);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("AAPL"))
+                {
+                    result["AAPL"] = company;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -134,8 +153,17 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("AAPL"))
-            .ReturnsAsync(company);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("AAPL"))
+                {
+                    result["AAPL"] = company;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -182,11 +210,21 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("AAPL"))
-            .ReturnsAsync(companyApple);
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("GOOGL"))
-            .ReturnsAsync(companyGoogle);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("AAPL"))
+                {
+                    result["AAPL"] = companyApple;
+                }
+                if (tickerList.Contains("GOOGL"))
+                {
+                    result["GOOGL"] = companyGoogle;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -217,8 +255,8 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("UNKNOWN"))
-            .ReturnsAsync((Company?)null);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, Company>()); // Empty dictionary = company not found
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -266,14 +304,25 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("SMALL"))
-            .ReturnsAsync(companySmall);
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("LARGE"))
-            .ReturnsAsync(companyLarge);
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("MEDIUM"))
-            .ReturnsAsync(companyMedium);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("SMALL"))
+                {
+                    result["SMALL"] = companySmall;
+                }
+                if (tickerList.Contains("LARGE"))
+                {
+                    result["LARGE"] = companyLarge;
+                }
+                if (tickerList.Contains("MEDIUM"))
+                {
+                    result["MEDIUM"] = companyMedium;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -323,8 +372,17 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("AAPL"))
-            .ReturnsAsync(company);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("AAPL"))
+                {
+                    result["AAPL"] = company;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -367,8 +425,17 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("AAPL"))
-            .ReturnsAsync(company);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("AAPL"))
+                {
+                    result["AAPL"] = company;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -382,7 +449,6 @@ public class PortfolioServiceTests
         mappedTransaction.SharesQuantity.Should().Be(10m);
         mappedTransaction.SharePrice.Should().Be(150m);
         mappedTransaction.Fees.Should().Be(5m);
-        mappedTransaction.Amount.Should().Be(1500m); // 10 * 150
         mappedTransaction.TotalAmount.Should().Be(1505m); // 1500 + 5
     }
 
@@ -413,11 +479,21 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("AAPL"))
-            .ReturnsAsync(companyApple);
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickerAsync("GOOGL"))
-            .ReturnsAsync(companyGoogle);
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                var tickerList = tickers.ToList();
+                var result = new Dictionary<string, Company>();
+                if (tickerList.Contains("AAPL"))
+                {
+                    result["AAPL"] = companyApple;
+                }
+                if (tickerList.Contains("GOOGL"))
+                {
+                    result["GOOGL"] = companyGoogle;
+                }
+                return result;
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);

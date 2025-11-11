@@ -10,6 +10,5 @@ public class PortfolioTransactionDto
     public decimal SharesQuantity { get; set; }
     public decimal SharePrice { get; set; }
     public decimal Fees { get; set; }
-    public decimal Amount { get; set; }
     public decimal TotalAmount { get; set; }
 }

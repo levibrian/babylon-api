@@ -24,7 +24,16 @@ public class TransactionsControllerTests
             .ToList().ForEach(b => fixture.Behaviors.Remove(b)); // Remove default behavior
         fixture.Behaviors.Add(new OmitOnRecursionBehavior());
 
-        fixture.Register(() => new DateOnly(2025, 10, 28));
+        // Configure AutoFixture to handle DateOnly - prevents invalid date generation
+        fixture.Customize<DateOnly>(composer => composer.FromFactory(() =>
+        {
+            var random = new Random();
+            var year = random.Next(2020, 2030);
+            var month = random.Next(1, 13);
+            var day = random.Next(1, DateTime.DaysInMonth(year, month) + 1);
+            return new DateOnly(year, month, day);
+        }));
+
         sut = autoMocker.CreateInstance<TransactionsController>();
     }
 
