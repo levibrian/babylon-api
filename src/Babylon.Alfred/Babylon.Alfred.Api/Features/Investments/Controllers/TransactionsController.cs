@@ -21,4 +21,10 @@ public class TransactionsController(ITransactionService transactionService) : Co
         var transactions = await transactionService.CreateBulk(requests);
         return Ok(new { message = $"Successfully stored {transactions.Count} transactions" });
     }
+
+    // [HttpGet]
+    // public async Task<IActionResult> GetTransactions(Guid userId)
+    // {
+    //     var transactions = await transactionService
+    // }
 }

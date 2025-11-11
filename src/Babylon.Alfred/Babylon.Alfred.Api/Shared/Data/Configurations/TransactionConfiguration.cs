@@ -27,6 +27,13 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             .WithMany(u => u.Transactions)
             .HasForeignKey(t => t.UserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Transactions -> Company Configuration
+        entity.HasOne(t => t.Company)
+            .WithMany(c => c.Transactions)
+            .HasForeignKey(t => t.Ticker)
+            .HasPrincipalKey(c => c.Ticker)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

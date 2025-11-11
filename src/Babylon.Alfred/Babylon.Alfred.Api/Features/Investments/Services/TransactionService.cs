@@ -1,4 +1,5 @@
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
+using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 
@@ -54,6 +55,13 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
         await transactionRepository.AddBulk(createdTransactions!);
 
         return createdTransactions;
+    }
+
+    public async Task<PortfolioTransactionDto> GetById(Guid id)
+    {
+        var transaction = new PortfolioTransactionDto();
+
+        return transaction;
     }
 
     private static Transaction CreateTransaction(CreateTransactionRequest request)

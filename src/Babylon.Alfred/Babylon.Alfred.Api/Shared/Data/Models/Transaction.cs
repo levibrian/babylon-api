@@ -18,6 +18,8 @@ public class Transaction
     // Navigation property
     public User? User { get; set; } = null!;
 
+    public Company Company { get; set; } = null!;
+
 
     [NotMapped]
     public decimal Amount => SharesQuantity * SharePrice;
