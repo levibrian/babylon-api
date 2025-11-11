@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.13" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.13" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.13" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+        <PackageReference Include="Quartz" Version="3.13.0" />
+        <PackageReference Include="Quartz.Extensions.Hosting" Version="3.13.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Babylon.Alfred.Api\Babylon.Alfred.Api.csproj" />
+    </ItemGroup>
+
+</Project>
+

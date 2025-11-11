@@ -32,5 +32,17 @@ services:
       postgres:
         condition: service_healthy
 
+  babylon.alfred.worker:
+    image: babylon.alfred.worker
+    build:
+      context: .
+      dockerfile: Babylon.Alfred.Worker/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=babylon_dev;Username=postgres;Password=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:

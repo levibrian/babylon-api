@@ -98,5 +98,53 @@ public static class PortfolioCalculator
 
         return (remainingShares, remainingCostBasis);
     }
+
+    /// <summary>
+    /// Calculates the current allocation percentage for a position.
+    /// </summary>
+    /// <param name="positionMarketValue">Current market value of the position</param>
+    /// <param name="totalPortfolioValue">Total market value of the portfolio</param>
+    /// <returns>Current allocation percentage (0-100)</returns>
+    public static decimal CalculateCurrentAllocationPercentage(decimal positionMarketValue, decimal totalPortfolioValue)
+    {
+        if (totalPortfolioValue == 0)
+        {
+            return 0;
+        }
+
+        return (positionMarketValue / totalPortfolioValue) * 100;
+    }
+
+    /// <summary>
+    /// Calculates the rebalancing amount needed to reach target allocation.
+    /// </summary>
+    /// <param name="currentMarketValue">Current market value of the position</param>
+    /// <param name="targetPercentage">Target allocation percentage</param>
+    /// <param name="totalPortfolioValue">Total market value of the portfolio</param>
+    /// <returns>Rebalancing amount (positive = buy, negative = sell)</returns>
+    public static decimal CalculateRebalancingAmount(decimal currentMarketValue, decimal targetPercentage, decimal totalPortfolioValue)
+    {
+        var targetMarketValue = (targetPercentage / 100) * totalPortfolioValue;
+        return targetMarketValue - currentMarketValue;
+    }
+
+    /// <summary>
+    /// Determines the rebalancing status based on current and target allocation.
+    /// </summary>
+    /// <param name="currentAllocation">Current allocation percentage</param>
+    /// <param name="targetAllocation">Target allocation percentage</param>
+    /// <returns>Rebalancing status</returns>
+    public static RebalancingStatus DetermineRebalancingStatus(decimal currentAllocation, decimal targetAllocation)
+    {
+        var deviation = Math.Abs(currentAllocation - targetAllocation);
+        
+        // Balanced if within ±1% of target
+        if (deviation <= 1)
+        {
+            return RebalancingStatus.Balanced;
+        }
+
+        return currentAllocation > targetAllocation ? RebalancingStatus.Overweight : RebalancingStatus.Underweight;
+    }
 }
 
