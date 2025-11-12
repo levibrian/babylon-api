@@ -1,6 +1,7 @@
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
@@ -66,12 +67,19 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
     {
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
 
-        // Get all distinct tickers from allocation strategies (via Security navigation)
+        // Get all distinct tickers from allocation strategies (desired portfolio)
+        // This includes securities users want to own, even if they haven't bought them yet
         var allTickers = await context.AllocationStrategies
             .Include(s => s.Security)
-            .Select(s => s.Security.Ticker)
+            .Where(s => s.Security != null)
+            .Select(s => s.Security!.Ticker)
             .Distinct()
             .ToListAsync();
+
+        if (allTickers.Count == 0)
+        {
+            return new List<string>();
+        }
 
         // Get tickers that either don't exist or are older than maxAge
         var tickersNeedingUpdate = await context.MarketPrices

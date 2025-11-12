@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Quartz;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -13,6 +14,14 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+// Log connection string (without password) for debugging
+var tempLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+var tempLogger = tempLoggerFactory.CreateLogger<Program>();
+var maskedConnectionString = connectionString.Contains("Password=") 
+    ? connectionString.Substring(0, connectionString.IndexOf("Password=") + 9) + "***" 
+    : connectionString;
+tempLogger.LogInformation("Worker connecting to database: {ConnectionString}", maskedConnectionString);
 
 builder.Services.AddDbContext<BabylonDbContext>(options =>
     options.UseNpgsql(connectionString));
