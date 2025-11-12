@@ -47,9 +47,10 @@ public class TransactionServiceTests
             .Create();
         var company = fixture.Build<Company>()
             .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.Ticker, request.Ticker)
+            .With(t => t.CompanyId, company.Id)
             .Create();
 
         autoMocker.GetMock<ICompanyRepository>()
@@ -225,6 +226,7 @@ public class TransactionServiceTests
             .Create();
         var company = fixture.Build<Company>()
             .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
 
         autoMocker.GetMock<ICompanyRepository>()
@@ -254,6 +256,7 @@ public class TransactionServiceTests
             .Create();
         var company = fixture.Build<Company>()
             .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var beforeCreate = DateTime.UtcNow;
 
@@ -285,6 +288,20 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 100m)
             .CreateMany(5)
             .ToList();
+
+        // Mock companies for bulk create
+        var companies = requests.Select(r => fixture.Build<Company>()
+            .With(c => c.Ticker, r.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create()).ToList();
+        
+        autoMocker.GetMock<ICompanyRepository>()
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                return companies.Where(c => tickers.Contains(c.Ticker))
+                    .ToDictionary(c => c.Ticker, c => c);
+            });
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.AddBulk(It.IsAny<IList<Transaction?>>()))
@@ -340,6 +357,19 @@ public class TransactionServiceTests
             .Create();
         var requests = new List<CreateTransactionRequest> { request };
 
+        // Mock company for bulk create
+        var company = fixture.Build<Company>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+        
+        autoMocker.GetMock<ICompanyRepository>()
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                return new Dictionary<string, Company> { { request.Ticker, company } };
+            });
+
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.AddBulk(It.IsAny<IList<Transaction?>>()))
             .ReturnsAsync((IList<Transaction?> transactions) => transactions);
@@ -349,7 +379,7 @@ public class TransactionServiceTests
 
         // Assert
         var transaction = result.First();
-        transaction.Ticker.Should().Be("AAPL");
+        transaction.CompanyId.Should().Be(company.Id);
         transaction.TransactionType.Should().Be(TransactionType.Buy);
         transaction.SharesQuantity.Should().Be(10m);
         transaction.SharePrice.Should().Be(150m);
@@ -368,6 +398,20 @@ public class TransactionServiceTests
             .With(r => r.UserId, (Guid?)null)
             .CreateMany(3)
             .ToList();
+
+        // Mock companies for bulk create
+        var companies = requests.Select(r => fixture.Build<Company>()
+            .With(c => c.Ticker, r.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create()).ToList();
+        
+        autoMocker.GetMock<ICompanyRepository>()
+            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync((IEnumerable<string> tickers) =>
+            {
+                return companies.Where(c => tickers.Contains(c.Ticker))
+                    .ToDictionary(c => c.Ticker, c => c);
+            });
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.AddBulk(It.IsAny<IList<Transaction?>>()))

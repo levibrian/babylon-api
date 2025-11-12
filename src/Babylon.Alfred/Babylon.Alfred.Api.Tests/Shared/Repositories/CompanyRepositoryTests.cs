@@ -33,6 +33,7 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var company = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
@@ -65,9 +66,9 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var companies = new[]
         {
-            new Company { Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Company { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Company { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Company { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Companies.AddRangeAsync(companies);
         await context.SaveChangesAsync();
@@ -97,9 +98,9 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var companies = new[]
         {
-            new Company { Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Company { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Company { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Company { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Companies.AddRangeAsync(companies);
         await context.SaveChangesAsync();
@@ -118,6 +119,7 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var company = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc."
         };
@@ -132,7 +134,7 @@ public class CompanyRepositoryTests : IDisposable
         result.LastUpdated.Should().NotBeNull();
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
 
-        var savedCompany = await context.Companies.FindAsync("AAPL");
+        var savedCompany = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
         savedCompany.Should().NotBeNull();
         savedCompany!.CompanyName.Should().Be("Apple Inc.");
     }
@@ -143,6 +145,7 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var existingCompany = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Old Name",
             LastUpdated = DateTime.UtcNow.AddDays(-10)
@@ -152,6 +155,7 @@ public class CompanyRepositoryTests : IDisposable
 
         var updatedCompany = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc."
         };
@@ -177,6 +181,7 @@ public class CompanyRepositoryTests : IDisposable
         var oldTimestamp = DateTime.UtcNow.AddDays(-30);
         var existingCompany = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Old Name",
             LastUpdated = oldTimestamp
@@ -186,6 +191,7 @@ public class CompanyRepositoryTests : IDisposable
 
         var updatedCompany = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc."
         };
@@ -226,6 +232,7 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var company = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
@@ -238,7 +245,7 @@ public class CompanyRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeTrue();
-        var deletedCompany = await context.Companies.FindAsync("AAPL");
+        var deletedCompany = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
         deletedCompany.Should().BeNull();
     }
 
@@ -258,9 +265,9 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var companies = new[]
         {
-            new Company { Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Company { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Company { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Company { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Companies.AddRangeAsync(companies);
         await context.SaveChangesAsync();
@@ -281,6 +288,7 @@ public class CompanyRepositoryTests : IDisposable
         // Arrange
         var company = new Company
         {
+            Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
@@ -316,7 +324,8 @@ public class CompanyRepositoryTests : IDisposable
 
         // Assert
         result.CompanyName.Should().Be("Third Name");
-        var savedCompany = await context.Companies.FindAsync("AAPL");
+        var savedCompany = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
+        savedCompany.Should().NotBeNull();
         savedCompany!.CompanyName.Should().Be("Third Name");
 
         var allCompanies = await context.Companies.ToListAsync();

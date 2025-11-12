@@ -7,10 +7,14 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 public class AllocationStrategyService : IAllocationStrategyService
 {
     private readonly IAllocationStrategyRepository _allocationStrategyRepository;
+    private readonly ICompanyRepository _companyRepository;
 
-    public AllocationStrategyService(IAllocationStrategyRepository allocationStrategyRepository)
+    public AllocationStrategyService(
+        IAllocationStrategyRepository allocationStrategyRepository,
+        ICompanyRepository companyRepository)
     {
         _allocationStrategyRepository = allocationStrategyRepository;
+        _companyRepository = companyRepository;
     }
 
     public async Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategyDto> allocations)
@@ -22,10 +26,21 @@ public class AllocationStrategyService : IAllocationStrategyService
             throw new InvalidOperationException($"Total allocation percentage ({totalPercentage}%) cannot exceed 100%.");
         }
 
-        // Convert DTOs to entities
+        // Get all unique tickers and fetch companies
+        var tickers = allocations.Select(a => a.Ticker).Distinct().ToList();
+        var companies = await _companyRepository.GetByTickersAsync(tickers);
+
+        // Validate all tickers exist
+        var missingTickers = tickers.Where(t => !companies.ContainsKey(t)).ToList();
+        if (missingTickers.Any())
+        {
+            throw new InvalidOperationException($"Companies not found for tickers: {string.Join(", ", missingTickers)}");
+        }
+
+        // Convert DTOs to entities with CompanyId
         var allocationStrategies = allocations.Select(a => new AllocationStrategy
         {
-            Ticker = a.Ticker,
+            CompanyId = companies[a.Ticker].Id,
             TargetPercentage = a.TargetPercentage
         }).ToList();
 

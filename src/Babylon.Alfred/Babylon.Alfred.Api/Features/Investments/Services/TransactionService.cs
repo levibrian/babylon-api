@@ -34,7 +34,7 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
         }
 
         // Map to entity
-        var transaction = CreateTransaction(request);
+        var transaction = CreateTransaction(request, companyFromDb.Id);
 
         // Save to database
         return await transactionRepository.Add(transaction);
@@ -42,8 +42,19 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
 
     public async Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests)
     {
+        // Get all unique tickers and fetch companies
+        var tickers = requests.Select(r => r.Ticker).Distinct().ToList();
+        var companies = await companyRepository.GetByTickersAsync(tickers);
+
+        // Validate all tickers exist
+        var missingTickers = tickers.Where(t => !companies.ContainsKey(t)).ToList();
+        if (missingTickers.Any())
+        {
+            throw new InvalidOperationException($"Companies not found for tickers: {string.Join(", ", missingTickers)}");
+        }
+
         var createdTransactions = requests
-            .Select(CreateTransaction)
+            .Select(r => CreateTransaction(r, companies[r.Ticker].Id))
             .ToList();
 
         if (createdTransactions.Count == 0)
@@ -64,10 +75,10 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
         return transaction;
     }
 
-    private static Transaction CreateTransaction(CreateTransactionRequest request)
+    private static Transaction CreateTransaction(CreateTransactionRequest request, Guid companyId)
         => new()
         {
-            Ticker = request.Ticker,
+            CompanyId = companyId,
             TransactionType = request.TransactionType,
             Date = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow,
             SharesQuantity = request.SharesQuantity,

@@ -33,9 +33,23 @@ public class CompanyRepository : ICompanyRepository
         return companies.ToDictionary(c => c.Ticker, c => c);
     }
 
+    public async Task<List<Company>> GetByIdsAsync(IEnumerable<Guid> companyIds)
+    {
+        var companyIdList = companyIds.ToList();
+        if (companyIdList.Count == 0)
+        {
+            return new List<Company>();
+        }
+
+        return await context.Companies
+            .Where(c => companyIdList.Contains(c.Id))
+            .ToListAsync();
+    }
+
     public async Task<Company> AddOrUpdateAsync(Company company)
     {
-        var existing = await context.Companies.FindAsync(company.Ticker);
+        // Find by Ticker (since Ticker has unique index)
+        var existing = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == company.Ticker);
 
         if (existing != null)
         {
@@ -45,6 +59,11 @@ public class CompanyRepository : ICompanyRepository
         }
         else
         {
+            // Generate Id if not set
+            if (company.Id == Guid.Empty)
+            {
+                company.Id = Guid.NewGuid();
+            }
             company.LastUpdated = DateTime.UtcNow;
             await context.Companies.AddAsync(company);
         }

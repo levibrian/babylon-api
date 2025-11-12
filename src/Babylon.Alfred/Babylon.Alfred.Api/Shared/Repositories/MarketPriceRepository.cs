@@ -73,9 +73,10 @@ public class MarketPriceRepository : IMarketPriceRepository
     {
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
 
-        // Get all distinct tickers from allocation strategies
+        // Get all distinct tickers from allocation strategies (via Company navigation)
         var allTickers = await context.AllocationStrategies
-            .Select(s => s.Ticker)
+            .Include(s => s.Company)
+            .Select(s => s.Company.Ticker)
             .Distinct()
             .ToListAsync();
 

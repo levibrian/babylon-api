@@ -65,16 +65,23 @@ public class PortfolioInsightsService : IPortfolioInsightsService
             return insights; // No allocation strategy set
         }
 
+        // Load companies for transactions
+        var companyIds = transactions.Select(t => t.CompanyId).Distinct().ToList();
+        var companies = await _companyRepository.GetByIdsAsync(companyIds);
+        var companiesLookup = companies.ToDictionary(c => c.Id, c => c);
+
         // Get market prices for all positions
-        var tickers = transactions.Select(t => t.Ticker).Distinct().ToList();
+        var tickers = companies.Select(c => c.Ticker).Distinct().ToList();
         var marketPrices = await _marketPriceService.GetCurrentPricesAsync(tickers);
+        var tickerByCompanyId = companies.ToDictionary(c => c.Id, c => c.Ticker);
 
         // Calculate total portfolio market value
         var totalPortfolioValue = transactions
-            .GroupBy(t => t.Ticker)
+            .GroupBy(t => t.CompanyId)
             .Sum(g =>
             {
-                var ticker = g.Key;
+                var companyId = g.Key;
+                var ticker = tickerByCompanyId.GetValueOrDefault(companyId, string.Empty);
                 var totalShares = g.Sum(t => t.TransactionType == TransactionType.Buy ? t.SharesQuantity : -t.SharesQuantity);
                 var price = marketPrices.GetValueOrDefault(ticker, 0);
                 return totalShares * price;
@@ -86,10 +93,12 @@ public class PortfolioInsightsService : IPortfolioInsightsService
         }
 
         // Calculate current allocations and deviations
-        var groupedTransactions = transactions.GroupBy(t => t.Ticker).ToList();
+        var groupedTransactions = transactions.GroupBy(t => t.CompanyId).ToList();
         foreach (var group in groupedTransactions)
         {
-            var ticker = group.Key;
+            var companyId = group.Key;
+            var company = companiesLookup.GetValueOrDefault(companyId);
+            var ticker = company?.Ticker ?? string.Empty;
             if (!targetAllocations.ContainsKey(ticker))
             {
                 continue; // Skip positions without target allocation

@@ -27,14 +27,29 @@ public class TransactionRepositoryTests : IDisposable
         context.Dispose();
     }
 
+    private async Task<Company> CreateCompanyAsync(string ticker, string companyName = null!)
+    {
+        var company = new Company
+        {
+            Id = Guid.NewGuid(),
+            Ticker = ticker,
+            CompanyName = companyName ?? $"{ticker} Inc."
+        };
+        await context.Companies.AddAsync(company);
+        await context.SaveChangesAsync();
+        return company;
+    }
+
     [Fact]
     public async Task Add_WithValidTransaction_ShouldAddAndReturnTransaction()
     {
         // Arrange
+        var company = await CreateCompanyAsync("AAPL", "Apple Inc.");
+
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),
-            Ticker = "AAPL",
+            CompanyId = company.Id,
             TransactionType = TransactionType.Buy,
             Date = DateTime.UtcNow,
             SharesQuantity = 10m,
@@ -49,7 +64,7 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().Be(transaction.Id);
-        result.Ticker.Should().Be("AAPL");
+        result.CompanyId.Should().Be(company.Id);
         result.SharesQuantity.Should().Be(10m);
         result.SharePrice.Should().Be(150m);
 
@@ -61,13 +76,15 @@ public class TransactionRepositoryTests : IDisposable
     public async Task Add_ShouldPersistAllProperties()
     {
         // Arrange
+        var company = await CreateCompanyAsync("GOOGL", "Alphabet Inc.");
+
         var transactionId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var date = new DateTime(2025, 1, 15, 10, 30, 0, DateTimeKind.Utc);
         var transaction = new Transaction
         {
             Id = transactionId,
-            Ticker = "GOOGL",
+            CompanyId = company.Id,
             TransactionType = TransactionType.Sell,
             Date = date,
             SharesQuantity = 5m,
@@ -82,7 +99,7 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         var savedTransaction = await context.Transactions.FindAsync(transactionId);
         savedTransaction.Should().NotBeNull();
-        savedTransaction!.Ticker.Should().Be("GOOGL");
+        savedTransaction!.CompanyId.Should().Be(company.Id);
         savedTransaction.TransactionType.Should().Be(TransactionType.Sell);
         savedTransaction.Date.Should().Be(date);
         savedTransaction.SharesQuantity.Should().Be(5m);
@@ -105,13 +122,16 @@ public class TransactionRepositoryTests : IDisposable
     public async Task GetAll_WhenTransactionsExist_ShouldReturnAllTransactions()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("AAPL");
+        var company2 = await CreateCompanyAsync("GOOGL");
+        var company3 = await CreateCompanyAsync("MSFT");
         var userId = Guid.NewGuid();
         var transactions = new[]
         {
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "AAPL",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 10m,
@@ -122,7 +142,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "GOOGL",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 5m,
@@ -133,7 +153,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "MSFT",
+                CompanyId = company3.Id,
                 TransactionType = TransactionType.Sell,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 20m,
@@ -150,20 +170,22 @@ public class TransactionRepositoryTests : IDisposable
 
         // Assert
         result.Should().HaveCount(3);
-        result.Select(t => t.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "GOOGL", "MSFT" });
+        result.Select(t => t.CompanyId).Should().BeEquivalentTo(new[] { company1.Id, company2.Id, company3.Id });
     }
 
     [Fact]
     public async Task AddBulk_WithValidTransactions_ShouldAddAllTransactions()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("AAPL");
+        var company2 = await CreateCompanyAsync("GOOGL");
         var userId = Guid.NewGuid();
         var transactions = new List<Transaction?>
         {
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "AAPL",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 10m,
@@ -174,7 +196,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "GOOGL",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 5m,
@@ -189,9 +211,9 @@ public class TransactionRepositoryTests : IDisposable
 
         // Assert
         result.Should().HaveCount(2);
-        var savedTransactions = await context.Transactions.ToListAsync();
+        var savedTransactions = await context.Transactions.Include(t => t.Company).ToListAsync();
         savedTransactions.Should().HaveCount(2);
-        savedTransactions.Select(t => t.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "GOOGL" });
+        savedTransactions.Select(t => t.Company.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "GOOGL" });
     }
 
     [Fact]
@@ -214,11 +236,17 @@ public class TransactionRepositoryTests : IDisposable
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var companies = new List<Company>();
+        for (int i = 1; i <= 100; i++)
+        {
+            companies.Add(await CreateCompanyAsync($"TICK{i}"));
+        }
+
         var transactions = Enumerable.Range(1, 100)
             .Select(i => (Transaction?)new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = $"TICK{i}",
+                CompanyId = companies[i - 1].Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = i,
@@ -254,13 +282,16 @@ public class TransactionRepositoryTests : IDisposable
     public async Task GetOpenPositionsByUser_ShouldReturnOnlyBuyTransactions()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("AAPL");
+        var company2 = await CreateCompanyAsync("GOOGL");
+        var company3 = await CreateCompanyAsync("MSFT");
         var userId = Guid.NewGuid();
         var transactions = new[]
         {
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "AAPL",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 10m,
@@ -271,7 +302,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "GOOGL",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Sell,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 5m,
@@ -282,7 +313,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "MSFT",
+                CompanyId = company3.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 20m,
@@ -300,13 +331,20 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().HaveCount(2);
         result.Should().AllSatisfy(t => t.TransactionType.Should().Be(TransactionType.Buy));
-        result.Select(t => t.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
+        var resultWithCompanies = await context.Transactions
+            .Include(t => t.Company)
+            .Where(t => result.Select(r => r.Id).Contains(t.Id))
+            .ToListAsync();
+        resultWithCompanies.Select(t => t.Company.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
     }
 
     [Fact]
     public async Task GetOpenPositionsByUser_ShouldReturnOnlyTransactionsForSpecifiedUser()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("AAPL");
+        var company2 = await CreateCompanyAsync("GOOGL");
+        var company3 = await CreateCompanyAsync("MSFT");
         var userId1 = Guid.NewGuid();
         var userId2 = Guid.NewGuid();
         var transactions = new[]
@@ -314,7 +352,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "AAPL",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 10m,
@@ -325,7 +363,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "GOOGL",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 5m,
@@ -336,7 +374,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "MSFT",
+                CompanyId = company3.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 20m,
@@ -354,13 +392,20 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().HaveCount(2);
         result.Should().AllSatisfy(t => t.UserId.Should().Be(userId1));
-        result.Select(t => t.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
+        var resultWithCompanies = await context.Transactions
+            .Include(t => t.Company)
+            .Where(t => result.Select(r => r.Id).Contains(t.Id))
+            .ToListAsync();
+        resultWithCompanies.Select(t => t.Company.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
     }
 
     [Fact]
     public async Task GetOpenPositionsByUser_ShouldReturnTransactionsOrderedByDateDescending()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("OLD");
+        var company2 = await CreateCompanyAsync("NEW");
+        var company3 = await CreateCompanyAsync("MIDDLE");
         var userId = Guid.NewGuid();
         var oldDate = new DateTime(2024, 1, 1);
         var middleDate = new DateTime(2024, 6, 1);
@@ -370,7 +415,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "OLD",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = oldDate,
                 SharesQuantity = 10m,
@@ -381,7 +426,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "NEW",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = newDate,
                 SharesQuantity = 10m,
@@ -392,7 +437,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "MIDDLE",
+                CompanyId = company3.Id,
                 TransactionType = TransactionType.Buy,
                 Date = middleDate,
                 SharesQuantity = 10m,
@@ -410,15 +455,24 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().HaveCount(3);
         result.Should().BeInDescendingOrder(t => t.Date);
-        result[0].Ticker.Should().Be("NEW");
-        result[1].Ticker.Should().Be("MIDDLE");
-        result[2].Ticker.Should().Be("OLD");
+        var resultWithCompanies = await context.Transactions
+            .Include(t => t.Company)
+            .Where(t => result.Select(r => r.Id).Contains(t.Id))
+            .OrderByDescending(t => t.Date)
+            .ToListAsync();
+        resultWithCompanies[0].Company.Ticker.Should().Be("NEW");
+        resultWithCompanies[1].Company.Ticker.Should().Be("MIDDLE");
+        resultWithCompanies[2].Company.Ticker.Should().Be("OLD");
     }
 
     [Fact]
     public async Task GetOpenPositionsByUser_WithMixedTypesAndUsers_ShouldFilterCorrectly()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("AAPL");
+        var company2 = await CreateCompanyAsync("MSFT");
+        var company3 = await CreateCompanyAsync("GOOGL");
+        var company4 = await CreateCompanyAsync("TSLA");
         var targetUserId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var transactions = new[]
@@ -427,7 +481,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "AAPL",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 10m,
@@ -438,7 +492,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "MSFT",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 20m,
@@ -450,7 +504,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "GOOGL",
+                CompanyId = company3.Id,
                 TransactionType = TransactionType.Sell,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 5m,
@@ -462,7 +516,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "TSLA",
+                CompanyId = company4.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 15m,
@@ -484,17 +538,22 @@ public class TransactionRepositoryTests : IDisposable
             t.UserId.Should().Be(targetUserId);
             t.TransactionType.Should().Be(TransactionType.Buy);
         });
-        result.Select(t => t.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
+        var resultWithCompanies = await context.Transactions
+            .Include(t => t.Company)
+            .Where(t => result.Select(r => r.Id).Contains(t.Id))
+            .ToListAsync();
+        resultWithCompanies.Select(t => t.Company.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
     }
 
     [Fact]
     public async Task Add_WithComputedProperties_ShouldCalculateCorrectly()
     {
         // Arrange
+        var company = await CreateCompanyAsync("AAPL");
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),
-            Ticker = "AAPL",
+            CompanyId = company.Id,
             TransactionType = TransactionType.Buy,
             Date = DateTime.UtcNow,
             SharesQuantity = 10m,
@@ -517,6 +576,8 @@ public class TransactionRepositoryTests : IDisposable
     public async Task GetAll_WithMultipleUsers_ShouldReturnAllTransactions()
     {
         // Arrange
+        var company1 = await CreateCompanyAsync("AAPL");
+        var company2 = await CreateCompanyAsync("GOOGL");
         var user1 = Guid.NewGuid();
         var user2 = Guid.NewGuid();
         var transactions = new[]
@@ -524,7 +585,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "AAPL",
+                CompanyId = company1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 10m,
@@ -535,7 +596,7 @@ public class TransactionRepositoryTests : IDisposable
             new Transaction
             {
                 Id = Guid.NewGuid(),
-                Ticker = "GOOGL",
+                CompanyId = company2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
                 SharesQuantity = 5m,
@@ -555,4 +616,3 @@ public class TransactionRepositoryTests : IDisposable
         result.Select(t => t.UserId).Should().BeEquivalentTo(new[] { user1, user2 });
     }
 }
-

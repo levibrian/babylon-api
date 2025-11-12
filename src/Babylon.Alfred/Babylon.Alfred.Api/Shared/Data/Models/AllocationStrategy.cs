@@ -4,12 +4,13 @@ public class AllocationStrategy
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public string Ticker { get; set; } = string.Empty;
+    public Guid CompanyId { get; set; }
     public decimal TargetPercentage { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    // Navigation property
+    // Navigation properties
     public User User { get; set; } = null!;
+    public Company Company { get; set; } = null!;
 }
 

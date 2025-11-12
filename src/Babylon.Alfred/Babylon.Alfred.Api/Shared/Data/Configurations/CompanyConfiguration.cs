@@ -8,10 +8,15 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
 {
     public void Configure(EntityTypeBuilder<Company> entity)
     {
-        entity.HasKey(e => e.Ticker);
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.Id).ValueGeneratedOnAdd();
         entity.Property(e => e.Ticker).IsRequired().HasMaxLength(50);
         entity.Property(e => e.CompanyName).IsRequired().HasMaxLength(100);
         entity.Property(e => e.LastUpdated);
+
+        // Unique index on Ticker (can have multiple tickers per company in future)
+        entity.HasIndex(e => e.Ticker)
+            .IsUnique();
 
         entity.ToTable("companies");
     }

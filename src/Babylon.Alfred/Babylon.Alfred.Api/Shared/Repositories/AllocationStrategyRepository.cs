@@ -16,10 +16,11 @@ public class AllocationStrategyRepository : IAllocationStrategyRepository
     public async Task<Dictionary<string, decimal>> GetTargetAllocationsByUserIdAsync(Guid userId)
     {
         var strategies = await context.AllocationStrategies
+            .Include(s => s.Company)
             .Where(s => s.UserId == userId)
             .ToListAsync();
 
-        return strategies.ToDictionary(s => s.Ticker, s => s.TargetPercentage);
+        return strategies.ToDictionary(s => s.Company.Ticker, s => s.TargetPercentage);
     }
 
     public async Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategy> allocations)
@@ -29,11 +30,11 @@ public class AllocationStrategyRepository : IAllocationStrategyRepository
             .Where(s => s.UserId == userId)
             .ToListAsync();
 
-        // Get tickers from new allocations
-        var newTickers = allocations.Select(a => a.Ticker).ToHashSet();
+        // Get CompanyIds from new allocations
+        var newCompanyIds = allocations.Select(a => a.CompanyId).ToHashSet();
 
         // Delete strategies that are no longer in the new list
-        var toDelete = existingStrategies.Where(s => !newTickers.Contains(s.Ticker)).ToList();
+        var toDelete = existingStrategies.Where(s => !newCompanyIds.Contains(s.CompanyId)).ToList();
         if (toDelete.Any())
         {
             context.AllocationStrategies.RemoveRange(toDelete);
@@ -42,7 +43,7 @@ public class AllocationStrategyRepository : IAllocationStrategyRepository
         // Update existing or add new
         foreach (var allocation in allocations)
         {
-            var existing = existingStrategies.FirstOrDefault(s => s.Ticker == allocation.Ticker);
+            var existing = existingStrategies.FirstOrDefault(s => s.CompanyId == allocation.CompanyId);
             if (existing != null)
             {
                 existing.TargetPercentage = allocation.TargetPercentage;
@@ -61,10 +62,10 @@ public class AllocationStrategyRepository : IAllocationStrategyRepository
         await context.SaveChangesAsync();
     }
 
-    public async Task<List<string>> GetDistinctTickersAsync()
+    public async Task<List<Guid>> GetDistinctCompanyIdsAsync()
     {
         return await context.AllocationStrategies
-            .Select(s => s.Ticker)
+            .Select(s => s.CompanyId)
             .Distinct()
             .ToListAsync();
     }

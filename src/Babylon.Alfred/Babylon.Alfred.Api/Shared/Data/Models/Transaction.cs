@@ -5,7 +5,7 @@ namespace Babylon.Alfred.Api.Shared.Data.Models;
 public class Transaction
 {
     public Guid Id { get; set; }
-    public string Ticker { get; set; } = string.Empty;
+    public Guid CompanyId { get; set; }
     public TransactionType TransactionType { get; set; }
     public DateTime Date { get; set; }
     public decimal SharesQuantity { get; set; }
@@ -15,9 +15,8 @@ public class Transaction
     // Foreign key - required
     public Guid? UserId { get; set; }
 
-    // Navigation property
+    // Navigation properties
     public User? User { get; set; } = null!;
-
     public Company Company { get; set; } = null!;
 
 

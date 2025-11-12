@@ -6,6 +6,7 @@ public interface ICompanyRepository
 {
     Task<Company?> GetByTickerAsync(string ticker);
     Task<Dictionary<string, Company>> GetByTickersAsync(IEnumerable<string> tickers);
+    Task<List<Company>> GetByIdsAsync(IEnumerable<Guid> companyIds);
     Task<Company> AddOrUpdateAsync(Company company);
     Task<IEnumerable<Company>> GetAllAsync();
     Task<bool> DeleteAsync(string ticker);

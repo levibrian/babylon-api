@@ -33,6 +33,14 @@ public class PortfolioServiceTests
         }));
 
         sut = autoMocker.CreateInstance<PortfolioService>();
+
+        // Setup default mocks for services that are always needed
+        autoMocker.GetMock<IMarketPriceService>()
+            .Setup(x => x.GetCurrentPricesAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, decimal>());
+        autoMocker.GetMock<IAllocationStrategyService>()
+            .Setup(x => x.GetTargetAllocationsAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(new Dictionary<string, decimal>());
     }
 
     [Fact]
@@ -80,31 +88,32 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var company = fixture.Build<Company>()
+            .With(c => c.Ticker, "AAPL")
+            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, company.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transaction };
-        var company = fixture.Build<Company>()
-            .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
-            .Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("AAPL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(company.Id))
                 {
-                    result["AAPL"] = company;
+                    result.Add(company);
                 }
                 return result;
             });
@@ -127,8 +136,13 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var company = fixture.Build<Company>()
+            .With(c => c.Ticker, "AAPL")
+            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
         var transaction1 = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, company.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -136,7 +150,7 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var transaction2 = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, company.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
@@ -144,23 +158,19 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transaction1, transaction2 };
-        var company = fixture.Build<Company>()
-            .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
-            .Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("AAPL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(company.Id))
                 {
-                    result["AAPL"] = company;
+                    result.Add(company);
                 }
                 return result;
             });
@@ -182,46 +192,48 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var companyApple = fixture.Build<Company>()
+            .With(c => c.Ticker, "AAPL")
+            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+        var companyGoogle = fixture.Build<Company>()
+            .With(c => c.Ticker, "GOOGL")
+            .With(c => c.CompanyName, "Alphabet Inc.")
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
         var transactionApple = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, companyApple.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
             .With(t => t.UserId, userId)
             .Create();
         var transactionGoogle = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "GOOGL")
+            .With(t => t.CompanyId, companyGoogle.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m)
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transactionApple, transactionGoogle };
-        var companyApple = fixture.Build<Company>()
-            .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
-            .Create();
-        var companyGoogle = fixture.Build<Company>()
-            .With(c => c.Ticker, "GOOGL")
-            .With(c => c.CompanyName, "Alphabet Inc.")
-            .Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("AAPL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(companyApple.Id))
                 {
-                    result["AAPL"] = companyApple;
+                    result.Add(companyApple);
                 }
-                if (tickerList.Contains("GOOGL"))
+                if (companyIdList.Contains(companyGoogle.Id))
                 {
-                    result["GOOGL"] = companyGoogle;
+                    result.Add(companyGoogle);
                 }
                 return result;
             });
@@ -242,8 +254,9 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "UNKNOWN")
+            .With(t => t.CompanyId, companyId)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 5m)
@@ -255,8 +268,8 @@ public class PortfolioServiceTests
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync(new Dictionary<string, Company>()); // Empty dictionary = company not found
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync(new List<Company>()); // Empty list = company not found
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -264,8 +277,8 @@ public class PortfolioServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Positions.Should().HaveCount(1);
-        result.Positions.First().Ticker.Should().Be("UNKNOWN");
-        result.Positions.First().CompanyName.Should().Be("UNKNOWN"); // Fallback to ticker
+        result.Positions.First().Ticker.Should().BeEmpty(); // No company found, so ticker is empty
+        result.Positions.First().CompanyName.Should().BeEmpty(); // Fallback to empty string
     }
 
     [Fact]
@@ -273,22 +286,25 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var companySmall = fixture.Build<Company>().With(c => c.Ticker, "SMALL").With(c => c.Id, Guid.NewGuid()).Create();
+        var companyLarge = fixture.Build<Company>().With(c => c.Ticker, "LARGE").With(c => c.Id, Guid.NewGuid()).Create();
+        var companyMedium = fixture.Build<Company>().With(c => c.Ticker, "MEDIUM").With(c => c.Id, Guid.NewGuid()).Create();
         var transactionSmall = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "SMALL")
+            .With(t => t.CompanyId, companySmall.Id)
             .With(t => t.SharesQuantity, 1m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 1m)
             .With(t => t.UserId, userId)
             .Create();
         var transactionLarge = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "LARGE")
+            .With(t => t.CompanyId, companyLarge.Id)
             .With(t => t.SharesQuantity, 100m)
             .With(t => t.SharePrice, 1000m)
             .With(t => t.Fees, 50m)
             .With(t => t.UserId, userId)
             .Create();
         var transactionMedium = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "MEDIUM")
+            .With(t => t.CompanyId, companyMedium.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 500m)
             .With(t => t.Fees, 10m)
@@ -296,30 +312,26 @@ public class PortfolioServiceTests
             .Create();
         var transactions = new List<Transaction> { transactionSmall, transactionLarge, transactionMedium };
 
-        var companySmall = fixture.Build<Company>().With(c => c.Ticker, "SMALL").Create();
-        var companyLarge = fixture.Build<Company>().With(c => c.Ticker, "LARGE").Create();
-        var companyMedium = fixture.Build<Company>().With(c => c.Ticker, "MEDIUM").Create();
-
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("SMALL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(companySmall.Id))
                 {
-                    result["SMALL"] = companySmall;
+                    result.Add(companySmall);
                 }
-                if (tickerList.Contains("LARGE"))
+                if (companyIdList.Contains(companyLarge.Id))
                 {
-                    result["LARGE"] = companyLarge;
+                    result.Add(companyLarge);
                 }
-                if (tickerList.Contains("MEDIUM"))
+                if (companyIdList.Contains(companyMedium.Id))
                 {
-                    result["MEDIUM"] = companyMedium;
+                    result.Add(companyMedium);
                 }
                 return result;
             });
@@ -341,8 +353,9 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var company = fixture.Build<Company>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
         var oldTransaction = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, company.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -350,7 +363,7 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var newTransaction = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, company.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
@@ -358,7 +371,7 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var middleTransaction = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, company.Id)
             .With(t => t.SharesQuantity, 7m)
             .With(t => t.SharePrice, 155m)
             .With(t => t.Fees, 4m)
@@ -366,20 +379,19 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { oldTransaction, newTransaction, middleTransaction };
-        var company = fixture.Build<Company>().With(c => c.Ticker, "AAPL").Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("AAPL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(company.Id))
                 {
-                    result["AAPL"] = company;
+                    result.Add(company);
                 }
                 return result;
             });
@@ -404,10 +416,15 @@ public class PortfolioServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var transactionId = Guid.NewGuid();
+        var company = fixture.Build<Company>()
+            .With(c => c.Ticker, "AAPL")
+            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
         var transaction = new Transaction
         {
             Id = transactionId,
-            Ticker = "AAPL",
+            CompanyId = company.Id,
             TransactionType = TransactionType.Buy,
             Date = new DateTime(2025, 1, 15),
             SharesQuantity = 10m,
@@ -416,23 +433,19 @@ public class PortfolioServiceTests
             UserId = userId
         };
         var transactions = new List<Transaction> { transaction };
-        var company = fixture.Build<Company>()
-            .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
-            .Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("AAPL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(company.Id))
                 {
-                    result["AAPL"] = company;
+                    result.Add(company);
                 }
                 return result;
             });
@@ -457,40 +470,40 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        var companyApple = fixture.Build<Company>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
+        var companyGoogle = fixture.Build<Company>().With(c => c.Ticker, "GOOGL").With(c => c.Id, Guid.NewGuid()).Create();
         var transaction1 = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "AAPL")
+            .With(t => t.CompanyId, companyApple.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m) // TotalAmount = 1505
             .With(t => t.UserId, userId)
             .Create();
         var transaction2 = fixture.Build<Transaction>()
-            .With(t => t.Ticker, "GOOGL")
+            .With(t => t.CompanyId, companyGoogle.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m) // TotalAmount = 14010
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transaction1, transaction2 };
-        var companyApple = fixture.Build<Company>().With(c => c.Ticker, "AAPL").Create();
-        var companyGoogle = fixture.Build<Company>().With(c => c.Ticker, "GOOGL").Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
             {
-                var tickerList = tickers.ToList();
-                var result = new Dictionary<string, Company>();
-                if (tickerList.Contains("AAPL"))
+                var companyIdList = companyIds.ToList();
+                var result = new List<Company>();
+                if (companyIdList.Contains(companyApple.Id))
                 {
-                    result["AAPL"] = companyApple;
+                    result.Add(companyApple);
                 }
-                if (tickerList.Contains("GOOGL"))
+                if (companyIdList.Contains(companyGoogle.Id))
                 {
-                    result["GOOGL"] = companyGoogle;
+                    result.Add(companyGoogle);
                 }
                 return result;
             });
