@@ -46,7 +46,7 @@ public class SecurityRepository(BabylonDbContext context) : ISecurityRepository
 
         if (existing != null)
         {
-            existing.CompanyName = security.CompanyName;
+            existing.SecurityName = security.SecurityName;
             existing.LastUpdated = DateTime.UtcNow;
             context.Securities.Update(existing);
         }

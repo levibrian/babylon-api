@@ -33,7 +33,7 @@ public class TransactionRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = ticker,
-            CompanyName = securityName ?? $"{ticker} Inc."
+            SecurityName = securityName ?? $"{ticker} Inc."
         };
         await context.Securities.AddAsync(security);
         await context.SaveChangesAsync();
@@ -460,9 +460,9 @@ public class TransactionRepositoryTests : IDisposable
             .Where(t => result.Select(r => r.Id).Contains(t.Id))
             .OrderByDescending(t => t.Date)
             .ToListAsync();
-        resultWithSecurities[0].Company.Ticker.Should().Be("NEW");
-        resultWithSecurities[1].Company.Ticker.Should().Be("MIDDLE");
-        resultWithSecurities[2].Company.Ticker.Should().Be("OLD");
+        resultWithSecurities[0].Security.Ticker.Should().Be("NEW");
+        resultWithSecurities[1].Security.Ticker.Should().Be("MIDDLE");
+        resultWithSecurities[2].Security.Ticker.Should().Be("OLD");
     }
 
     [Fact]

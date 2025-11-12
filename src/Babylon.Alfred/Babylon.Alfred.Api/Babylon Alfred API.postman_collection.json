@@ -206,7 +206,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"ticker\": \"NVDA\",\n  \"companyName\": \"Nvidia Corporation\"\n}"
+							"raw": "{\n  \"ticker\": \"NVDA\",\n  \"securityName\": \"Nvidia Corporation\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/securities",
@@ -234,7 +234,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"companyName\": \"NVIDIA Corporation\"\n}"
+							"raw": "{\n  \"securityName\": \"NVIDIA Corporation\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/securities/NVDA",
@@ -283,7 +283,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "[\n  { \"ticker\": \"NVDA\", \"companyName\": \"Nvidia Corporation\" },\n  { \"ticker\": \"MSFT\", \"companyName\": \"Microsoft Corporation\" },\n  { \"ticker\": \"GOOGL\", \"companyName\": \"Alphabet Inc (Google)\" },\n  { \"ticker\": \"V\", \"companyName\": \"Visa Inc\" },\n  { \"ticker\": \"AAPL\", \"companyName\": \"Apple Inc\" },\n  { \"ticker\": \"ADYEN\", \"companyName\": \"Adyen NV\" },\n  { \"ticker\": \"ASML\", \"companyName\": \"ASML Holding NV\" },\n  { \"ticker\": \"NOVO\", \"companyName\": \"Novo Nordisk A/S\" },\n  { \"ticker\": \"TSMC\", \"companyName\": \"Taiwan Semiconductor Manufacturing\" },\n  { \"ticker\": \"AMZN\", \"companyName\": \"Amazon.com Inc\" },\n  { \"ticker\": \"BYD\", \"companyName\": \"BYD Company Limited\" },\n  { \"ticker\": \"ENPH\", \"companyName\": \"Enphase Energy Inc\" },\n  { \"ticker\": \"NXTG\", \"companyName\": \"NextEra Energy Inc\" },\n  { \"ticker\": \"VRTV\", \"companyName\": \"Vertiv Holdings Co\" },\n  { \"ticker\": \"ISDE\", \"companyName\": \"iShares Edge World Momentum USD (Acc)\" },\n  { \"ticker\": \"QDVB\", \"companyName\": \"iShares USA Quality USD (Acc)\" },\n  { \"ticker\": \"IS3N\", \"companyName\": \"iShares Core MSCI World USD (Acc)\" },\n  { \"ticker\": \"PPFB.DE\", \"companyName\": \"iShares Physical Gold USD (Acc)\" },\n  { \"ticker\": \"BTC\", \"companyName\": \"Bitcoin\" },\n  { \"ticker\": \"ETH\", \"companyName\": \"Ethereum\" },\n  { \"ticker\": \"SOL\", \"companyName\": \"Solana\" }\n]"
+							"raw": "[\n  { \"ticker\": \"IS3R.DE\", \"securityName\": \"iShares Edge World Momentum USD (Acc)\" },\n  { \"ticker\": \"QDVB.DE\", \"securityName\": \"iShares Edge USA Quality USD (Acc)\" },\n  { \"ticker\": \"IS3N.DE\", \"securityName\": \"iShares Core MSCI EM IMI USD (Acc)\" },\n  { \"ticker\": \"PPFB.DE\", \"securityName\": \"iShares Physical Gold ETC\" },\n  { \"ticker\": \"ADYEN.AS\", \"securityName\": \"Adyen\" },\n  { \"ticker\": \"NVD.DE\", \"securityName\": \"Nvidia\" },\n  { \"ticker\": \"MSF.DE\", \"securityName\": \"Microsoft\" },\n  { \"ticker\": \"APC.DE\", \"securityName\": \"Apple\" },\n  { \"ticker\": \"BY6.DE\", \"securityName\": \"BYD (H-Shares)\" },\n  { \"ticker\": \"NOV.DE\", \"securityName\": \"Novo Nordisk (ADR)\" },\n  { \"ticker\": \"AMZ.DE\", \"securityName\": \"Amazon\" },\n  { \"ticker\": \"TSFA.DE\", \"securityName\": \"TSMC (ADR)\" },\n  { \"ticker\": \"EOP.DE\", \"securityName\": \"Enphase\" },\n  { \"ticker\": \"ABEC.DE\", \"securityName\": \"Google (Alphabet Inc. Class A)\" },\n  { \"ticker\": \"ASME.DE\", \"securityName\": \"ASML\" },\n  { \"ticker\": \"3V64.DE\", \"securityName\": \"Visa\" },\n  { \"ticker\": \"49V.DE\", \"securityName\": \"Vertiv\" },\n  { \"ticker\": \"BTCEUR\", \"securityName\": \"Bitcoin\" },\n  { \"ticker\": \"SOLEUR\", \"securityName\": \"Solana\" },\n  { \"ticker\": \"ETHEUR\", \"securityName\": \"Ethereum\" },\n  { \"ticker\": \"FP3.F\", \"securityName\": \"NextEra Energy\" }\n]"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/securities",

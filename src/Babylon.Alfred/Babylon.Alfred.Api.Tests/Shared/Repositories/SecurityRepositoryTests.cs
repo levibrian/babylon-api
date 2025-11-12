@@ -35,7 +35,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Apple Inc.",
+            SecurityName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
         };
         await context.Securities.AddAsync(security);
@@ -47,7 +47,7 @@ public class SecurityRepositoryTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result!.Ticker.Should().Be("AAPL");
-        result.CompanyName.Should().Be("Apple Inc.");
+        result.SecurityName.Should().Be("Apple Inc.");
     }
 
     [Fact]
@@ -66,9 +66,9 @@ public class SecurityRepositoryTests : IDisposable
         // Arrange
         var securities = new[]
         {
-            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
@@ -79,7 +79,7 @@ public class SecurityRepositoryTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result!.Ticker.Should().Be("GOOGL");
-        result.CompanyName.Should().Be("Alphabet Inc.");
+        result.SecurityName.Should().Be("Alphabet Inc.");
     }
 
     [Fact]
@@ -98,9 +98,9 @@ public class SecurityRepositoryTests : IDisposable
         // Arrange
         var securities = new[]
         {
-            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
@@ -121,7 +121,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Apple Inc."
+            SecurityName = "Apple Inc."
         };
 
         // Act
@@ -130,13 +130,13 @@ public class SecurityRepositoryTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result.Ticker.Should().Be("AAPL");
-        result.CompanyName.Should().Be("Apple Inc.");
+        result.SecurityName.Should().Be("Apple Inc.");
         result.LastUpdated.Should().NotBeNull();
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
 
         var savedSecurity = await context.Securities.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
         savedSecurity.Should().NotBeNull();
-        savedSecurity!.CompanyName.Should().Be("Apple Inc.");
+        savedSecurity!.SecurityName.Should().Be("Apple Inc.");
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Old Name",
+            SecurityName = "Old Name",
             LastUpdated = DateTime.UtcNow.AddDays(-10)
         };
         await context.Securities.AddAsync(existingSecurity);
@@ -157,7 +157,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Apple Inc."
+            SecurityName = "Apple Inc."
         };
 
         // Act
@@ -166,12 +166,12 @@ public class SecurityRepositoryTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result.Ticker.Should().Be("AAPL");
-        result.CompanyName.Should().Be("Apple Inc.");
+        result.SecurityName.Should().Be("Apple Inc.");
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
 
         var allSecurities = await context.Securities.ToListAsync();
         allSecurities.Should().HaveCount(1); // Should still be only one security
-        allSecurities.First().CompanyName.Should().Be("Apple Inc.");
+        allSecurities.First().SecurityName.Should().Be("Apple Inc.");
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Old Name",
+            SecurityName = "Old Name",
             LastUpdated = oldTimestamp
         };
         await context.Securities.AddAsync(existingSecurity);
@@ -193,7 +193,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Apple Inc."
+            SecurityName = "Apple Inc."
         };
 
         // Act
@@ -211,7 +211,7 @@ public class SecurityRepositoryTests : IDisposable
         var security = new Security
         {
             Ticker = "AAPL",
-            CompanyName = "Apple Inc.",
+            SecurityName = "Apple Inc.",
             LastUpdated = null
         };
         var beforeAdd = DateTime.UtcNow;
@@ -234,7 +234,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Apple Inc.",
+            SecurityName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
         };
         await context.Securities.AddAsync(security);
@@ -265,9 +265,9 @@ public class SecurityRepositoryTests : IDisposable
         // Arrange
         var securities = new[]
         {
-            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
@@ -290,7 +290,7 @@ public class SecurityRepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
-            CompanyName = "Apple Inc.",
+            SecurityName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
         };
         await context.Securities.AddAsync(security);
@@ -311,22 +311,22 @@ public class SecurityRepositoryTests : IDisposable
         var security = new Security
         {
             Ticker = "AAPL",
-            CompanyName = "First Name"
+            SecurityName = "First Name"
         };
         await sut.AddOrUpdateAsync(security);
 
         // Act
-        security.CompanyName = "Second Name";
+        security.SecurityName = "Second Name";
         await sut.AddOrUpdateAsync(security);
 
-        security.CompanyName = "Third Name";
+        security.SecurityName = "Third Name";
         var result = await sut.AddOrUpdateAsync(security);
 
         // Assert
-        result.CompanyName.Should().Be("Third Name");
+        result.SecurityName.Should().Be("Third Name");
         var savedSecurity = await context.Securities.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
         savedSecurity.Should().NotBeNull();
-        savedSecurity!.CompanyName.Should().Be("Third Name");
+        savedSecurity!.SecurityName.Should().Be("Third Name");
 
         var allSecurities = await context.Securities.ToListAsync();
         allSecurities.Should().HaveCount(1);

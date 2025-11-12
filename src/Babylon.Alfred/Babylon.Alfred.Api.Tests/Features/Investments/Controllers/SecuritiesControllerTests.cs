@@ -9,7 +9,7 @@ using Babylon.Alfred.Api.Shared.Data.Models;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using Moq.AutoMocker;
+using Moq.AutoMock;
 
 namespace Babylon.Alfred.Api.Tests.Features.Investments.Controllers;
 
@@ -123,7 +123,7 @@ public class SecuritiesControllerTests
         var request = fixture.Create<CreateCompanyRequest>();
         var createdSecurity = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.CompanyName, request.CompanyName)
+            .With(c => c.SecurityName, request.SecurityName)
             .Create();
         autoMocker
             .GetMock<ISecurityService>().Setup(x => x.CreateAsync(request)).ReturnsAsync(createdSecurity);
@@ -149,7 +149,7 @@ public class SecuritiesControllerTests
         var request = fixture.Create<UpdateCompanyRequest>();
         var updatedSecurity = fixture.Build<Security>()
             .With(c => c.Ticker, ticker)
-            .With(c => c.CompanyName, request.CompanyName)
+            .With(c => c.SecurityName, request.SecurityName)
             .Create();
         autoMocker
             .GetMock<ISecurityService>().Setup(x => x.UpdateAsync(ticker, request)).ReturnsAsync(updatedSecurity);

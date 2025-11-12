@@ -82,7 +82,7 @@ public class SecurityServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.Ticker.Should().Be(security.Ticker);
-        result.CompanyName.Should().Be(security.CompanyName);
+        result.SecurityName.Should().Be(security.SecurityName);
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(security.Ticker), Times.Once);
     }
 
@@ -117,13 +117,13 @@ public class SecurityServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Ticker.Should().Be(request.Ticker);
-        result.CompanyName.Should().Be(request.CompanyName);
+        result.SecurityName.Should().Be(request.SecurityName);
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
             It.Is<Security>(c =>
                 c.Ticker == request.Ticker &&
-                c.CompanyName == request.CompanyName &&
+                c.SecurityName == request.SecurityName &&
                 c.LastUpdated != null)),
             Times.Once);
     }
@@ -169,7 +169,7 @@ public class SecurityServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.Ticker.Should().Be(existingSecurity.Ticker);
-        result.CompanyName.Should().Be(request.CompanyName);
+        result.SecurityName.Should().Be(request.SecurityName);
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(existingSecurity.Ticker), Times.Once);

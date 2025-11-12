@@ -131,7 +131,7 @@ public class PortfolioService(
         return new PortfolioPositionDto
         {
             Ticker = ticker,
-            CompanyName = security?.CompanyName ?? ticker,
+            SecurityName = security?.SecurityName ?? ticker,
             TotalInvested = totalInvested,
             TotalShares = totalShares,
             AverageSharePrice = averageSharePrice,
