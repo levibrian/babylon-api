@@ -5,7 +5,7 @@ using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
-public class TransactionService(ITransactionRepository transactionRepository, ICompanyRepository companyRepository, ILogger<TransactionService> logger)
+public class TransactionService(ITransactionRepository transactionRepository, ISecurityRepository securityRepository, ILogger<TransactionService> logger)
     : ITransactionService
 {
     public async Task<Transaction> Create(CreateTransactionRequest request)
@@ -26,15 +26,15 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
             throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
         }
 
-        var companyFromDb = await companyRepository.GetByTickerAsync(request.Ticker);
+        var securityFromDb = await securityRepository.GetByTickerAsync(request.Ticker);
 
-        if (companyFromDb is null)
+        if (securityFromDb is null)
         {
-            throw new InvalidOperationException("Company provided not found in our internal database.");
+            throw new InvalidOperationException("Security provided not found in our internal database.");
         }
 
         // Map to entity
-        var transaction = CreateTransaction(request, companyFromDb.Id);
+        var transaction = CreateTransaction(request, securityFromDb.Id);
 
         // Save to database
         return await transactionRepository.Add(transaction);
@@ -42,19 +42,19 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
 
     public async Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests)
     {
-        // Get all unique tickers and fetch companies
+        // Get all unique tickers and fetch securities
         var tickers = requests.Select(r => r.Ticker).Distinct().ToList();
-        var companies = await companyRepository.GetByTickersAsync(tickers);
+        var securities = await securityRepository.GetByTickersAsync(tickers);
 
         // Validate all tickers exist
-        var missingTickers = tickers.Where(t => !companies.ContainsKey(t)).ToList();
+        var missingTickers = tickers.Where(t => !securities.ContainsKey(t)).ToList();
         if (missingTickers.Any())
         {
-            throw new InvalidOperationException($"Companies not found for tickers: {string.Join(", ", missingTickers)}");
+            throw new InvalidOperationException($"Securities not found for tickers: {string.Join(", ", missingTickers)}");
         }
 
         var createdTransactions = requests
-            .Select(r => CreateTransaction(r, companies[r.Ticker].Id))
+            .Select(r => CreateTransaction(r, securities[r.Ticker].Id))
             .ToList();
 
         if (createdTransactions.Count == 0)
@@ -75,10 +75,10 @@ public class TransactionService(ITransactionRepository transactionRepository, IC
         return transaction;
     }
 
-    private static Transaction CreateTransaction(CreateTransactionRequest request, Guid companyId)
+    private static Transaction CreateTransaction(CreateTransactionRequest request, Guid securityId)
         => new()
         {
-            CompanyId = companyId,
+            SecurityId = securityId,
             TransactionType = request.TransactionType,
             Date = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow,
             SharesQuantity = request.SharesQuantity,

@@ -9,7 +9,7 @@ public class PortfolioInsightsService(
     ITransactionRepository transactionRepository,
     IMarketPriceService marketPriceService,
     IAllocationStrategyService allocationStrategyService,
-    ICompanyRepository companyRepository,
+    ISecurityRepository securityRepository,
     ILogger<PortfolioInsightsService> logger)
     : IPortfolioInsightsService
 {
@@ -53,23 +53,23 @@ public class PortfolioInsightsService(
             return insights; // No allocation strategy set
         }
 
-        // Load companies for transactions
-        var companyIds = transactions.Select(t => t.CompanyId).Distinct().ToList();
-        var companies = await companyRepository.GetByIdsAsync(companyIds);
-        var companiesLookup = companies.ToDictionary(c => c.Id, c => c);
+        // Load securities for transactions
+        var securityIds = transactions.Select(t => t.SecurityId).Distinct().ToList();
+        var securities = await securityRepository.GetByIdsAsync(securityIds);
+        var securitiesLookup = securities.ToDictionary(s => s.Id, s => s);
 
         // Get market prices for all positions
-        var tickers = companies.Select(c => c.Ticker).Distinct().ToList();
+        var tickers = securities.Select(s => s.Ticker).Distinct().ToList();
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
-        var tickerByCompanyId = companies.ToDictionary(c => c.Id, c => c.Ticker);
+        var tickerBySecurityId = securities.ToDictionary(s => s.Id, s => s.Ticker);
 
         // Calculate total portfolio market value
         var totalPortfolioValue = transactions
-            .GroupBy(t => t.CompanyId)
+            .GroupBy(t => t.SecurityId)
             .Sum(g =>
             {
-                var companyId = g.Key;
-                var ticker = tickerByCompanyId.GetValueOrDefault(companyId, string.Empty);
+                var securityId = g.Key;
+                var ticker = tickerBySecurityId.GetValueOrDefault(securityId, string.Empty);
                 var totalShares = g.Sum(t => t.TransactionType == TransactionType.Buy ? t.SharesQuantity : -t.SharesQuantity);
                 var price = marketPrices.GetValueOrDefault(ticker, 0);
                 return totalShares * price;
@@ -81,12 +81,12 @@ public class PortfolioInsightsService(
         }
 
         // Calculate current allocations and deviations
-        var groupedTransactions = transactions.GroupBy(t => t.CompanyId).ToList();
+        var groupedTransactions = transactions.GroupBy(t => t.SecurityId).ToList();
         foreach (var group in groupedTransactions)
         {
-            var companyId = group.Key;
-            var company = companiesLookup.GetValueOrDefault(companyId);
-            var ticker = company?.Ticker ?? string.Empty;
+            var securityId = group.Key;
+            var security = securitiesLookup.GetValueOrDefault(securityId);
+            var ticker = security?.Ticker ?? string.Empty;
             if (!targetAllocations.ContainsKey(ticker))
             {
                 continue; // Skip positions without target allocation

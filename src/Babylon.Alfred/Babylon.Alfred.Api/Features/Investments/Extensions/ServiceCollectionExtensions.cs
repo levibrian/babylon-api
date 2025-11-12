@@ -9,13 +9,13 @@ public static class ServiceCollectionExtensions
     {
         // Repositories
         services.AddScoped<ITransactionRepository, TransactionRepository>();
-        services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ISecurityRepository, SecurityRepository>();
         services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
         services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
         
         // Services
         services.AddScoped<ITransactionService, TransactionService>();
-        services.AddScoped<ICompanyService, CompanyService>();
+        services.AddScoped<ISecurityService, SecurityService>();
         services.AddScoped<IPortfolioService, PortfolioService>();
         services.AddScoped<IMarketPriceService, MarketPriceService>();
         services.AddScoped<IAllocationStrategyService, AllocationStrategyService>();

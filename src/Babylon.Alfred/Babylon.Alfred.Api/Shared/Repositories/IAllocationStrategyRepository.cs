@@ -6,6 +6,6 @@ public interface IAllocationStrategyRepository
 {
     Task<Dictionary<string, decimal>> GetTargetAllocationsByUserIdAsync(Guid userId); // Returns Dictionary<Ticker, TargetPercentage>
     Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategy> allocations);
-    Task<List<Guid>> GetDistinctCompanyIdsAsync();
+    Task<List<Guid>> GetDistinctSecurityIdsAsync();
 }
 

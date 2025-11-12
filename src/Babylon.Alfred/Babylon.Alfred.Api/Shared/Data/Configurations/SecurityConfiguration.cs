@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Babylon.Alfred.Api.Shared.Data.Configurations;
 
-public class CompanyConfiguration : IEntityTypeConfiguration<Company>
+public class SecurityConfiguration : IEntityTypeConfiguration<Security>
 {
-    public void Configure(EntityTypeBuilder<Company> entity)
+    public void Configure(EntityTypeBuilder<Security> entity)
     {
         entity.HasKey(e => e.Id);
         entity.Property(e => e.Id).ValueGeneratedOnAdd();
@@ -18,8 +18,7 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         entity.HasIndex(e => e.Ticker)
             .IsUnique();
 
-        entity.ToTable("companies");
+        entity.ToTable("securities");
     }
 }
-
 
