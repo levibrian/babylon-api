@@ -11,13 +11,13 @@ public class AllocationStrategyConfiguration : IEntityTypeConfiguration<Allocati
         entity.HasKey(e => e.Id);
         entity.Property(e => e.Id).ValueGeneratedOnAdd();
         entity.Property(e => e.UserId).IsRequired();
-        entity.Property(e => e.CompanyId).IsRequired();
+        entity.Property(e => e.SecurityId).IsRequired();
         entity.Property(e => e.TargetPercentage).IsRequired().HasPrecision(18, 4);
         entity.Property(e => e.CreatedAt).IsRequired();
         entity.Property(e => e.UpdatedAt).IsRequired();
 
-        // Unique constraint: one target allocation per company per user
-        entity.HasIndex(e => new { e.UserId, e.CompanyId })
+        // Unique constraint: one target allocation per security per user
+        entity.HasIndex(e => new { e.UserId, e.SecurityId })
             .IsUnique();
 
         // Foreign key to User
@@ -26,10 +26,10 @@ public class AllocationStrategyConfiguration : IEntityTypeConfiguration<Allocati
             .HasForeignKey(e => e.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Foreign key to Company
-        entity.HasOne(e => e.Company)
-            .WithMany(c => c.AllocationStrategies)
-            .HasForeignKey(e => e.CompanyId)
+        // Foreign key to Security
+        entity.HasOne(e => e.Security)
+            .WithMany(s => s.AllocationStrategies)
+            .HasForeignKey(e => e.SecurityId)
             .OnDelete(DeleteBehavior.Restrict);
 
         entity.ToTable("allocation_strategies");

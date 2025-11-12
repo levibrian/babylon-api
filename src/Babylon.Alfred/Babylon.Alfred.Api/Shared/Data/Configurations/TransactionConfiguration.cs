@@ -9,7 +9,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
     public void Configure(EntityTypeBuilder<Transaction> entity)
     {
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.CompanyId).IsRequired();
+        entity.Property(e => e.SecurityId).IsRequired();
         entity.Property(e => e.TransactionType).IsRequired();
         entity.Property(e => e.Date).IsRequired();
         entity.Property(e => e.SharesQuantity).HasPrecision(18, 8);
@@ -19,7 +19,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
 
         entity.ToTable("transactions");
 
-        entity.HasIndex(e => e.CompanyId);
+        entity.HasIndex(e => e.SecurityId);
         entity.HasIndex(e => e.UserId);
 
         // Transactions -> User Configuration
@@ -28,10 +28,10 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             .HasForeignKey(t => t.UserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Transactions -> Company Configuration
-        entity.HasOne(t => t.Company)
-            .WithMany(c => c.Transactions)
-            .HasForeignKey(t => t.CompanyId)
+        // Transactions -> Security Configuration
+        entity.HasOne(t => t.Security)
+            .WithMany(s => s.Transactions)
+            .HasForeignKey(t => t.SecurityId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

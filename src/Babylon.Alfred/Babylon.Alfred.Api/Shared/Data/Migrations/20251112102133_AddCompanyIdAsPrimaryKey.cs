@@ -19,9 +19,19 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                 name: "IX_transactions_Ticker",
                 table: "transactions");
 
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_companies",
-                table: "companies");
+            // Drop primary key conditionally (in case migration partially ran before)
+            migrationBuilder.Sql(@"
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'PK_companies'
+                        AND conrelid = 'companies'::regclass
+                    ) THEN
+                        ALTER TABLE companies DROP CONSTRAINT ""PK_companies"";
+                    END IF;
+                END $$;
+            ");
 
             migrationBuilder.DropIndex(
                 name: "IX_allocation_strategies_UserId_Ticker",
@@ -42,12 +52,54 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
-            migrationBuilder.AddColumn<Guid>(
-                name: "Id",
-                table: "companies",
-                type: "uuid",
-                nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+            // Add Id column as nullable first (if it doesn't already exist)
+            migrationBuilder.Sql(@"
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'companies' AND column_name = 'Id'
+                    ) THEN
+                        ALTER TABLE companies ADD COLUMN ""Id"" uuid;
+                    END IF;
+                END $$;
+            ");
+
+            // Generate unique UUIDs for all companies (handles NULL and duplicate values)
+            migrationBuilder.Sql(@"
+                -- Fix NULL or empty GUID values
+                UPDATE companies
+                SET ""Id"" = gen_random_uuid()
+                WHERE ""Id"" IS NULL OR ""Id"" = '00000000-0000-0000-0000-000000000000'::uuid;
+
+                -- Handle any remaining duplicates by regenerating UUIDs (keep the first occurrence, regenerate others)
+                DO $$
+                DECLARE
+                    rec RECORD;
+                    new_id uuid;
+                BEGIN
+                    FOR rec IN
+                        SELECT ""Ticker"", ""Id"",
+                               ROW_NUMBER() OVER (PARTITION BY ""Id"" ORDER BY ""Ticker"") as rn
+                        FROM companies
+                        WHERE ""Id"" IN (
+                            SELECT ""Id"" FROM companies
+                            GROUP BY ""Id""
+                            HAVING COUNT(*) > 1
+                        )
+                    LOOP
+                        IF rec.rn > 1 THEN
+                            new_id := gen_random_uuid();
+                            UPDATE companies SET ""Id"" = new_id WHERE ""Ticker"" = rec.""Ticker"";
+                        END IF;
+                    END LOOP;
+                END $$;
+            ");
+
+            // Make Id column non-nullable using raw SQL
+            migrationBuilder.Sql(@"
+                ALTER TABLE companies ALTER COLUMN ""Id"" SET NOT NULL;
+            ");
 
             migrationBuilder.AddColumn<Guid>(
                 name: "CompanyId",

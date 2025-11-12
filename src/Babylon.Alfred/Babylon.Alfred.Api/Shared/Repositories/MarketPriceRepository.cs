@@ -66,10 +66,10 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
     {
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
 
-        // Get all distinct tickers from allocation strategies (via Company navigation)
+        // Get all distinct tickers from allocation strategies (via Security navigation)
         var allTickers = await context.AllocationStrategies
-            .Include(s => s.Company)
-            .Select(s => s.Company.Ticker)
+            .Include(s => s.Security)
+            .Select(s => s.Security.Ticker)
             .Distinct()
             .ToListAsync();
 

@@ -6,19 +6,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Babylon.Alfred.Api.Tests.Shared.Repositories;
 
-public class CompanyRepositoryTests : IDisposable
+public class SecurityRepositoryTests : IDisposable
 {
     private readonly BabylonDbContext context;
-    private readonly CompanyRepository sut;
+    private readonly SecurityRepository sut;
 
-    public CompanyRepositoryTests()
+    public SecurityRepositoryTests()
     {
         var options = new DbContextOptionsBuilder<BabylonDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
         context = new BabylonDbContext(options);
-        sut = new CompanyRepository(context);
+        sut = new SecurityRepository(context);
     }
 
     public void Dispose()
@@ -28,17 +28,17 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetByTickerAsync_WhenCompanyExists_ShouldReturnCompany()
+    public async Task GetByTickerAsync_WhenSecurityExists_ShouldReturnSecurity()
     {
         // Arrange
-        var company = new Company
+        var security = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
         };
-        await context.Companies.AddAsync(company);
+        await context.Securities.AddAsync(security);
         await context.SaveChangesAsync();
 
         // Act
@@ -51,7 +51,7 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetByTickerAsync_WhenCompanyDoesNotExist_ShouldReturnNull()
+    public async Task GetByTickerAsync_WhenSecurityDoesNotExist_ShouldReturnNull()
     {
         // Act
         var result = await sut.GetByTickerAsync("NONEXISTENT");
@@ -61,16 +61,16 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetByTickerAsync_WithMultipleCompanies_ShouldReturnCorrectCompany()
+    public async Task GetByTickerAsync_WithMultipleSecurities_ShouldReturnCorrectSecurity()
     {
         // Arrange
-        var companies = new[]
+        var securities = new[]
         {
-            new Company { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
-        await context.Companies.AddRangeAsync(companies);
+        await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
 
         // Act
@@ -83,7 +83,7 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllAsync_WhenNoCompaniesExist_ShouldReturnEmptyList()
+    public async Task GetAllAsync_WhenNoSecuritiesExist_ShouldReturnEmptyList()
     {
         // Act
         var result = await sut.GetAllAsync();
@@ -93,16 +93,16 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllAsync_WhenCompaniesExist_ShouldReturnAllCompanies()
+    public async Task GetAllAsync_WhenSecuritiesExist_ShouldReturnAllSecurities()
     {
         // Arrange
-        var companies = new[]
+        var securities = new[]
         {
-            new Company { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
-        await context.Companies.AddRangeAsync(companies);
+        await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
 
         // Act
@@ -114,10 +114,10 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task AddOrUpdateAsync_WhenCompanyDoesNotExist_ShouldAddNewCompany()
+    public async Task AddOrUpdateAsync_WhenSecurityDoesNotExist_ShouldAddNewSecurity()
     {
         // Arrange
-        var company = new Company
+        var security = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
@@ -125,7 +125,7 @@ public class CompanyRepositoryTests : IDisposable
         };
 
         // Act
-        var result = await sut.AddOrUpdateAsync(company);
+        var result = await sut.AddOrUpdateAsync(security);
 
         // Assert
         result.Should().NotBeNull();
@@ -134,26 +134,26 @@ public class CompanyRepositoryTests : IDisposable
         result.LastUpdated.Should().NotBeNull();
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
 
-        var savedCompany = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
-        savedCompany.Should().NotBeNull();
-        savedCompany!.CompanyName.Should().Be("Apple Inc.");
+        var savedSecurity = await context.Securities.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
+        savedSecurity.Should().NotBeNull();
+        savedSecurity!.CompanyName.Should().Be("Apple Inc.");
     }
 
     [Fact]
-    public async Task AddOrUpdateAsync_WhenCompanyExists_ShouldUpdateExistingCompany()
+    public async Task AddOrUpdateAsync_WhenSecurityExists_ShouldUpdateExistingSecurity()
     {
         // Arrange
-        var existingCompany = new Company
+        var existingSecurity = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Old Name",
             LastUpdated = DateTime.UtcNow.AddDays(-10)
         };
-        await context.Companies.AddAsync(existingCompany);
+        await context.Securities.AddAsync(existingSecurity);
         await context.SaveChangesAsync();
 
-        var updatedCompany = new Company
+        var updatedSecurity = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
@@ -161,7 +161,7 @@ public class CompanyRepositoryTests : IDisposable
         };
 
         // Act
-        var result = await sut.AddOrUpdateAsync(updatedCompany);
+        var result = await sut.AddOrUpdateAsync(updatedSecurity);
 
         // Assert
         result.Should().NotBeNull();
@@ -169,9 +169,9 @@ public class CompanyRepositoryTests : IDisposable
         result.CompanyName.Should().Be("Apple Inc.");
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
 
-        var allCompanies = await context.Companies.ToListAsync();
-        allCompanies.Should().HaveCount(1); // Should still be only one company
-        allCompanies.First().CompanyName.Should().Be("Apple Inc.");
+        var allSecurities = await context.Securities.ToListAsync();
+        allSecurities.Should().HaveCount(1); // Should still be only one security
+        allSecurities.First().CompanyName.Should().Be("Apple Inc.");
     }
 
     [Fact]
@@ -179,17 +179,17 @@ public class CompanyRepositoryTests : IDisposable
     {
         // Arrange
         var oldTimestamp = DateTime.UtcNow.AddDays(-30);
-        var existingCompany = new Company
+        var existingSecurity = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Old Name",
             LastUpdated = oldTimestamp
         };
-        await context.Companies.AddAsync(existingCompany);
+        await context.Securities.AddAsync(existingSecurity);
         await context.SaveChangesAsync();
 
-        var updatedCompany = new Company
+        var updatedSecurity = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
@@ -197,7 +197,7 @@ public class CompanyRepositoryTests : IDisposable
         };
 
         // Act
-        var result = await sut.AddOrUpdateAsync(updatedCompany);
+        var result = await sut.AddOrUpdateAsync(updatedSecurity);
 
         // Assert
         result.LastUpdated.Should().NotBe(oldTimestamp);
@@ -208,7 +208,7 @@ public class CompanyRepositoryTests : IDisposable
     public async Task AddOrUpdateAsync_WhenAdding_ShouldSetLastUpdatedTimestamp()
     {
         // Arrange
-        var company = new Company
+        var security = new Security
         {
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
@@ -217,7 +217,7 @@ public class CompanyRepositoryTests : IDisposable
         var beforeAdd = DateTime.UtcNow;
 
         // Act
-        var result = await sut.AddOrUpdateAsync(company);
+        var result = await sut.AddOrUpdateAsync(security);
         var afterAdd = DateTime.UtcNow;
 
         // Assert
@@ -227,17 +227,17 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenCompanyExists_ShouldDeleteAndReturnTrue()
+    public async Task DeleteAsync_WhenSecurityExists_ShouldDeleteAndReturnTrue()
     {
         // Arrange
-        var company = new Company
+        var security = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
         };
-        await context.Companies.AddAsync(company);
+        await context.Securities.AddAsync(security);
         await context.SaveChangesAsync();
 
         // Act
@@ -245,12 +245,12 @@ public class CompanyRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeTrue();
-        var deletedCompany = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
-        deletedCompany.Should().BeNull();
+        var deletedSecurity = await context.Securities.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
+        deletedSecurity.Should().BeNull();
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenCompanyDoesNotExist_ShouldReturnFalse()
+    public async Task DeleteAsync_WhenSecurityDoesNotExist_ShouldReturnFalse()
     {
         // Act
         var result = await sut.DeleteAsync("NONEXISTENT");
@@ -260,16 +260,16 @@ public class CompanyRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteAsync_ShouldNotAffectOtherCompanies()
+    public async Task DeleteAsync_ShouldNotAffectOtherSecurities()
     {
         // Arrange
-        var companies = new[]
+        var securities = new[]
         {
-            new Company { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Company { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", CompanyName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", CompanyName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", CompanyName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
-        await context.Companies.AddRangeAsync(companies);
+        await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
 
         // Act
@@ -277,23 +277,23 @@ public class CompanyRepositoryTests : IDisposable
 
         // Assert
         result.Should().BeTrue();
-        var remainingCompanies = await context.Companies.ToListAsync();
-        remainingCompanies.Should().HaveCount(2);
-        remainingCompanies.Select(c => c.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
+        var remainingSecurities = await context.Securities.ToListAsync();
+        remainingSecurities.Should().HaveCount(2);
+        remainingSecurities.Select(c => c.Ticker).Should().BeEquivalentTo(new[] { "AAPL", "MSFT" });
     }
 
     [Fact]
     public async Task GetByTickerAsync_ShouldBeCaseInsensitive()
     {
         // Arrange
-        var company = new Company
+        var security = new Security
         {
             Id = Guid.NewGuid(),
             Ticker = "AAPL",
             CompanyName = "Apple Inc.",
             LastUpdated = DateTime.UtcNow
         };
-        await context.Companies.AddAsync(company);
+        await context.Securities.AddAsync(security);
         await context.SaveChangesAsync();
 
         // Act
@@ -308,28 +308,28 @@ public class CompanyRepositoryTests : IDisposable
     public async Task AddOrUpdateAsync_WithMultipleUpdates_ShouldPersistLatestChanges()
     {
         // Arrange
-        var company = new Company
+        var security = new Security
         {
             Ticker = "AAPL",
             CompanyName = "First Name"
         };
-        await sut.AddOrUpdateAsync(company);
+        await sut.AddOrUpdateAsync(security);
 
         // Act
-        company.CompanyName = "Second Name";
-        await sut.AddOrUpdateAsync(company);
+        security.CompanyName = "Second Name";
+        await sut.AddOrUpdateAsync(security);
 
-        company.CompanyName = "Third Name";
-        var result = await sut.AddOrUpdateAsync(company);
+        security.CompanyName = "Third Name";
+        var result = await sut.AddOrUpdateAsync(security);
 
         // Assert
         result.CompanyName.Should().Be("Third Name");
-        var savedCompany = await context.Companies.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
-        savedCompany.Should().NotBeNull();
-        savedCompany!.CompanyName.Should().Be("Third Name");
+        var savedSecurity = await context.Securities.FirstOrDefaultAsync(c => c.Ticker == "AAPL");
+        savedSecurity.Should().NotBeNull();
+        savedSecurity!.CompanyName.Should().Be("Third Name");
 
-        var allCompanies = await context.Companies.ToListAsync();
-        allCompanies.Should().HaveCount(1);
+        var allSecurities = await context.Securities.ToListAsync();
+        allSecurities.Should().HaveCount(1);
     }
 }
 

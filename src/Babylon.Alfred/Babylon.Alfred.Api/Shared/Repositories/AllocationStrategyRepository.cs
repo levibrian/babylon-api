@@ -9,11 +9,11 @@ public class AllocationStrategyRepository(BabylonDbContext context) : IAllocatio
     public async Task<Dictionary<string, decimal>> GetTargetAllocationsByUserIdAsync(Guid userId)
     {
         var strategies = await context.AllocationStrategies
-            .Include(s => s.Company)
+            .Include(s => s.Security)
             .Where(s => s.UserId == userId)
             .ToListAsync();
 
-        return strategies.ToDictionary(s => s.Company.Ticker, s => s.TargetPercentage);
+        return strategies.ToDictionary(s => s.Security.Ticker, s => s.TargetPercentage);
     }
 
     public async Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategy> allocations)
@@ -23,11 +23,11 @@ public class AllocationStrategyRepository(BabylonDbContext context) : IAllocatio
             .Where(s => s.UserId == userId)
             .ToListAsync();
 
-        // Get CompanyIds from new allocations
-        var newCompanyIds = allocations.Select(a => a.CompanyId).ToHashSet();
+        // Get SecurityIds from new allocations
+        var newSecurityIds = allocations.Select(a => a.SecurityId).ToHashSet();
 
         // Delete strategies that are no longer in the new list
-        var toDelete = existingStrategies.Where(s => !newCompanyIds.Contains(s.CompanyId)).ToList();
+        var toDelete = existingStrategies.Where(s => !newSecurityIds.Contains(s.SecurityId)).ToList();
         if (toDelete.Any())
         {
             context.AllocationStrategies.RemoveRange(toDelete);
@@ -36,7 +36,7 @@ public class AllocationStrategyRepository(BabylonDbContext context) : IAllocatio
         // Update existing or add new
         foreach (var allocation in allocations)
         {
-            var existing = existingStrategies.FirstOrDefault(s => s.CompanyId == allocation.CompanyId);
+            var existing = existingStrategies.FirstOrDefault(s => s.SecurityId == allocation.SecurityId);
             if (existing != null)
             {
                 existing.TargetPercentage = allocation.TargetPercentage;
@@ -55,10 +55,10 @@ public class AllocationStrategyRepository(BabylonDbContext context) : IAllocatio
         await context.SaveChangesAsync();
     }
 
-    public async Task<List<Guid>> GetDistinctCompanyIdsAsync()
+    public async Task<List<Guid>> GetDistinctSecurityIdsAsync()
     {
         return await context.AllocationStrategies
-            .Select(s => s.CompanyId)
+            .Select(s => s.SecurityId)
             .Distinct()
             .ToListAsync();
     }

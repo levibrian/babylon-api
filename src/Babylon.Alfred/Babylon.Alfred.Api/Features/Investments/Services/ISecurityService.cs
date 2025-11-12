@@ -4,11 +4,12 @@ using Babylon.Alfred.Api.Shared.Data.Models;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
-public interface ICompanyService
+public interface ISecurityService
 {
     Task<IList<CompanyDto>> GetAllAsync();
     Task<CompanyDto?> GetByTickerAsync(string ticker);
-    Task<Company> CreateAsync(CreateCompanyRequest request);
-    Task<Company?> UpdateAsync(string ticker, UpdateCompanyRequest request);
+    Task<Security> CreateAsync(CreateCompanyRequest request);
+    Task<Security?> UpdateAsync(string ticker, UpdateCompanyRequest request);
     Task<bool> DeleteAsync(string ticker);
 }
+

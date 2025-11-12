@@ -1,6 +1,6 @@
 namespace Babylon.Alfred.Api.Shared.Data.Models;
 
-public class Company
+public class Security
 {
     public Guid Id { get; set; }
     public string Ticker { get; set; } = string.Empty;

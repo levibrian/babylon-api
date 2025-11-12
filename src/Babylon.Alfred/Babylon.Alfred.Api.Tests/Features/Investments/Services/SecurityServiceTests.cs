@@ -12,13 +12,13 @@ using Moq.AutoMock;
 
 namespace Babylon.Alfred.Api.Tests.Features.Investments.Services;
 
-public class CompanyServiceTests
+public class SecurityServiceTests
 {
     private readonly Fixture fixture = new();
     private readonly AutoMocker autoMocker = new();
-    private readonly CompanyService sut;
+    private readonly SecurityService sut;
 
-    public CompanyServiceTests()
+    public SecurityServiceTests()
     {
         // Configure AutoFixture to handle recursive types
         fixture.Behaviors.OfType<ThrowingRecursionBehavior>()
@@ -35,15 +35,15 @@ public class CompanyServiceTests
             return new DateOnly(year, month, day);
         }));
 
-        sut = autoMocker.CreateInstance<CompanyService>();
+        sut = autoMocker.CreateInstance<SecurityService>();
     }
 
     [Fact]
-    public async Task GetAllAsync_WhenCompaniesExist_ShouldReturnAllCompanies()
+    public async Task GetAllAsync_WhenSecuritiesExist_ShouldReturnAllSecurities()
     {
         // Arrange
-        var companies = fixture.CreateMany<Company>(3).ToList();
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetAllAsync()).ReturnsAsync(companies);
+        var securities = fixture.CreateMany<Security>(3).ToList();
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetAllAsync()).ReturnsAsync(securities);
 
         // Act
         var result = await sut.GetAllAsync();
@@ -51,65 +51,65 @@ public class CompanyServiceTests
         // Assert
         result.Should().HaveCount(3);
         result.Should().AllBeOfType<CompanyDto>();
-        result.Select(x => x.Ticker).Should().BeEquivalentTo(companies.Select(c => c.Ticker));
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetAllAsync(), Times.Once);
+        result.Select(x => x.Ticker).Should().BeEquivalentTo(securities.Select(c => c.Ticker));
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetAllAsync(), Times.Once);
     }
 
     [Fact]
-    public async Task GetAllAsync_WhenNoCompaniesExist_ShouldReturnEmptyList()
+    public async Task GetAllAsync_WhenNoSecuritiesExist_ShouldReturnEmptyList()
     {
         // Arrange
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetAllAsync()).ReturnsAsync(new List<Company>());
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetAllAsync()).ReturnsAsync(new List<Security>());
 
         // Act
         var result = await sut.GetAllAsync();
 
         // Assert
         result.Should().BeEmpty();
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetAllAsync(), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetAllAsync(), Times.Once);
     }
 
     [Fact]
-    public async Task GetByTickerAsync_WhenCompanyExists_ShouldReturnCompanyDto()
+    public async Task GetByTickerAsync_WhenSecurityExists_ShouldReturnSecurityDto()
     {
         // Arrange
-        var company = fixture.Create<Company>();
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetByTickerAsync(company.Ticker)).ReturnsAsync(company);
+        var security = fixture.Create<Security>();
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByTickerAsync(security.Ticker)).ReturnsAsync(security);
 
         // Act
-        var result = await sut.GetByTickerAsync(company.Ticker);
+        var result = await sut.GetByTickerAsync(security.Ticker);
 
         // Assert
         result.Should().NotBeNull();
-        result!.Ticker.Should().Be(company.Ticker);
-        result.CompanyName.Should().Be(company.CompanyName);
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetByTickerAsync(company.Ticker), Times.Once);
+        result!.Ticker.Should().Be(security.Ticker);
+        result.CompanyName.Should().Be(security.CompanyName);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(security.Ticker), Times.Once);
     }
 
     [Fact]
-    public async Task GetByTickerAsync_WhenCompanyDoesNotExist_ShouldThrowInvalidOperationException()
+    public async Task GetByTickerAsync_WhenSecurityDoesNotExist_ShouldThrowInvalidOperationException()
     {
         // Arrange
         var ticker = fixture.Create<string>();
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetByTickerAsync(ticker)).ReturnsAsync((Company?)null);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByTickerAsync(ticker)).ReturnsAsync((Security?)null);
 
         // Act
         Func<Task> act = async () => await sut.GetByTickerAsync(ticker);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Company provided not found in our internal database.");
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetByTickerAsync(ticker), Times.Once);
+            .WithMessage("Security provided not found in our internal database.");
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(ticker), Times.Once);
     }
 
     [Fact]
-    public async Task CreateAsync_WithValidRequest_ShouldCreateAndReturnCompany()
+    public async Task CreateAsync_WithValidRequest_ShouldCreateAndReturnSecurity()
     {
         // Arrange
         var request = fixture.Create<CreateCompanyRequest>();
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Company>()))
-            .ReturnsAsync((Company c) => c);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Security>()))
+            .ReturnsAsync((Security c) => c);
 
         // Act
         var result = await sut.CreateAsync(request);
@@ -120,8 +120,8 @@ public class CompanyServiceTests
         result.CompanyName.Should().Be(request.CompanyName);
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.AddOrUpdateAsync(
-            It.Is<Company>(c =>
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
+            It.Is<Security>(c =>
                 c.Ticker == request.Ticker &&
                 c.CompanyName == request.CompanyName &&
                 c.LastUpdated != null)),
@@ -135,9 +135,9 @@ public class CompanyServiceTests
         var request = fixture.Create<CreateCompanyRequest>();
         var beforeCreate = DateTime.UtcNow;
 
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Company>()))
-            .ReturnsAsync((Company c) => c);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Security>()))
+            .ReturnsAsync((Security c) => c);
 
         // Act
         var result = await sut.CreateAsync(request);
@@ -150,47 +150,47 @@ public class CompanyServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenCompanyExists_ShouldUpdateAndReturnCompany()
+    public async Task UpdateAsync_WhenSecurityExists_ShouldUpdateAndReturnSecurity()
     {
         // Arrange
-        var existingCompany = fixture.Build<Company>()
+        var existingSecurity = fixture.Build<Security>()
             .With(c => c.LastUpdated, DateTime.UtcNow.AddDays(-1))
             .Create();
         var request = fixture.Create<UpdateCompanyRequest>();
 
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetByTickerAsync(existingCompany.Ticker)).ReturnsAsync(existingCompany);
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Company>()))
-            .ReturnsAsync((Company c) => c);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByTickerAsync(existingSecurity.Ticker)).ReturnsAsync(existingSecurity);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Security>()))
+            .ReturnsAsync((Security c) => c);
 
         // Act
-        var result = await sut.UpdateAsync(existingCompany.Ticker, request);
+        var result = await sut.UpdateAsync(existingSecurity.Ticker, request);
 
         // Assert
         result.Should().NotBeNull();
-        result!.Ticker.Should().Be(existingCompany.Ticker);
+        result!.Ticker.Should().Be(existingSecurity.Ticker);
         result.CompanyName.Should().Be(request.CompanyName);
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetByTickerAsync(existingCompany.Ticker), Times.Once);
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.AddOrUpdateAsync(existingCompany), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(existingSecurity.Ticker), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(existingSecurity), Times.Once);
     }
 
     [Fact]
-    public async Task UpdateAsync_WhenCompanyDoesNotExist_ShouldReturnNull()
+    public async Task UpdateAsync_WhenSecurityDoesNotExist_ShouldReturnNull()
     {
         // Arrange
         var ticker = fixture.Create<string>();
         var request = fixture.Create<UpdateCompanyRequest>();
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetByTickerAsync(ticker)).ReturnsAsync((Company?)null);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByTickerAsync(ticker)).ReturnsAsync((Security?)null);
 
         // Act
         var result = await sut.UpdateAsync(ticker, request);
 
         // Assert
         result.Should().BeNull();
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetByTickerAsync(ticker), Times.Once);
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.AddOrUpdateAsync(It.IsAny<Company>()), Times.Never);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(ticker), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(It.IsAny<Security>()), Times.Never);
     }
 
     [Fact]
@@ -198,18 +198,18 @@ public class CompanyServiceTests
     {
         // Arrange
         var oldTimestamp = DateTime.UtcNow.AddDays(-10);
-        var existingCompany = fixture.Build<Company>()
+        var existingSecurity = fixture.Build<Security>()
             .With(c => c.LastUpdated, oldTimestamp)
             .Create();
         var request = fixture.Create<UpdateCompanyRequest>();
 
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.GetByTickerAsync(existingCompany.Ticker)).ReturnsAsync(existingCompany);
-        autoMocker.GetMock<ICompanyRepository>()
-            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Company>()))
-            .ReturnsAsync((Company c) => c);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByTickerAsync(existingSecurity.Ticker)).ReturnsAsync(existingSecurity);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Security>()))
+            .ReturnsAsync((Security c) => c);
 
         // Act
-        var result = await sut.UpdateAsync(existingCompany.Ticker, request);
+        var result = await sut.UpdateAsync(existingSecurity.Ticker, request);
 
         // Assert
         result.Should().NotBeNull();
@@ -218,32 +218,33 @@ public class CompanyServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenCompanyExists_ShouldReturnTrue()
+    public async Task DeleteAsync_WhenSecurityExists_ShouldReturnTrue()
     {
         // Arrange
         var ticker = fixture.Create<string>();
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.DeleteAsync(ticker)).ReturnsAsync(true);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.DeleteAsync(ticker)).ReturnsAsync(true);
 
         // Act
         var result = await sut.DeleteAsync(ticker);
 
         // Assert
         result.Should().BeTrue();
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.DeleteAsync(ticker), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.DeleteAsync(ticker), Times.Once);
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenCompanyDoesNotExist_ShouldReturnFalse()
+    public async Task DeleteAsync_WhenSecurityDoesNotExist_ShouldReturnFalse()
     {
         // Arrange
         var ticker = fixture.Create<string>();
-        autoMocker.GetMock<ICompanyRepository>().Setup(x => x.DeleteAsync(ticker)).ReturnsAsync(false);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.DeleteAsync(ticker)).ReturnsAsync(false);
 
         // Act
         var result = await sut.DeleteAsync(ticker);
 
         // Assert
         result.Should().BeFalse();
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.DeleteAsync(ticker), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.DeleteAsync(ticker), Times.Once);
     }
 }
+

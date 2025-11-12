@@ -153,41 +153,41 @@
 			]
 		},
 		{
-			"name": "Companies",
+			"name": "Securities",
 			"item": [
 				{
-					"name": "Get All Companies",
+					"name": "Get All Securities",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/companies",
+							"raw": "{{base_url}}/api/v1/securities",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"v1",
-								"companies"
+								"securities"
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Get Company by Ticker",
+					"name": "Get Security by Ticker",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/companies/NVDA",
+							"raw": "{{base_url}}/api/v1/securities/NVDA",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"v1",
-								"companies",
+								"securities",
 								"NVDA"
 							]
 						}
@@ -195,7 +195,7 @@
 					"response": []
 				},
 				{
-					"name": "Create Company",
+					"name": "Create Security",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -209,21 +209,21 @@
 							"raw": "{\n  \"ticker\": \"NVDA\",\n  \"companyName\": \"Nvidia Corporation\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/companies",
+							"raw": "{{base_url}}/api/v1/securities",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"v1",
-								"companies"
+								"securities"
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Update Company",
+					"name": "Update Security",
 					"request": {
 						"method": "PUT",
 						"header": [
@@ -237,14 +237,14 @@
 							"raw": "{\n  \"companyName\": \"NVIDIA Corporation\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/companies/NVDA",
+							"raw": "{{base_url}}/api/v1/securities/NVDA",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"v1",
-								"companies",
+								"securities",
 								"NVDA"
 							]
 						}
@@ -252,19 +252,19 @@
 					"response": []
 				},
 				{
-					"name": "Delete Company",
+					"name": "Delete Security",
 					"request": {
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/companies/NVDA",
+							"raw": "{{base_url}}/api/v1/securities/NVDA",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"v1",
-								"companies",
+								"securities",
 								"NVDA"
 							]
 						}
@@ -272,7 +272,7 @@
 					"response": []
 				},
 				{
-					"name": "Create All Companies - Bulk",
+					"name": "Create All Securities - Bulk",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -286,17 +286,17 @@
 							"raw": "[\n  { \"ticker\": \"NVDA\", \"companyName\": \"Nvidia Corporation\" },\n  { \"ticker\": \"MSFT\", \"companyName\": \"Microsoft Corporation\" },\n  { \"ticker\": \"GOOGL\", \"companyName\": \"Alphabet Inc (Google)\" },\n  { \"ticker\": \"V\", \"companyName\": \"Visa Inc\" },\n  { \"ticker\": \"AAPL\", \"companyName\": \"Apple Inc\" },\n  { \"ticker\": \"ADYEN\", \"companyName\": \"Adyen NV\" },\n  { \"ticker\": \"ASML\", \"companyName\": \"ASML Holding NV\" },\n  { \"ticker\": \"NOVO\", \"companyName\": \"Novo Nordisk A/S\" },\n  { \"ticker\": \"TSMC\", \"companyName\": \"Taiwan Semiconductor Manufacturing\" },\n  { \"ticker\": \"AMZN\", \"companyName\": \"Amazon.com Inc\" },\n  { \"ticker\": \"BYD\", \"companyName\": \"BYD Company Limited\" },\n  { \"ticker\": \"ENPH\", \"companyName\": \"Enphase Energy Inc\" },\n  { \"ticker\": \"NXTG\", \"companyName\": \"NextEra Energy Inc\" },\n  { \"ticker\": \"VRTV\", \"companyName\": \"Vertiv Holdings Co\" },\n  { \"ticker\": \"ISDE\", \"companyName\": \"iShares Edge World Momentum USD (Acc)\" },\n  { \"ticker\": \"QDVB\", \"companyName\": \"iShares USA Quality USD (Acc)\" },\n  { \"ticker\": \"IS3N\", \"companyName\": \"iShares Core MSCI World USD (Acc)\" },\n  { \"ticker\": \"PPFB.DE\", \"companyName\": \"iShares Physical Gold USD (Acc)\" },\n  { \"ticker\": \"BTC\", \"companyName\": \"Bitcoin\" },\n  { \"ticker\": \"ETH\", \"companyName\": \"Ethereum\" },\n  { \"ticker\": \"SOL\", \"companyName\": \"Solana\" }\n]"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/companies",
+							"raw": "{{base_url}}/api/v1/securities",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
 								"v1",
-								"companies"
+								"securities"
 							]
 						},
-						"description": "Note: You'll need to call this endpoint 21 times (once per company) or create a bulk endpoint"
+						"description": "Note: You'll need to call this endpoint 21 times (once per security) or create a bulk endpoint"
 					},
 					"response": []
 				}

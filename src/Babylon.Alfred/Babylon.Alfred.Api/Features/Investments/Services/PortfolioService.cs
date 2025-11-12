@@ -7,7 +7,7 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 
 public class PortfolioService(
     ITransactionRepository transactionRepository,
-    ICompanyRepository companyRepository,
+    ISecurityRepository securityRepository,
     IMarketPriceService marketPriceService,
     IAllocationStrategyService allocationStrategyService) : IPortfolioService
 {
@@ -25,8 +25,8 @@ public class PortfolioService(
             };
         }
 
-        // Group by CompanyId instead of Ticker
-        var groupedTransactions = transactions.GroupBy(t => t.CompanyId).ToList();
+        // Group by SecurityId instead of Ticker
+        var groupedTransactions = transactions.GroupBy(t => t.SecurityId).ToList();
         var positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId);
 
         var orderedPositions = positions
@@ -42,19 +42,19 @@ public class PortfolioService(
 
     /// <summary>
     /// Creates position DTOs from grouped transactions.
-    /// Fetches all companies, market prices, and allocation strategies, then processes everything in memory.
+    /// Fetches all securities, market prices, and allocation strategies, then processes everything in memory.
     /// </summary>
     private async Task<List<PortfolioPositionDto>> CreatePositionsAsync(
         List<IGrouping<Guid, Transaction>> groupedTransactions,
         Guid userId)
     {
-        // Fetch all companies by CompanyId
-        var companyIds = groupedTransactions.Select(g => g.Key).ToList();
-        var companies = await companyRepository.GetByIdsAsync(companyIds);
-        var companiesLookup = companies.ToDictionary(c => c.Id, c => c);
+        // Fetch all securities by SecurityId
+        var securityIds = groupedTransactions.Select(g => g.Key).ToList();
+        var securities = await securityRepository.GetByIdsAsync(securityIds);
+        var securitiesLookup = securities.ToDictionary(s => s.Id, s => s);
 
         // Get tickers for market price lookup
-        var tickers = companies.Select(c => c.Ticker).ToList();
+        var tickers = securities.Select(s => s.Ticker).ToList();
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
 
         // Fetch target allocations
@@ -63,9 +63,9 @@ public class PortfolioService(
         // Calculate total portfolio market value
         var totalPortfolioValue = groupedTransactions.Sum(group =>
         {
-            var companyId = group.Key;
-            var company = companiesLookup.GetValueOrDefault(companyId);
-            var ticker = company?.Ticker ?? string.Empty;
+            var securityId = group.Key;
+            var security = securitiesLookup.GetValueOrDefault(securityId);
+            var ticker = security?.Ticker ?? string.Empty;
             var positionTransactions = MapToTransactionDtos(group);
             var (totalShares, _) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
             var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
@@ -76,7 +76,7 @@ public class PortfolioService(
         return groupedTransactions
             .Select(group => CreatePosition(
                 group,
-                companiesLookup.GetValueOrDefault(group.Key),
+                securitiesLookup.GetValueOrDefault(group.Key),
                 marketPrices,
                 targetAllocations,
                 totalPortfolioValue))
@@ -84,16 +84,16 @@ public class PortfolioService(
     }
 
     /// <summary>
-    /// Creates a single position DTO from a group of transactions, company information, market prices, and allocation data.
+    /// Creates a single position DTO from a group of transactions, security information, market prices, and allocation data.
     /// </summary>
     private static PortfolioPositionDto CreatePosition(
         IGrouping<Guid, Transaction> transactionGroup,
-        Company? company,
+        Security? security,
         Dictionary<string, decimal> marketPrices,
         Dictionary<string, decimal> targetAllocations,
         decimal totalPortfolioValue)
     {
-        var ticker = company?.Ticker ?? string.Empty;
+        var ticker = security?.Ticker ?? string.Empty;
         var positionTransactions = MapToTransactionDtos(transactionGroup);
         var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
         var totalInvested = transactionGroup.Sum(t => t.TotalAmount);
@@ -131,7 +131,7 @@ public class PortfolioService(
         return new PortfolioPositionDto
         {
             Ticker = ticker,
-            CompanyName = company?.CompanyName ?? ticker,
+            CompanyName = security?.CompanyName ?? ticker,
             TotalInvested = totalInvested,
             TotalShares = totalShares,
             AverageSharePrice = averageSharePrice,

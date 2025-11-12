@@ -88,13 +88,13 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var company = fixture.Build<Company>()
+        var company = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.SecurityName, "Apple Inc.")
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, company.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -105,13 +105,13 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(company.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(company.Id))
                 {
                     result.Add(company);
                 }
@@ -125,7 +125,7 @@ public class PortfolioServiceTests
         result.Should().NotBeNull();
         result.Positions.Should().HaveCount(1);
         result.Positions.First().Ticker.Should().Be("AAPL");
-        result.Positions.First().CompanyName.Should().Be("Apple Inc.");
+        result.Positions.First().SecurityName.Should().Be("Apple Inc.");
         result.Positions.First().TotalInvested.Should().Be(transaction.TotalAmount);
         result.Positions.First().Transactions.Should().HaveCount(1);
         result.TotalInvested.Should().Be(transaction.TotalAmount);
@@ -136,13 +136,13 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var company = fixture.Build<Company>()
+        var company = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.SecurityName, "Apple Inc.")
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction1 = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, company.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -150,7 +150,7 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var transaction2 = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, company.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
@@ -162,13 +162,13 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(company.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(company.Id))
                 {
                     result.Add(company);
                 }
@@ -192,25 +192,25 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var companyApple = fixture.Build<Company>()
+        var securityApple = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.SecurityName, "Apple Inc.")
             .With(c => c.Id, Guid.NewGuid())
             .Create();
-        var companyGoogle = fixture.Build<Company>()
+        var securityGoogle = fixture.Build<Security>()
             .With(c => c.Ticker, "GOOGL")
-            .With(c => c.CompanyName, "Alphabet Inc.")
+            .With(c => c.SecurityName, "Alphabet Inc.")
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transactionApple = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyApple.Id)
+            .With(t => t.SecurityId, securityApple.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
             .With(t => t.UserId, userId)
             .Create();
         var transactionGoogle = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyGoogle.Id)
+            .With(t => t.SecurityId, securityGoogle.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m)
@@ -221,19 +221,19 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(companyApple.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(securityApple.Id))
                 {
-                    result.Add(companyApple);
+                    result.Add(securityApple);
                 }
-                if (companyIdList.Contains(companyGoogle.Id))
+                if (securityIdList.Contains(securityGoogle.Id))
                 {
-                    result.Add(companyGoogle);
+                    result.Add(securityGoogle);
                 }
                 return result;
             });
@@ -244,19 +244,19 @@ public class PortfolioServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Positions.Should().HaveCount(2);
-        result.Positions.Should().Contain(p => p.Ticker == "AAPL" && p.CompanyName == "Apple Inc.");
-        result.Positions.Should().Contain(p => p.Ticker == "GOOGL" && p.CompanyName == "Alphabet Inc.");
+        result.Positions.Should().Contain(p => p.Ticker == "AAPL" && p.SecurityName == "Apple Inc.");
+        result.Positions.Should().Contain(p => p.Ticker == "GOOGL" && p.SecurityName == "Alphabet Inc.");
         result.TotalInvested.Should().Be(transactionApple.TotalAmount + transactionGoogle.TotalAmount);
     }
 
     [Fact]
-    public async Task GetPortfolio_WhenCompanyNotFound_ShouldUseFallbackTickerAsCompanyName()
+    public async Task GetPortfolio_WhenSecurityNotFound_ShouldUseFallbackTickerAsSecurityName()
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
+        var securityId = Guid.NewGuid();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyId)
+            .With(t => t.SecurityId, securityId)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 5m)
@@ -267,9 +267,9 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync(new List<Company>()); // Empty list = company not found
+            .ReturnsAsync(new List<Security>()); // Empty list = company not found
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -278,7 +278,7 @@ public class PortfolioServiceTests
         result.Should().NotBeNull();
         result.Positions.Should().HaveCount(1);
         result.Positions.First().Ticker.Should().BeEmpty(); // No company found, so ticker is empty
-        result.Positions.First().CompanyName.Should().BeEmpty(); // Fallback to empty string
+        result.Positions.First().SecurityName.Should().BeEmpty(); // Fallback to empty string
     }
 
     [Fact]
@@ -286,25 +286,25 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var companySmall = fixture.Build<Company>().With(c => c.Ticker, "SMALL").With(c => c.Id, Guid.NewGuid()).Create();
-        var companyLarge = fixture.Build<Company>().With(c => c.Ticker, "LARGE").With(c => c.Id, Guid.NewGuid()).Create();
-        var companyMedium = fixture.Build<Company>().With(c => c.Ticker, "MEDIUM").With(c => c.Id, Guid.NewGuid()).Create();
+        var securitySmall = fixture.Build<Security>().With(c => c.Ticker, "SMALL").With(c => c.Id, Guid.NewGuid()).Create();
+        var securityLarge = fixture.Build<Security>().With(c => c.Ticker, "LARGE").With(c => c.Id, Guid.NewGuid()).Create();
+        var securityMedium = fixture.Build<Security>().With(c => c.Ticker, "MEDIUM").With(c => c.Id, Guid.NewGuid()).Create();
         var transactionSmall = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companySmall.Id)
+            .With(t => t.SecurityId, securitySmall.Id)
             .With(t => t.SharesQuantity, 1m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 1m)
             .With(t => t.UserId, userId)
             .Create();
         var transactionLarge = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyLarge.Id)
+            .With(t => t.SecurityId, securityLarge.Id)
             .With(t => t.SharesQuantity, 100m)
             .With(t => t.SharePrice, 1000m)
             .With(t => t.Fees, 50m)
             .With(t => t.UserId, userId)
             .Create();
         var transactionMedium = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyMedium.Id)
+            .With(t => t.SecurityId, securityMedium.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 500m)
             .With(t => t.Fees, 10m)
@@ -315,23 +315,23 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(companySmall.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(securitySmall.Id))
                 {
-                    result.Add(companySmall);
+                    result.Add(securitySmall);
                 }
-                if (companyIdList.Contains(companyLarge.Id))
+                if (securityIdList.Contains(securityLarge.Id))
                 {
-                    result.Add(companyLarge);
+                    result.Add(securityLarge);
                 }
-                if (companyIdList.Contains(companyMedium.Id))
+                if (securityIdList.Contains(securityMedium.Id))
                 {
-                    result.Add(companyMedium);
+                    result.Add(securityMedium);
                 }
                 return result;
             });
@@ -353,9 +353,9 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var company = fixture.Build<Company>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
+        var company = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
         var oldTransaction = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, company.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -363,7 +363,7 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var newTransaction = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, company.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
@@ -371,7 +371,7 @@ public class PortfolioServiceTests
             .With(t => t.UserId, userId)
             .Create();
         var middleTransaction = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, company.Id)
             .With(t => t.SharesQuantity, 7m)
             .With(t => t.SharePrice, 155m)
             .With(t => t.Fees, 4m)
@@ -383,13 +383,13 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(company.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(company.Id))
                 {
                     result.Add(company);
                 }
@@ -416,15 +416,15 @@ public class PortfolioServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var transactionId = Guid.NewGuid();
-        var company = fixture.Build<Company>()
+        var company = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
-            .With(c => c.CompanyName, "Apple Inc.")
+            .With(c => c.SecurityName, "Apple Inc.")
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = new Transaction
         {
             Id = transactionId,
-            CompanyId = company.Id,
+            SecurityId = company.Id,
             TransactionType = TransactionType.Buy,
             Date = new DateTime(2025, 1, 15),
             SharesQuantity = 10m,
@@ -437,13 +437,13 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(company.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(company.Id))
                 {
                     result.Add(company);
                 }
@@ -470,17 +470,17 @@ public class PortfolioServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var companyApple = fixture.Build<Company>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
-        var companyGoogle = fixture.Build<Company>().With(c => c.Ticker, "GOOGL").With(c => c.Id, Guid.NewGuid()).Create();
+        var securityApple = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
+        var securityGoogle = fixture.Build<Security>().With(c => c.Ticker, "GOOGL").With(c => c.Id, Guid.NewGuid()).Create();
         var transaction1 = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyApple.Id)
+            .With(t => t.SecurityId, securityApple.Id)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m) // TotalAmount = 1505
             .With(t => t.UserId, userId)
             .Create();
         var transaction2 = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, companyGoogle.Id)
+            .With(t => t.SecurityId, securityGoogle.Id)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m) // TotalAmount = 14010
@@ -491,19 +491,19 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> companyIds) =>
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
             {
-                var companyIdList = companyIds.ToList();
-                var result = new List<Company>();
-                if (companyIdList.Contains(companyApple.Id))
+                var securityIdList = securityIds.ToList();
+                var result = new List<Security>();
+                if (securityIdList.Contains(securityApple.Id))
                 {
-                    result.Add(companyApple);
+                    result.Add(securityApple);
                 }
-                if (companyIdList.Contains(companyGoogle.Id))
+                if (securityIdList.Contains(securityGoogle.Id))
                 {
-                    result.Add(companyGoogle);
+                    result.Add(securityGoogle);
                 }
                 return result;
             });

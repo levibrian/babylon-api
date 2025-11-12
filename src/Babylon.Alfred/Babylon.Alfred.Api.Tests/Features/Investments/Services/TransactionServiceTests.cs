@@ -45,17 +45,17 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 100m)
             .With(r => r.Fees, 5m)
             .Create();
-        var company = fixture.Build<Company>()
+        var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.CompanyId, company.Id)
+            .With(t => t.SecurityId, security.Id)
             .Create();
 
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
-            .ReturnsAsync(company);
+            .ReturnsAsync(security);
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.Add(It.IsAny<Transaction>()))
             .ReturnsAsync(transaction);
@@ -66,7 +66,7 @@ public class TransactionServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Should().Be(transaction);
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetByTickerAsync(request.Ticker), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(request.Ticker), Times.Once);
         autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Add(It.IsAny<Transaction>()), Times.Once);
     }
 
@@ -193,7 +193,7 @@ public class TransactionServiceTests
     }
 
     [Fact]
-    public async Task Create_WhenCompanyNotFound_ShouldThrowInvalidOperationException()
+    public async Task Create_WhenSecurityNotFound_ShouldThrowInvalidOperationException()
     {
         // Arrange
         var request = fixture.Build<CreateTransactionRequest>()
@@ -201,17 +201,17 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 100m)
             .Create();
 
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
-            .ReturnsAsync((Company?)null);
+            .ReturnsAsync((Security?)null);
 
         // Act
         Func<Task> act = async () => await sut.Create(request);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Company provided not found in our internal database.");
-        autoMocker.GetMock<ICompanyRepository>().Verify(x => x.GetByTickerAsync(request.Ticker), Times.Once);
+            .WithMessage("Security provided not found in our internal database.");
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(request.Ticker), Times.Once);
         autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Add(It.IsAny<Transaction>()), Times.Never);
     }
 
@@ -224,14 +224,14 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 100m)
             .With(r => r.UserId, (Guid?)null)
             .Create();
-        var company = fixture.Build<Company>()
+        var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create();
 
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
-            .ReturnsAsync(company);
+            .ReturnsAsync(security);
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.Add(It.IsAny<Transaction>()))
             .ReturnsAsync((Transaction t) => t);
@@ -254,15 +254,15 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 100m)
             .With(r => r.Date, (DateOnly?)null)
             .Create();
-        var company = fixture.Build<Company>()
+        var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         var beforeCreate = DateTime.UtcNow;
 
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
-            .ReturnsAsync(company);
+            .ReturnsAsync(security);
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.Add(It.IsAny<Transaction>()))
             .ReturnsAsync((Transaction t) => t);
@@ -289,17 +289,17 @@ public class TransactionServiceTests
             .CreateMany(5)
             .ToList();
 
-        // Mock companies for bulk create
-        var companies = requests.Select(r => fixture.Build<Company>()
+        // Mock securities for bulk create
+        var securities = requests.Select(r => fixture.Build<Security>()
             .With(c => c.Ticker, r.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create()).ToList();
         
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync((IEnumerable<string> tickers) =>
             {
-                return companies.Where(c => tickers.Contains(c.Ticker))
+                return securities.Where(c => tickers.Contains(c.Ticker))
                     .ToDictionary(c => c.Ticker, c => c);
             });
 
@@ -357,17 +357,17 @@ public class TransactionServiceTests
             .Create();
         var requests = new List<CreateTransactionRequest> { request };
 
-        // Mock company for bulk create
-        var company = fixture.Build<Company>()
+        // Mock security for bulk create
+        var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create();
         
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync((IEnumerable<string> tickers) =>
             {
-                return new Dictionary<string, Company> { { request.Ticker, company } };
+                return new Dictionary<string, Security> { { request.Ticker, security } };
             });
 
         autoMocker.GetMock<ITransactionRepository>()
@@ -379,7 +379,7 @@ public class TransactionServiceTests
 
         // Assert
         var transaction = result.First();
-        transaction.CompanyId.Should().Be(company.Id);
+        transaction.SecurityId.Should().Be(security.Id);
         transaction.TransactionType.Should().Be(TransactionType.Buy);
         transaction.SharesQuantity.Should().Be(10m);
         transaction.SharePrice.Should().Be(150m);
@@ -399,17 +399,17 @@ public class TransactionServiceTests
             .CreateMany(3)
             .ToList();
 
-        // Mock companies for bulk create
-        var companies = requests.Select(r => fixture.Build<Company>()
+        // Mock securities for bulk create
+        var securities = requests.Select(r => fixture.Build<Security>()
             .With(c => c.Ticker, r.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create()).ToList();
         
-        autoMocker.GetMock<ICompanyRepository>()
+        autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync((IEnumerable<string> tickers) =>
             {
-                return companies.Where(c => tickers.Contains(c.Ticker))
+                return securities.Where(c => tickers.Contains(c.Ticker))
                     .ToDictionary(c => c.Ticker, c => c);
             });
 
