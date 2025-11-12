@@ -5,27 +5,15 @@ using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
-public class PortfolioInsightsService : IPortfolioInsightsService
+public class PortfolioInsightsService(
+    ITransactionRepository transactionRepository,
+    IMarketPriceService marketPriceService,
+    IAllocationStrategyService allocationStrategyService,
+    ICompanyRepository companyRepository,
+    ILogger<PortfolioInsightsService> logger)
+    : IPortfolioInsightsService
 {
-    private readonly ITransactionRepository _transactionRepository;
-    private readonly IMarketPriceService _marketPriceService;
-    private readonly IAllocationStrategyService _allocationStrategyService;
-    private readonly ICompanyRepository _companyRepository;
-    private readonly ILogger<PortfolioInsightsService> _logger;
-
-    public PortfolioInsightsService(
-        ITransactionRepository transactionRepository,
-        IMarketPriceService marketPriceService,
-        IAllocationStrategyService allocationStrategyService,
-        ICompanyRepository companyRepository,
-        ILogger<PortfolioInsightsService> logger)
-    {
-        _transactionRepository = transactionRepository;
-        _marketPriceService = marketPriceService;
-        _allocationStrategyService = allocationStrategyService;
-        _companyRepository = companyRepository;
-        _logger = logger;
-    }
+    private readonly ILogger<PortfolioInsightsService> _logger = logger;
 
     public async Task<List<PortfolioInsightDto>> GetTopInsightsAsync(Guid userId, int count = 5)
     {
@@ -52,14 +40,14 @@ public class PortfolioInsightsService : IPortfolioInsightsService
         var insights = new List<PortfolioInsightDto>();
 
         // Get transactions and calculate portfolio
-        var transactions = (await _transactionRepository.GetOpenPositionsByUser(userId)).ToList();
+        var transactions = (await transactionRepository.GetOpenPositionsByUser(userId)).ToList();
         if (transactions.Count == 0)
         {
             return insights;
         }
 
         // Get target allocations
-        var targetAllocations = await _allocationStrategyService.GetTargetAllocationsAsync(userId);
+        var targetAllocations = await allocationStrategyService.GetTargetAllocationsAsync(userId);
         if (targetAllocations.Count == 0)
         {
             return insights; // No allocation strategy set
@@ -67,12 +55,12 @@ public class PortfolioInsightsService : IPortfolioInsightsService
 
         // Load companies for transactions
         var companyIds = transactions.Select(t => t.CompanyId).Distinct().ToList();
-        var companies = await _companyRepository.GetByIdsAsync(companyIds);
+        var companies = await companyRepository.GetByIdsAsync(companyIds);
         var companiesLookup = companies.ToDictionary(c => c.Id, c => c);
 
         // Get market prices for all positions
         var tickers = companies.Select(c => c.Ticker).Distinct().ToList();
-        var marketPrices = await _marketPriceService.GetCurrentPricesAsync(tickers);
+        var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
         var tickerByCompanyId = companies.ToDictionary(c => c.Id, c => c.Ticker);
 
         // Calculate total portfolio market value

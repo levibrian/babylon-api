@@ -4,15 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
-public class MarketPriceRepository : IMarketPriceRepository
+public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepository
 {
-    private readonly BabylonDbContext context;
-
-    public MarketPriceRepository(BabylonDbContext context)
-    {
-        this.context = context;
-    }
-
     public async Task<MarketPrice?> GetByTickerAsync(string ticker)
     {
         return await context.MarketPrices

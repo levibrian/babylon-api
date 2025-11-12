@@ -4,15 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
-public class CompanyRepository : ICompanyRepository
+public class CompanyRepository(BabylonDbContext context) : ICompanyRepository
 {
-    private readonly BabylonDbContext context;
-
-    public CompanyRepository(BabylonDbContext context)
-    {
-        this.context = context;
-    }
-
     public async Task<Company?> GetByTickerAsync(string ticker)
     {
         return await context.Companies.FirstOrDefaultAsync(c => c.Ticker == ticker);

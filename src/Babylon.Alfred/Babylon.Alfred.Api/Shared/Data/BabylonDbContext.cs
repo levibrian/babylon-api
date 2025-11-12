@@ -4,18 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Babylon.Alfred.Api.Shared.Data;
 
-public class BabylonDbContext : DbContext
+public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbContext(options)
 {
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Company> Companies { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<AllocationStrategy> AllocationStrategies { get; set; }
     public DbSet<MarketPrice> MarketPrices { get; set; }
-
-    public BabylonDbContext(DbContextOptions<BabylonDbContext> options)
-        : base(options)
-    {
-    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

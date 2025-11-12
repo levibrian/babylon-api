@@ -4,15 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
-public class AllocationStrategyRepository : IAllocationStrategyRepository
+public class AllocationStrategyRepository(BabylonDbContext context) : IAllocationStrategyRepository
 {
-    private readonly BabylonDbContext context;
-
-    public AllocationStrategyRepository(BabylonDbContext context)
-    {
-        this.context = context;
-    }
-
     public async Task<Dictionary<string, decimal>> GetTargetAllocationsByUserIdAsync(Guid userId)
     {
         var strategies = await context.AllocationStrategies
