@@ -5,11 +5,14 @@ namespace Babylon.Alfred.Worker.Services;
 
 public class PriceFetchingService(
     IMarketPriceRepository marketPriceRepository,
-    AlphaVantageService alphaVantageService,
+    YahooFinanceService yahooFinanceService,
     ILogger<PriceFetchingService> logger)
 {
-    private const int MaxApiCallsPerRun = 5;
-    private const int DelayBetweenCallsSeconds = 12; // 5 calls per minute = 12 seconds between calls
+    // Yahoo Finance is much more generous - can handle hundreds of requests per hour
+    // Setting a conservative limit of 100 calls per run to avoid any potential issues
+    private const int MaxApiCallsPerRun = 100;
+    // Small delay to be respectful (200ms between calls = ~300 calls/minute max)
+    private const int DelayBetweenCallsMilliseconds = 200;
     private static readonly TimeSpan MaxPriceAge = TimeSpan.FromMinutes(15);
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
@@ -47,8 +50,8 @@ public class PriceFetchingService(
                     break;
                 }
 
-                // Fetch price from Alpha Vantage
-                var price = await alphaVantageService.GetCurrentPriceAsync(ticker);
+                // Fetch price from Yahoo Finance
+                var price = await yahooFinanceService.GetCurrentPriceAsync(ticker);
 
                 if (price.HasValue)
                 {
@@ -62,12 +65,11 @@ public class PriceFetchingService(
                     logger.LogWarning("Failed to fetch price for {Ticker}. Will retry in next run", ticker);
                 }
 
-                // Wait before next call (except for the last one)
+                // Small delay to be respectful (except for the last one)
                 tickerIndex++;
                 if (apiCallsMade < MaxApiCallsPerRun && tickerIndex < tickersNeedingUpdate.Count)
                 {
-                    logger.LogDebug("Waiting {Delay} seconds before next API call...", DelayBetweenCallsSeconds);
-                    await Task.Delay(TimeSpan.FromSeconds(DelayBetweenCallsSeconds), cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(DelayBetweenCallsMilliseconds), cancellationToken);
                 }
             }
 

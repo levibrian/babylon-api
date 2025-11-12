@@ -22,8 +22,8 @@ builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepo
 builder.Services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
 
 // Register services
-builder.Services.AddHttpClient<AlphaVantageService>();
-builder.Services.AddScoped<AlphaVantageService>();
+builder.Services.AddHttpClient<YahooFinanceService>();
+builder.Services.AddScoped<YahooFinanceService>();
 builder.Services.AddScoped<PriceFetchingService>();
 
 // Register jobs
