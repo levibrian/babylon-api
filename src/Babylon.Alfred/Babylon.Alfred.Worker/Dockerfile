@@ -5,14 +5,14 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy csproj files and restore dependencies
-COPY ["src/Babylon.Alfred/Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj", "src/Babylon.Alfred/Babylon.Alfred.Worker/"]
-COPY ["src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "src/Babylon.Alfred/Babylon.Alfred.Api/"]
+COPY ["Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj", "Babylon.Alfred.Worker/"]
+COPY ["Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "Babylon.Alfred.Api/"]
 
-RUN dotnet restore "src/Babylon.Alfred/Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj"
+RUN dotnet restore "Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj"
 
 # Copy everything else and build
 COPY . .
-WORKDIR "/src/src/Babylon.Alfred/Babylon.Alfred.Worker"
+WORKDIR "/src/Babylon.Alfred.Worker"
 RUN dotnet build "Babylon.Alfred.Worker.csproj" -c Release -o /app/build
 
 FROM build AS publish
