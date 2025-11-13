@@ -67,6 +67,14 @@ public class PriceFetchingService(
                         logger.LogWarning("Failed to fetch price for {Ticker}. Will retry in next run", ticker);
                     }
                 }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("Ticker not found"))
+                {
+                    // Ticker not found - mark it with a far-future timestamp so it won't be retried
+                    await marketPriceRepository.MarkTickerAsNotFoundAsync(ticker);
+                    logger.LogWarning("Ticker {Ticker} not found in Yahoo Finance. Marking as invalid and skipping future attempts.", ticker);
+                    // Don't increment apiCallsMade since this wasn't a successful call
+                    // The ticker will be skipped in future runs because of the far-future timestamp
+                }
                 catch (InvalidOperationException ex) when (ex.Message.Contains("rate limited"))
                 {
                     // Yahoo Finance rate limited us - stop immediately and wait for next run

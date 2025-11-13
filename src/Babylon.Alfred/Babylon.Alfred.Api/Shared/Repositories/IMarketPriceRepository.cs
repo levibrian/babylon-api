@@ -7,6 +7,7 @@ public interface IMarketPriceRepository
     Task<MarketPrice?> GetByTickerAsync(string ticker);
     Task<Dictionary<string, MarketPrice>> GetByTickersAsync(IEnumerable<string> tickers);
     Task UpsertMarketPriceAsync(string ticker, decimal price);
+    Task MarkTickerAsNotFoundAsync(string ticker);
     Task<List<string>> GetTickersNeedingUpdateAsync(TimeSpan maxAge);
 }
 
