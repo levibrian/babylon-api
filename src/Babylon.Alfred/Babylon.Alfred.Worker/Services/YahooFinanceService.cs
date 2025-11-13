@@ -15,9 +15,14 @@ public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceServ
             logger.LogInformation("Fetching price for {Ticker} from Yahoo Finance at {Timestamp}", ticker, DateTime.UtcNow);
 
             var response = await httpClient.GetAsync(url);
-            
+
             if (!response.IsSuccessStatusCode)
             {
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    logger.LogWarning("Yahoo Finance API rate limited (429 TooManyRequests) for {Ticker}. Need to slow down requests.", ticker);
+                    throw new InvalidOperationException("Yahoo Finance rate limited - too many requests");
+                }
                 logger.LogWarning("Yahoo Finance API returned {StatusCode} for {Ticker}", response.StatusCode, ticker);
                 return null;
             }
@@ -31,7 +36,7 @@ public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceServ
                 if (chart.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Array && result.GetArrayLength() > 0)
                 {
                     var firstResult = result[0];
-                    
+
                     // Get price from meta.previousClose (previous day's closing price)
                     // This is appropriate for portfolio balance calculations as it uses stable end-of-day prices
                     if (firstResult.TryGetProperty("meta", out var meta))
@@ -45,7 +50,7 @@ public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceServ
                                 return price;
                             }
                         }
-                        
+
                         // Fallback to regularMarketPrice if previousClose is not available
                         if (meta.TryGetProperty("regularMarketPrice", out var priceElement))
                         {
@@ -55,12 +60,12 @@ public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceServ
                                 return price;
                             }
                         }
-                        
+
                         logger.LogWarning("No price data available for {Ticker}. previousClose and regularMarketPrice both unavailable.", ticker);
                         return null;
                     }
                 }
-                
+
                 // Check for error in chart
                 if (chart.TryGetProperty("error", out var error))
                 {
