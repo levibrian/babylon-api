@@ -6,19 +6,58 @@ namespace Babylon.Alfred.Worker.Services;
 public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceService> logger)
 {
     private const string BaseUrl = "https://query1.finance.yahoo.com/v8/finance/chart";
+    private static bool _sessionInitialized;
+    private static readonly SemaphoreSlim InitLock = new(1, 1);
+
+    private async Task EnsureSessionInitializedAsync()
+    {
+        if (_sessionInitialized) return;
+
+        await InitLock.WaitAsync();
+        try
+        {
+            if (_sessionInitialized) return;
+
+            // Make an initial request to Yahoo Finance homepage to establish cookies/session
+            // This mimics what yfinance does - establishing a session before API calls
+            logger.LogInformation("Initializing Yahoo Finance session...");
+            var initRequest = new HttpRequestMessage(HttpMethod.Get, "https://finance.yahoo.com/");
+            await httpClient.SendAsync(initRequest);
+            _sessionInitialized = true;
+            logger.LogInformation("Yahoo Finance session initialized");
+        }
+        finally
+        {
+            InitLock.Release();
+        }
+    }
 
     public async Task<decimal?> GetCurrentPriceAsync(string ticker)
     {
         try
         {
-            var url = $"{BaseUrl}/{ticker}";
+            // Ensure session is initialized (like yfinance does)
+            await EnsureSessionInitializedAsync();
+
+            // Add query parameters that browsers typically send
+            var url = $"{BaseUrl}/{ticker}?interval=1d&range=1d";
             logger.LogInformation("Fetching price for {Ticker} from Yahoo Finance at {Timestamp}", ticker, DateTime.UtcNow);
 
-            var response = await httpClient.GetAsync(url);
+            // Use HttpRequestMessage for more control over the request
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            var response = await httpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Yahoo Finance API returned {StatusCode} for {Ticker}", response.StatusCode, ticker);
+                var errorContent = await response.Content.ReadAsStringAsync();
+                logger.LogWarning("Yahoo Finance API returned {StatusCode} for {Ticker}. Response: {Response}",
+                    response.StatusCode, ticker, errorContent.Substring(0, Math.Min(500, errorContent.Length)));
+
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    logger.LogError("Rate limited by Yahoo Finance. This may indicate bot detection.");
+                }
+
                 return null;
             }
 

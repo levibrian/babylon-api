@@ -1,5 +1,6 @@
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Repositories;
+using Babylon.Alfred.Worker.Extensions;
 using Babylon.Alfred.Worker.Jobs;
 using Babylon.Alfred.Worker.Services;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,7 @@ builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepo
 builder.Services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
 
 // Register services
-builder.Services.AddHttpClient<YahooFinanceService>();
+builder.Services.ConfigureYahooClient();
 builder.Services.AddScoped<YahooFinanceService>();
 builder.Services.AddScoped<PriceFetchingService>();
 
