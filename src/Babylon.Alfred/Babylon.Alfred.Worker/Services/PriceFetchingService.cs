@@ -11,8 +11,8 @@ public class PriceFetchingService(
     // Yahoo Finance is much more generous - can handle hundreds of requests per hour
     // Setting a conservative limit of 100 calls per run to avoid any potential issues
     private const int MaxApiCallsPerRun = 100;
-    // Small delay to be respectful (200ms between calls = ~300 calls/minute max)
-    private const int DelayBetweenCallsMilliseconds = 200;
+    // Delay of 3 seconds between calls to give Yahoo Finance API time to recover from concurrent calls
+    private const int DelayBetweenCallsSeconds = 3;
     private static readonly TimeSpan MaxPriceAge = TimeSpan.FromMinutes(15);
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
@@ -65,11 +65,12 @@ public class PriceFetchingService(
                     logger.LogWarning("Failed to fetch price for {Ticker}. Will retry in next run", ticker);
                 }
 
-                // Small delay to be respectful (except for the last one)
+                // Delay of 3 seconds between calls to give Yahoo Finance API time to recover (except for the last one)
                 tickerIndex++;
                 if (apiCallsMade < MaxApiCallsPerRun && tickerIndex < tickersNeedingUpdate.Count)
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(DelayBetweenCallsMilliseconds), cancellationToken);
+                    logger.LogDebug("Waiting {Delay} seconds before next API call...", DelayBetweenCallsSeconds);
+                    await Task.Delay(TimeSpan.FromSeconds(DelayBetweenCallsSeconds), cancellationToken);
                 }
             }
 
