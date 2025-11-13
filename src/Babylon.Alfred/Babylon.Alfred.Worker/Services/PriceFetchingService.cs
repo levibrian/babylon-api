@@ -8,11 +8,11 @@ public class PriceFetchingService(
     YahooFinanceService yahooFinanceService,
     ILogger<PriceFetchingService> logger)
 {
-    // Yahoo Finance is much more generous - can handle hundreds of requests per hour
-    // Setting a conservative limit of 100 calls per run to avoid any potential issues
-    private const int MaxApiCallsPerRun = 100;
-    // Delay of 3 seconds between calls to give Yahoo Finance API time to recover from concurrent calls
-    private const int DelayBetweenCallsSeconds = 3;
+    // Yahoo Finance rate limiting - be very conservative
+    // Reduced to 10 calls per run to avoid rate limiting
+    private const int MaxApiCallsPerRun = 10;
+    // Increased delay to 10 seconds between calls to avoid rate limiting
+    private const int DelayBetweenCallsSeconds = 10;
     private static readonly TimeSpan MaxPriceAge = TimeSpan.FromMinutes(15);
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
@@ -51,21 +51,38 @@ public class PriceFetchingService(
                 }
 
                 // Fetch price from Yahoo Finance
-                var price = await yahooFinanceService.GetCurrentPriceAsync(ticker);
-
-                if (price.HasValue)
+                try
                 {
-                    // Upsert the price in database
-                    await marketPriceRepository.UpsertMarketPriceAsync(ticker, price.Value);
-                    logger.LogInformation("Updated price for {Ticker}: {Price}", ticker, price.Value);
-                    apiCallsMade++;
+                    var price = await yahooFinanceService.GetCurrentPriceAsync(ticker);
+
+                    if (price.HasValue)
+                    {
+                        // Upsert the price in database
+                        await marketPriceRepository.UpsertMarketPriceAsync(ticker, price.Value);
+                        logger.LogInformation("Updated price for {Ticker}: {Price}", ticker, price.Value);
+                        apiCallsMade++;
+                    }
+                    else
+                    {
+                        logger.LogWarning("Failed to fetch price for {Ticker}. Will retry in next run", ticker);
+                    }
                 }
-                else
+                catch (InvalidOperationException ex) when (ex.Message.Contains("Ticker not found"))
                 {
-                    logger.LogWarning("Failed to fetch price for {Ticker}. Will retry in next run", ticker);
+                    // Ticker not found - mark it with a far-future timestamp so it won't be retried
+                    await marketPriceRepository.MarkTickerAsNotFoundAsync(ticker);
+                    logger.LogWarning("Ticker {Ticker} not found in Yahoo Finance. Marking as invalid and skipping future attempts.", ticker);
+                    // Don't increment apiCallsMade since this wasn't a successful call
+                    // The ticker will be skipped in future runs because of the far-future timestamp
+                }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("rate limited"))
+                {
+                    // Yahoo Finance rate limited us - stop immediately and wait for next run
+                    logger.LogWarning("Rate limited by Yahoo Finance. Stopping price fetching. Processed {Processed} tickers. Will resume in next run.", apiCallsMade);
+                    break;
                 }
 
-                // Delay of 3 seconds between calls to give Yahoo Finance API time to recover (except for the last one)
+                // Delay of 10 seconds between calls to give Yahoo Finance API time to recover (except for the last one)
                 tickerIndex++;
                 if (apiCallsMade < MaxApiCallsPerRun && tickerIndex < tickersNeedingUpdate.Count)
                 {

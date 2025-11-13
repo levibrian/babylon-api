@@ -63,6 +63,38 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
         await context.SaveChangesAsync();
     }
 
+    public async Task MarkTickerAsNotFoundAsync(string ticker)
+    {
+        // Mark ticker as "not found" by storing a price of 0 with a far-future timestamp
+        // This ensures GetTickersNeedingUpdateAsync won't pick it up again
+        var existing = await context.MarketPrices
+            .Where(mp => mp.Ticker == ticker)
+            .OrderByDescending(mp => mp.LastUpdated)
+            .FirstOrDefaultAsync();
+
+        if (existing != null)
+        {
+            // Update existing with far-future timestamp
+            existing.Price = 0;
+            existing.LastUpdated = DateTime.UtcNow.AddYears(100); // Far future - won't be picked up
+            context.MarketPrices.Update(existing);
+        }
+        else
+        {
+            // Create new with far-future timestamp
+            var marketPrice = new MarketPrice
+            {
+                Id = Guid.NewGuid(),
+                Ticker = ticker,
+                Price = 0,
+                LastUpdated = DateTime.UtcNow.AddYears(100) // Far future - won't be picked up
+            };
+            await context.MarketPrices.AddAsync(marketPrice);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
     public async Task<List<string>> GetTickersNeedingUpdateAsync(TimeSpan maxAge)
     {
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
