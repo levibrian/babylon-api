@@ -18,11 +18,18 @@ public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceServ
         {
             if (_sessionInitialized) return;
 
-            // Make an initial request to Yahoo Finance homepage to establish cookies/session
-            // This mimics what yfinance does - establishing a session before API calls
+            // Make an initial request to Yahoo Finance quote page to establish cookies/session
+            // Accessing a quote page first mimics real browser behavior better than homepage
             logger.LogInformation("Initializing Yahoo Finance session...");
-            var initRequest = new HttpRequestMessage(HttpMethod.Get, "https://finance.yahoo.com/");
-            await httpClient.SendAsync(initRequest);
+
+            // First, visit a quote page (like a real user would)
+            var quoteRequest = new HttpRequestMessage(HttpMethod.Get, "https://finance.yahoo.com/quote/AAPL");
+            var quoteResponse = await httpClient.SendAsync(quoteRequest);
+            await quoteResponse.Content.ReadAsStringAsync(); // Read to ensure cookies are set
+
+            // Small delay to mimic human behavior
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+
             _sessionInitialized = true;
             logger.LogInformation("Yahoo Finance session initialized");
         }
@@ -45,6 +52,11 @@ public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceServ
 
             // Use HttpRequestMessage for more control over the request
             var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+            // Add a small random delay to mimic human behavior (50-200ms)
+            var random = new Random();
+            await Task.Delay(TimeSpan.FromMilliseconds(random.Next(50, 200)));
+
             var response = await httpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
