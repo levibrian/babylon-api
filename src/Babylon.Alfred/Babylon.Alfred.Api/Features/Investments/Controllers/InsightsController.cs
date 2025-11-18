@@ -1,7 +1,6 @@
-using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Microsoft.AspNetCore.Mvc;
-using static Babylon.Alfred.Api.Constants;
+using static Babylon.Alfred.Api.Constants.User;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
@@ -18,7 +17,7 @@ public class InsightsController(IPortfolioInsightsService portfolioInsightsServi
     [HttpGet]
     public async Task<IActionResult> GetInsights(Guid? userId, [FromQuery] int limit = 5)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var effectiveUserId = userId ?? RootUserId;
 
         var insights = await portfolioInsightsService.GetTopInsightsAsync(effectiveUserId, limit);
 

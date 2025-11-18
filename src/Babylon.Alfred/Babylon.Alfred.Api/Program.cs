@@ -3,12 +3,20 @@ using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Converters;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Configure Serilog
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
-builder.Services
+try
+{
+    Log.Information("Starting Babylon.Alfred.Api application");
+
+    // Add services to the container.
+    builder.Services
     .AddControllers()
     .AddNewtonsoftJson(options =>
     {
@@ -30,6 +38,8 @@ builder.Services.RegisterFeatures();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+// Request logging should come first to capture all requests
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalErrorHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -42,4 +52,16 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+Log.Information("Babylon.Alfred.Api application started successfully");
+
 app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}

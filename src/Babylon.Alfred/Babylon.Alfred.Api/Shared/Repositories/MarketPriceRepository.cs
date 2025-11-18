@@ -1,11 +1,13 @@
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Data.Models;
+using Babylon.Alfred.Api.Shared.Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
-public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepository
+public class MarketPriceRepository(BabylonDbContext context, ILogger<MarketPriceRepository> logger) : IMarketPriceRepository
 {
     public async Task<MarketPrice?> GetByTickerAsync(string ticker)
     {
@@ -35,6 +37,8 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
 
     public async Task UpsertMarketPriceAsync(string ticker, decimal price)
     {
+        logger.LogDatabaseOperation("Upsert", "MarketPrice", new { Ticker = ticker, Price = price });
+        
         var existing = await context.MarketPrices
             .Where(mp => mp.Ticker == ticker)
             .OrderByDescending(mp => mp.LastUpdated)
@@ -46,6 +50,7 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
             existing.Price = price;
             existing.LastUpdated = DateTime.UtcNow;
             context.MarketPrices.Update(existing);
+            logger.LogDatabaseOperation("Updated", "MarketPrice", new { Ticker = ticker, Price = price });
         }
         else
         {
@@ -58,6 +63,7 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
                 LastUpdated = DateTime.UtcNow
             };
             await context.MarketPrices.AddAsync(marketPrice);
+            logger.LogDatabaseOperation("Created", "MarketPrice", new { Ticker = ticker, Price = price });
         }
 
         await context.SaveChangesAsync();
@@ -97,6 +103,8 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
 
     public async Task<List<string>> GetTickersNeedingUpdateAsync(TimeSpan maxAge)
     {
+        logger.LogDatabaseOperation("GetTickersNeedingUpdate", "MarketPrice", new { MaxAge = maxAge });
+        
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
 
         // Get all distinct tickers from allocation strategies (desired portfolio)
@@ -110,6 +118,7 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
 
         if (allTickers.Count == 0)
         {
+            logger.LogInformation("No tickers found in allocation strategies");
             return new List<string>();
         }
 
@@ -130,7 +139,10 @@ public class MarketPriceRepository(BabylonDbContext context) : IMarketPriceRepos
 
         var tickersWithoutPrices = allTickers.Except(tickersWithPrices).ToList();
 
-        return tickersNeedingUpdate.Concat(tickersWithoutPrices).Distinct().ToList();
+        var result = tickersNeedingUpdate.Concat(tickersWithoutPrices).Distinct().ToList();
+        logger.LogDatabaseOperation("RetrievedTickersNeedingUpdate", "MarketPrice", null, result.Count);
+        
+        return result;
     }
 }
 

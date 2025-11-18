@@ -9,52 +9,84 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Quartz;
+using Serilog;
+
+// Configure Serilog before creating builder
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build())
+    .CreateLogger();
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// Configure database
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+// Serilog is already configured statically above
+// The static Log.Logger will be used by the host
 
-// Log connection string (without password) for debugging
-var tempLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-var tempLogger = tempLoggerFactory.CreateLogger<Program>();
-var maskedConnectionString = connectionString.Contains("Password=") 
-    ? connectionString.Substring(0, connectionString.IndexOf("Password=") + 9) + "***" 
-    : connectionString;
-tempLogger.LogInformation("Worker connecting to database: {ConnectionString}", maskedConnectionString);
-
-builder.Services.AddDbContext<BabylonDbContext>(options =>
-    options.UseNpgsql(connectionString));
-
-// Register repositories
-builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
-builder.Services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
-
-// Register services
-builder.Services.ConfigureYahooClient();
-builder.Services.AddScoped<YahooFinanceService>();
-builder.Services.AddScoped<PriceFetchingService>();
-
-// Register jobs
-builder.Services.AddScoped<PriceFetchingJob>();
-
-// Configure Quartz
-builder.Services.AddQuartz(q =>
+try
 {
-    // Register job
-    var priceFetchingJobKey = new JobKey("PriceFetchingJob");
-    q.AddJob<PriceFetchingJob>(opts => opts.WithIdentity(priceFetchingJobKey));
+    Log.Information("Starting Babylon.Alfred.Worker application");
 
-    // Schedule job with cron expression (every minute)
-    q.AddTrigger(opts => opts
-        .ForJob(priceFetchingJobKey)
-        .WithIdentity("PriceFetchingJob-trigger")
-        .WithCronSchedule("0 * * * * ?")); // Every minute at second 0
-});
+    // Configure database
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+    // Log connection string (without password) for debugging
+    var maskedConnectionString = connectionString.Contains("Password=") 
+        ? connectionString.Substring(0, connectionString.IndexOf("Password=") + 9) + "***" 
+        : connectionString;
+    Log.Information("Worker connecting to database: {ConnectionString}", maskedConnectionString);
 
-var host = builder.Build();
-host.Run();
+    builder.Services.AddDbContext<BabylonDbContext>(options =>
+        options.UseNpgsql(connectionString));
+
+    // Register repositories
+    builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
+    builder.Services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
+
+    // Register services
+    builder.Services.ConfigureYahooClient();
+    builder.Services.AddScoped<YahooFinanceService>();
+    builder.Services.AddScoped<PriceFetchingService>();
+
+    // Register jobs
+    builder.Services.AddScoped<PriceFetchingJob>();
+
+    // Configure Quartz
+    builder.Services.AddQuartz(q =>
+    {
+        // Register job
+        var priceFetchingJobKey = new JobKey("PriceFetchingJob");
+        q.AddJob<PriceFetchingJob>(opts => opts.WithIdentity(priceFetchingJobKey));
+
+        // Schedule job with cron expression (every minute)
+        q.AddTrigger(opts => opts
+            .ForJob(priceFetchingJobKey)
+            .WithIdentity("PriceFetchingJob-trigger")
+            .WithCronSchedule("0 * * * * ?")); // Every minute at second 0
+    });
+
+    builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
+    // Configure Serilog on the host builder
+    builder.Logging.ClearProviders();
+    builder.Logging.AddSerilog();
+
+    var host = builder.Build();
+
+    Log.Information("Babylon.Alfred.Worker application started successfully");
+
+    host.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 

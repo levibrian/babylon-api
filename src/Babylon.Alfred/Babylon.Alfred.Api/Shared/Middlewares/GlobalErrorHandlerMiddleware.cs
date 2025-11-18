@@ -13,12 +13,36 @@ public class GlobalErrorHandlerMiddleware(RequestDelegate next, ILogger<GlobalEr
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(context, ex);
+            await HandleExceptionAsync(context, ex, logger);
         }
     }
 
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static Task HandleExceptionAsync(HttpContext context, Exception exception, ILogger logger)
     {
+        // Extract user ID from claims if available
+        var userId = context.User?.FindFirst("sub")?.Value;
+        Guid? userIdGuid = Guid.TryParse(userId, out var guid) ? guid : null;
+
+        // Log exception with full context
+        logger.LogError(
+            exception,
+            "Unhandled exception: {ExceptionType} - {Message} | Method: {Method} | Path: {Path} | UserId: {UserId}",
+            exception.GetType().Name,
+            exception.Message,
+            context.Request.Method,
+            context.Request.Path + context.Request.QueryString,
+            userIdGuid);
+
+        // Log inner exception if present
+        if (exception.InnerException != null)
+        {
+            logger.LogError(
+                exception.InnerException,
+                "Inner exception: {ExceptionType} - {Message}",
+                exception.InnerException.GetType().Name,
+                exception.InnerException.Message);
+        }
+
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 

@@ -1,10 +1,12 @@
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Data.Models;
+using Babylon.Alfred.Api.Shared.Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
-public class SecurityRepository(BabylonDbContext context) : ISecurityRepository
+public class SecurityRepository(BabylonDbContext context, ILogger<SecurityRepository> logger) : ISecurityRepository
 {
     public async Task<Security?> GetByTickerAsync(string ticker)
     {

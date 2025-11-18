@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Shared;
 using Babylon.Alfred.Api.Shared.Data.Models;
+using Babylon.Alfred.Api.Shared.Logging;
 using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
@@ -13,10 +15,11 @@ public class PortfolioInsightsService(
     ILogger<PortfolioInsightsService> logger)
     : IPortfolioInsightsService
 {
-    private readonly ILogger<PortfolioInsightsService> _logger = logger;
-
     public async Task<List<PortfolioInsightDto>> GetTopInsightsAsync(Guid userId, int count = 5)
     {
+        var stopwatch = Stopwatch.StartNew();
+        logger.LogOperationStart("GetTopInsights", new { UserId = userId, Count = count });
+        
         var insights = new List<PortfolioInsightDto>();
 
         // Get rebalancing insights
@@ -28,11 +31,17 @@ public class PortfolioInsightsService(
         // insights.AddRange(performanceInsights);
 
         // Sort by severity (Critical > Warning > Info) and then by absolute deviation
-        return insights
+        var result = insights
             .OrderByDescending(i => i.Severity)
             .ThenByDescending(i => Math.Abs(i.Amount ?? 0))
             .Take(count)
             .ToList();
+
+        stopwatch.Stop();
+        logger.LogPerformance("GetTopInsights", stopwatch.ElapsedMilliseconds, new { UserId = userId, InsightCount = result.Count });
+        logger.LogOperationSuccess("GetTopInsights", new { UserId = userId, Count = result.Count });
+        
+        return result;
     }
 
     private async Task<List<PortfolioInsightDto>> GetRebalancingInsightsAsync(Guid userId)

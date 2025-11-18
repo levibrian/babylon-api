@@ -3,6 +3,8 @@ using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace Babylon.Alfred.Api.Tests.Shared.Repositories;
 
@@ -18,7 +20,8 @@ public class SecurityRepositoryTests : IDisposable
             .Options;
 
         context = new BabylonDbContext(options);
-        sut = new SecurityRepository(context);
+        var logger = Mock.Of<ILogger<SecurityRepository>>();
+        sut = new SecurityRepository(context, logger);
     }
 
     public void Dispose()

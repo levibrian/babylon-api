@@ -1,6 +1,7 @@
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Shared.Data.Models;
+using Babylon.Alfred.Api.Shared.Logging;
 using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
@@ -10,19 +11,24 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
 {
     public async Task<Transaction> Create(CreateTransactionRequest request)
     {
+        logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = request.UserId });
+        
         // Validation
         if (string.IsNullOrWhiteSpace(request.Ticker))
         {
+            logger.LogValidationFailure("CreateTransaction", "Ticker cannot be null or empty", request);
             throw new ArgumentException("Ticker cannot be null or empty", nameof(request));
         }
 
         if (request.SharesQuantity <= 0)
         {
+            logger.LogValidationFailure("CreateTransaction", "SharesQuantity must be greater than zero", request);
             throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request));
         }
 
         if (request.SharePrice <= 0)
         {
+            logger.LogValidationFailure("CreateTransaction", "SharePrice must be greater than zero", request);
             throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
         }
 
@@ -30,6 +36,7 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
 
         if (securityFromDb is null)
         {
+            logger.LogBusinessRuleViolation("CreateTransaction", $"Security not found for ticker: {request.Ticker}", request);
             throw new InvalidOperationException("Security provided not found in our internal database.");
         }
 
@@ -37,11 +44,16 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         var transaction = CreateTransaction(request, securityFromDb.Id);
 
         // Save to database
-        return await transactionRepository.Add(transaction);
+        var result = await transactionRepository.Add(transaction);
+        
+        logger.LogOperationSuccess("CreateTransaction", new { TransactionId = result.Id, Ticker = request.Ticker });
+        return result;
     }
 
     public async Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests)
     {
+        logger.LogOperationStart("CreateBulkTransactions", new { Count = requests.Count });
+        
         // Get all unique tickers and fetch securities
         var tickers = requests.Select(r => r.Ticker).Distinct().ToList();
         var securities = await securityRepository.GetByTickersAsync(tickers);
@@ -50,6 +62,9 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         var missingTickers = tickers.Where(t => !securities.ContainsKey(t)).ToList();
         if (missingTickers.Any())
         {
+            logger.LogBusinessRuleViolation("CreateBulkTransactions", 
+                $"Securities not found for tickers: {string.Join(", ", missingTickers)}", 
+                new { MissingTickers = missingTickers });
             throw new InvalidOperationException($"Securities not found for tickers: {string.Join(", ", missingTickers)}");
         }
 
@@ -59,12 +74,13 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
 
         if (createdTransactions.Count == 0)
         {
-            logger.LogInformation("{CreateBulkAsyncMethod} - No transactions to create. Skipped execution", nameof(CreateBulk));
+            logger.LogInformation("CreateBulkTransactions - No transactions to create. Skipped execution");
             return new List<Transaction>();
         }
 
         await transactionRepository.AddBulk(createdTransactions!);
 
+        logger.LogOperationSuccess("CreateBulkTransactions", new { Count = createdTransactions.Count });
         return createdTransactions;
     }
 
