@@ -1,3 +1,4 @@
+using AutoFixture;
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
@@ -10,11 +11,17 @@ namespace Babylon.Alfred.Api.Tests.Shared.Repositories;
 
 public class TransactionRepositoryTests : IDisposable
 {
+    private readonly Fixture fixture = new();
     private readonly BabylonDbContext context;
     private readonly TransactionRepository sut;
 
     public TransactionRepositoryTests()
     {
+        // Configure AutoFixture to handle recursive types
+        fixture.Behaviors.OfType<ThrowingRecursionBehavior>()
+            .ToList().ForEach(b => fixture.Behaviors.Remove(b));
+        fixture.Behaviors.Add(new OmitOnRecursionBehavior());
+
         var options = new DbContextOptionsBuilder<BabylonDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
@@ -617,5 +624,167 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().HaveCount(2);
         result.Select(t => t.UserId).Should().BeEquivalentTo(new[] { user1, user2 });
+    }
+
+    [Fact]
+    public async Task GetAllByUser_WithUserId_ShouldReturnAllTransactionsForUserOrderedByDateDescending()
+    {
+        // Arrange
+        var security1 = await CreateSecurityAsync("AAPL", "Apple Inc.");
+        var security2 = await CreateSecurityAsync("GOOGL", "Alphabet Inc.");
+        var userId = Guid.NewGuid();
+        var otherUserId = fixture.Create<Guid>();
+
+        var oldDate = new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc);
+        var newDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+        var middleDate = new DateTime(2024, 6, 1, 10, 0, 0, DateTimeKind.Utc);
+
+        var transactions = new[]
+        {
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security1.Id,
+                TransactionType = TransactionType.Buy,
+                Date = oldDate,
+                SharesQuantity = 10m,
+                SharePrice = 150m,
+                Fees = 5m,
+                UserId = userId
+            },
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security2.Id,
+                TransactionType = TransactionType.Sell,
+                Date = newDate,
+                SharesQuantity = 5m,
+                SharePrice = 2800m,
+                Fees = 10m,
+                UserId = userId
+            },
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security1.Id,
+                TransactionType = TransactionType.Buy,
+                Date = middleDate,
+                SharesQuantity = 20m,
+                SharePrice = 160m,
+                Fees = 8m,
+                UserId = userId
+            },
+            // Transaction for different user (should not be returned)
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security1.Id,
+                TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 15m,
+                SharePrice = 200m,
+                Fees = 5m,
+                UserId = otherUserId
+            }
+        };
+        await context.Transactions.AddRangeAsync(transactions);
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = (await sut.GetAllByUser(userId)).ToList();
+
+        // Assert
+        result.Should().HaveCount(3);
+        result.Should().AllSatisfy(t => t.UserId.Should().Be(userId));
+        result.Should().BeInDescendingOrder(t => t.Date);
+        result[0].Date.Should().Be(newDate);
+        result[1].Date.Should().Be(middleDate);
+        result[2].Date.Should().Be(oldDate);
+    }
+
+    [Fact]
+    public async Task GetAllByUser_ShouldIncludeSecurityInformation()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("MSFT", "Microsoft Corporation");
+        var userId = Guid.NewGuid();
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 300m,
+            Fees = 5m,
+            UserId = userId
+        };
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = (await sut.GetAllByUser(userId)).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].Security.Should().NotBeNull();
+        result[0].Security.Ticker.Should().Be("MSFT");
+        result[0].Security.SecurityName.Should().Be("Microsoft Corporation");
+    }
+
+    [Fact]
+    public async Task GetAllByUser_WithNoTransactions_ShouldReturnEmptyList()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+
+        // Act
+        var result = await sut.GetAllByUser(userId);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllByUser_ShouldReturnBothBuyAndSellTransactions()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL", "Apple Inc.");
+        var userId = Guid.NewGuid();
+        var transactions = new[]
+        {
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security.Id,
+                TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow.AddDays(-10),
+                SharesQuantity = 10m,
+                SharePrice = 150m,
+                Fees = 5m,
+                UserId = userId
+            },
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security.Id,
+                TransactionType = TransactionType.Sell,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 5m,
+                SharePrice = 160m,
+                Fees = 5m,
+                UserId = userId
+            }
+        };
+        await context.Transactions.AddRangeAsync(transactions);
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = (await sut.GetAllByUser(userId)).ToList();
+
+        // Assert
+        result.Should().HaveCount(2);
+        result.Select(t => t.TransactionType).Should().Contain(TransactionType.Buy);
+        result.Select(t => t.TransactionType).Should().Contain(TransactionType.Sell);
     }
 }

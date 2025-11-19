@@ -39,7 +39,7 @@ public class PortfoliosControllerTests
     public async Task Get_WithUserId_ShouldReturnOkWithPortfolio()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var portfolioResponse = fixture.Create<PortfolioResponse>();
         autoMocker
             .GetMock<IPortfolioService>()
@@ -81,7 +81,7 @@ public class PortfoliosControllerTests
     public async Task Get_WhenPortfolioIsEmpty_ShouldReturnOkWithEmptyPortfolio()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var emptyPortfolio = new PortfolioResponse
         {
             Positions = new List<PortfolioPositionDto>(),
@@ -107,7 +107,7 @@ public class PortfoliosControllerTests
     public async Task Get_WithValidUserId_ShouldReturnPortfolioWithMultiplePositions()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var positions = fixture.CreateMany<PortfolioPositionDto>(3).ToList();
         var portfolioResponse = new PortfolioResponse
         {

@@ -47,7 +47,7 @@ public class TransactionServiceTests
             .Create();
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
+            .With(c => c.Id, fixture.Create<Guid>())
             .Create();
         var transaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, security.Id)
@@ -226,7 +226,7 @@ public class TransactionServiceTests
             .Create();
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
+            .With(c => c.Id, fixture.Create<Guid>())
             .Create();
 
         autoMocker.GetMock<ISecurityRepository>()
@@ -256,7 +256,7 @@ public class TransactionServiceTests
             .Create();
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
+            .With(c => c.Id, fixture.Create<Guid>())
             .Create();
         var beforeCreate = DateTime.UtcNow;
 
@@ -292,7 +292,7 @@ public class TransactionServiceTests
         // Mock securities for bulk create
         var securities = requests.Select(r => fixture.Build<Security>()
             .With(c => c.Ticker, r.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
+            .With(c => c.Id, fixture.Create<Guid>())
             .Create()).ToList();
         
         autoMocker.GetMock<ISecurityRepository>()
@@ -353,14 +353,14 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 150m)
             .With(r => r.Fees, 5m)
             .With(r => r.Date, new DateOnly(2025, 1, 15))
-            .With(r => r.UserId, Guid.NewGuid())
+            .With(r => r.UserId, fixture.Create<Guid>())
             .Create();
         var requests = new List<CreateTransactionRequest> { request };
 
         // Mock security for bulk create
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
+            .With(c => c.Id, fixture.Create<Guid>())
             .Create();
         
         autoMocker.GetMock<ISecurityRepository>()
@@ -402,7 +402,7 @@ public class TransactionServiceTests
         // Mock securities for bulk create
         var securities = requests.Select(r => fixture.Build<Security>()
             .With(c => c.Ticker, r.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
+            .With(c => c.Id, fixture.Create<Guid>())
             .Create()).ToList();
         
         autoMocker.GetMock<ISecurityRepository>()
@@ -422,6 +422,189 @@ public class TransactionServiceTests
 
         // Assert
         result.Should().AllSatisfy(t => t.UserId.Should().Be(Constants.User.RootUserId));
+    }
+
+    [Fact]
+    public async Task GetAllByUser_WithUserId_ShouldReturnTransactionsOrderedByDateDescending()
+    {
+        // Arrange
+        var userId = fixture.Create<Guid>();
+        var security1 = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .With(s => s.SecurityName, "Apple Inc.")
+            .Create();
+        var security2 = fixture.Build<Security>()
+            .With(s => s.Ticker, "GOOGL")
+            .With(s => s.SecurityName, "Alphabet Inc.")
+            .Create();
+
+        var oldDate = new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc);
+        var newDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+        var middleDate = new DateTime(2024, 6, 1, 10, 0, 0, DateTimeKind.Utc);
+
+        // Repository returns transactions ordered by date descending, so mock should return them in that order
+        var transactions = new List<Transaction>
+        {
+            fixture.Build<Transaction>()
+                .With(t => t.Id, fixture.Create<Guid>())
+                .With(t => t.SecurityId, security2.Id)
+                .With(t => t.Security, security2)
+                .With(t => t.TransactionType, TransactionType.Sell)
+                .With(t => t.Date, newDate)
+                .With(t => t.SharesQuantity, 5m)
+                .With(t => t.SharePrice, 2800m)
+                .With(t => t.Fees, 10m)
+                .With(t => t.UserId, userId)
+                .Create(),
+            fixture.Build<Transaction>()
+                .With(t => t.Id, fixture.Create<Guid>())
+                .With(t => t.SecurityId, security1.Id)
+                .With(t => t.Security, security1)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.Date, middleDate)
+                .With(t => t.SharesQuantity, 20m)
+                .With(t => t.SharePrice, 160m)
+                .With(t => t.Fees, 8m)
+                .With(t => t.UserId, userId)
+                .Create(),
+            fixture.Build<Transaction>()
+                .With(t => t.Id, fixture.Create<Guid>())
+                .With(t => t.SecurityId, security1.Id)
+                .With(t => t.Security, security1)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.Date, oldDate)
+                .With(t => t.SharesQuantity, 10m)
+                .With(t => t.SharePrice, 150m)
+                .With(t => t.Fees, 5m)
+                .With(t => t.UserId, userId)
+                .Create()
+        };
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(transactions);
+
+        // Act
+        var result = (await sut.GetAllByUser(userId)).ToList();
+
+        // Assert
+        result.Should().HaveCount(3);
+        result.Should().BeInDescendingOrder(t => t.Date);
+        result[0].Date.Should().Be(newDate);
+        result[1].Date.Should().Be(middleDate);
+        result[2].Date.Should().Be(oldDate);
+        result[0].Ticker.Should().Be("GOOGL");
+        result[0].SecurityName.Should().Be("Alphabet Inc.");
+        result[1].Ticker.Should().Be("AAPL");
+        result[2].Ticker.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task GetAllByUser_WithNullUserId_ShouldUseRootUserId()
+    {
+        // Arrange
+        var transactions = fixture.CreateMany<Transaction>(0).ToList();
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(Constants.User.RootUserId))
+            .ReturnsAsync(transactions);
+
+        // Act
+        await sut.GetAllByUser(null);
+
+        // Assert
+        autoMocker.GetMock<ITransactionRepository>().Verify(
+            x => x.GetAllByUser(Constants.User.RootUserId),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAllByUser_ShouldMapAllPropertiesCorrectly()
+    {
+        // Arrange
+        var userId = fixture.Create<Guid>();
+        var transactionId = fixture.Create<Guid>();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "MSFT")
+            .With(s => s.SecurityName, "Microsoft Corporation")
+            .Create();
+        var date = new DateTime(2025, 1, 15, 14, 30, 0, DateTimeKind.Utc);
+        var transaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, date)
+            .With(t => t.SharesQuantity, 15m)
+            .With(t => t.SharePrice, 350m)
+            .With(t => t.Fees, 7.5m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction> { transaction });
+
+        // Act
+        var result = (await sut.GetAllByUser(userId)).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        var dto = result[0];
+        dto.Id.Should().Be(transactionId);
+        dto.Ticker.Should().Be("MSFT");
+        dto.SecurityName.Should().Be("Microsoft Corporation");
+        dto.Date.Should().Be(date);
+        dto.SharesQuantity.Should().Be(15m);
+        dto.SharePrice.Should().Be(350m);
+        dto.Fees.Should().Be(7.5m);
+        dto.TransactionType.Should().Be(TransactionType.Buy);
+        dto.TotalAmount.Should().Be(5257.5m); // (15 * 350) + 7.5
+    }
+
+    [Fact]
+    public async Task GetAllByUser_WithNoTransactions_ShouldReturnEmptyList()
+    {
+        // Arrange
+        var userId = fixture.Create<Guid>();
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(fixture.CreateMany<Transaction>(0).ToList());
+
+        // Act
+        var result = await sut.GetAllByUser(userId);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllByUser_WithNullSecurity_ShouldHandleGracefully()
+    {
+        // Arrange
+        var userId = fixture.Create<Guid>();
+        var transaction = fixture.Build<Transaction>()
+            .With(t => t.Id, fixture.Create<Guid>())
+            .With(t => t.SecurityId, fixture.Create<Guid>())
+            .With(t => t.Security, (Security)null!)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, DateTime.UtcNow)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 100m)
+            .With(t => t.Fees, 5m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction> { transaction });
+
+        // Act
+        var result = (await sut.GetAllByUser(userId)).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].Ticker.Should().BeEmpty();
+        result[0].SecurityName.Should().BeEmpty();
     }
 }
 

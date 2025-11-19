@@ -1,4 +1,5 @@
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
+using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Logging;
@@ -12,7 +13,7 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
     public async Task<Transaction> Create(CreateTransactionRequest request)
     {
         logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = request.UserId });
-        
+
         // Validation
         if (string.IsNullOrWhiteSpace(request.Ticker))
         {
@@ -45,7 +46,7 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
 
         // Save to database
         var result = await transactionRepository.Add(transaction);
-        
+
         logger.LogOperationSuccess("CreateTransaction", new { TransactionId = result.Id, Ticker = request.Ticker });
         return result;
     }
@@ -53,7 +54,7 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
     public async Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests)
     {
         logger.LogOperationStart("CreateBulkTransactions", new { Count = requests.Count });
-        
+
         // Get all unique tickers and fetch securities
         var tickers = requests.Select(r => r.Ticker).Distinct().ToList();
         var securities = await securityRepository.GetByTickersAsync(tickers);
@@ -62,8 +63,8 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         var missingTickers = tickers.Where(t => !securities.ContainsKey(t)).ToList();
         if (missingTickers.Any())
         {
-            logger.LogBusinessRuleViolation("CreateBulkTransactions", 
-                $"Securities not found for tickers: {string.Join(", ", missingTickers)}", 
+            logger.LogBusinessRuleViolation("CreateBulkTransactions",
+                $"Securities not found for tickers: {string.Join(", ", missingTickers)}",
                 new { MissingTickers = missingTickers });
             throw new InvalidOperationException($"Securities not found for tickers: {string.Join(", ", missingTickers)}");
         }
@@ -89,6 +90,30 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         var transaction = new PortfolioTransactionDto();
 
         return transaction;
+    }
+
+    public async Task<IEnumerable<TransactionDto>> GetAllByUser(Guid? userId)
+    {
+        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        logger.LogOperationStart("GetAllTransactionsByUser", new { UserId = effectiveUserId });
+
+        var transactions = await transactionRepository.GetAllByUser(effectiveUserId);
+
+        var transactionDtos = transactions.Select(t => new TransactionDto
+        {
+            Id = t.Id,
+            Ticker = t.Security?.Ticker ?? string.Empty,
+            SecurityName = t.Security?.SecurityName ?? string.Empty,
+            Date = t.Date,
+            SharesQuantity = t.SharesQuantity,
+            SharePrice = t.SharePrice,
+            Fees = t.Fees,
+            TransactionType = t.TransactionType,
+            TotalAmount = t.TotalAmount
+        }).ToList();
+
+        logger.LogOperationSuccess("GetAllTransactionsByUser", new { transactionDtos.Count, UserId = effectiveUserId });
+        return transactionDtos;
     }
 
     private static Transaction CreateTransaction(CreateTransactionRequest request, Guid securityId)

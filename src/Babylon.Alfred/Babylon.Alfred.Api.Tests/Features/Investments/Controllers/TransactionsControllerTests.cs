@@ -38,7 +38,7 @@ public class TransactionsControllerTests
     }
 
     [Fact]
-    public async Task CreateTransactionAsync_WithValidRequest_ShouldReturnOkWithSuccessMessage()
+    public async Task CreateTransaction_WithValidRequest_ShouldReturnOkWithSuccessMessage()
     {
         // Arrange
         var request = fixture.Create<CreateTransactionRequest>();
@@ -46,7 +46,7 @@ public class TransactionsControllerTests
         autoMocker.GetMock<ITransactionService>().Setup(x => x.Create(request)).ReturnsAsync(transaction);
 
         // Act
-        var result = await sut.CreateTransactionAsync(request);
+        var result = await sut.CreateTransaction(request);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -55,7 +55,7 @@ public class TransactionsControllerTests
     }
 
     [Fact]
-    public async Task CreateTransactionsBulkAsync_WithValidRequests_ShouldReturnOkWithSuccessMessage()
+    public async Task CreateTransactionsBulk_WithValidRequests_ShouldReturnOkWithSuccessMessage()
     {
         // Arrange
         var requests = fixture.CreateMany<CreateTransactionRequest>(5).ToList();
@@ -63,7 +63,7 @@ public class TransactionsControllerTests
         autoMocker.GetMock<ITransactionService>().Setup(x => x.CreateBulk(requests)).ReturnsAsync(transactions);
 
         // Act
-        var result = await sut.CreateTransactionsBulkAsync(requests);
+        var result = await sut.CreateTransactionsBulk(requests);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -72,7 +72,7 @@ public class TransactionsControllerTests
     }
 
     [Fact]
-    public async Task CreateTransactionsBulkAsync_WithEmptyList_ShouldReturnOkWithZeroCount()
+    public async Task CreateTransactionsBulk_WithEmptyList_ShouldReturnOkWithZeroCount()
     {
         // Arrange
         var requests = new List<CreateTransactionRequest>();
@@ -80,11 +80,61 @@ public class TransactionsControllerTests
         autoMocker.GetMock<ITransactionService>().Setup(x => x.CreateBulk(requests)).ReturnsAsync(transactions);
 
         // Act
-        var result = await sut.CreateTransactionsBulkAsync(requests);
+        var result = await sut.CreateTransactionsBulk(requests);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(new { message = "Successfully stored 0 transactions" });
         autoMocker.GetMock<ITransactionService>().Verify(x => x.CreateBulk(requests), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithUserId_ShouldReturnOkWithTransactions()
+    {
+        // Arrange
+        var userId = fixture.Create<Guid>();
+        var transactions = fixture.CreateMany<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>(3).ToList();
+        autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
+
+        // Act
+        var result = await sut.GetTransactions(userId);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(transactions);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.GetAllByUser(userId), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithNullUserId_ShouldReturnOkWithTransactions()
+    {
+        // Arrange
+        var transactions = fixture.CreateMany<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>(2).ToList();
+        autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(null)).ReturnsAsync(transactions);
+
+        // Act
+        var result = await sut.GetTransactions(null);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(transactions);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.GetAllByUser(null), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetTransactions_WithNoTransactions_ShouldReturnOkWithEmptyList()
+    {
+        // Arrange
+        var userId = fixture.Create<Guid>();
+        var transactions = new List<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>();
+        autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
+
+        // Act
+        var result = await sut.GetTransactions(userId);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(transactions);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.GetAllByUser(userId), Times.Once);
     }
 }

@@ -59,5 +59,20 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         logger.LogInformation("Retrieved {Count} open positions for UserId: {UserId}", openTransactions.Count, userId);
         return openTransactions;
     }
+
+    public async Task<IEnumerable<Transaction>> GetAllByUser(Guid userId)
+    {
+        logger.LogInformation("Getting all transactions for UserId: {UserId}", userId);
+        
+        var transactions = await context.Transactions
+            .Include(t => t.Security)
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.Date)
+            .ToListAsync();
+
+        logger.LogDatabaseOperation("RetrievedAllByUser", "Transaction", null, transactions.Count);
+        logger.LogInformation("Retrieved {Count} transactions for UserId: {UserId}", transactions.Count, userId);
+        return transactions;
+    }
 }
 
