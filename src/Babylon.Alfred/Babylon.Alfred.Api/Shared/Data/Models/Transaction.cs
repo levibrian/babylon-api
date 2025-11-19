@@ -8,6 +8,7 @@ public class Transaction
     public Guid SecurityId { get; set; }
     public TransactionType TransactionType { get; set; }
     public DateTime Date { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public decimal SharesQuantity { get; set; }
     public decimal SharePrice { get; set; }
     public decimal Fees { get; set; }

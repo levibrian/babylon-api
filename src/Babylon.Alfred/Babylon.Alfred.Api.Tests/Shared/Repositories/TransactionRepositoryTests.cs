@@ -410,7 +410,7 @@ public class TransactionRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetOpenPositionsByUser_ShouldReturnTransactionsOrderedByDateDescending()
+    public async Task GetOpenPositionsByUser_ShouldReturnTransactionsOrderedByUpdatedAtDescending()
     {
         // Arrange
         var security1 = await CreateSecurityAsync("OLD");
@@ -428,6 +428,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = oldDate,
+                UpdatedAt = oldDate,
                 SharesQuantity = 10m,
                 SharePrice = 100m,
                 Fees = 1m,
@@ -439,6 +440,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = newDate,
+                UpdatedAt = newDate,
                 SharesQuantity = 10m,
                 SharePrice = 100m,
                 Fees = 1m,
@@ -450,6 +452,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security3.Id,
                 TransactionType = TransactionType.Buy,
                 Date = middleDate,
+                UpdatedAt = middleDate,
                 SharesQuantity = 10m,
                 SharePrice = 100m,
                 Fees = 1m,
@@ -464,11 +467,11 @@ public class TransactionRepositoryTests : IDisposable
 
         // Assert
         result.Should().HaveCount(3);
-        result.Should().BeInDescendingOrder(t => t.Date);
+        result.Should().BeInDescendingOrder(t => t.UpdatedAt);
         var resultWithSecurities = await context.Transactions
             .Include(t => t.Security)
             .Where(t => result.Select(r => r.Id).Contains(t.Id))
-            .OrderByDescending(t => t.Date)
+            .OrderByDescending(t => t.UpdatedAt)
             .ToListAsync();
         resultWithSecurities[0].Security.Ticker.Should().Be("NEW");
         resultWithSecurities[1].Security.Ticker.Should().Be("MIDDLE");
@@ -627,7 +630,7 @@ public class TransactionRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllByUser_WithUserId_ShouldReturnAllTransactionsForUserOrderedByDateDescending()
+    public async Task GetAllByUser_WithUserId_ShouldReturnAllTransactionsForUserOrderedByUpdatedAtDescending()
     {
         // Arrange
         var security1 = await CreateSecurityAsync("AAPL", "Apple Inc.");
@@ -647,6 +650,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = oldDate,
+                UpdatedAt = oldDate,
                 SharesQuantity = 10m,
                 SharePrice = 150m,
                 Fees = 5m,
@@ -658,6 +662,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security2.Id,
                 TransactionType = TransactionType.Sell,
                 Date = newDate,
+                UpdatedAt = newDate,
                 SharesQuantity = 5m,
                 SharePrice = 2800m,
                 Fees = 10m,
@@ -669,6 +674,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = middleDate,
+                UpdatedAt = middleDate,
                 SharesQuantity = 20m,
                 SharePrice = 160m,
                 Fees = 8m,
@@ -681,6 +687,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = 15m,
                 SharePrice = 200m,
                 Fees = 5m,
@@ -696,10 +703,10 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().HaveCount(3);
         result.Should().AllSatisfy(t => t.UserId.Should().Be(userId));
-        result.Should().BeInDescendingOrder(t => t.Date);
-        result[0].Date.Should().Be(newDate);
-        result[1].Date.Should().Be(middleDate);
-        result[2].Date.Should().Be(oldDate);
+        result.Should().BeInDescendingOrder(t => t.UpdatedAt);
+        result[0].UpdatedAt.Should().Be(newDate);
+        result[1].UpdatedAt.Should().Be(middleDate);
+        result[2].UpdatedAt.Should().Be(oldDate);
     }
 
     [Fact]
@@ -877,6 +884,7 @@ public class TransactionRepositoryTests : IDisposable
             SecurityId = security.Id,
             TransactionType = TransactionType.Buy,
             Date = originalDate,
+            UpdatedAt = originalDate,
             SharesQuantity = 10m,
             SharePrice = 150m,
             Fees = 5m,
@@ -886,10 +894,12 @@ public class TransactionRepositoryTests : IDisposable
         await context.SaveChangesAsync();
 
         // Modify the transaction
+        var newUpdatedAt = DateTime.UtcNow;
         transaction.SharesQuantity = 20m;
         transaction.SharePrice = 160m;
         transaction.Fees = 10m;
         transaction.Date = new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc);
+        transaction.UpdatedAt = newUpdatedAt; // Set UpdatedAt manually for repository test
 
         // Act
         var result = await sut.Update(transaction);
@@ -899,12 +909,14 @@ public class TransactionRepositoryTests : IDisposable
         result.SharesQuantity.Should().Be(20m);
         result.SharePrice.Should().Be(160m);
         result.Fees.Should().Be(10m);
+        result.UpdatedAt.Should().Be(newUpdatedAt);
 
         var updatedTransaction = await context.Transactions.FindAsync(transactionId);
         updatedTransaction.Should().NotBeNull();
         updatedTransaction!.SharesQuantity.Should().Be(20m);
         updatedTransaction.SharePrice.Should().Be(160m);
         updatedTransaction.Fees.Should().Be(10m);
+        updatedTransaction.UpdatedAt.Should().Be(newUpdatedAt);
     }
 
     [Fact]

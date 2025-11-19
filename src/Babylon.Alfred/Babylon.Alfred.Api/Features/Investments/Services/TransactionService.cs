@@ -124,8 +124,8 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         var existingTransaction = await transactionRepository.GetById(transactionId, userId);
         if (existingTransaction == null)
         {
-            logger.LogBusinessRuleViolation("UpdateTransaction", 
-                $"Transaction {transactionId} not found for user {userId}", 
+            logger.LogBusinessRuleViolation("UpdateTransaction",
+                $"Transaction {transactionId} not found for user {userId}",
                 new { TransactionId = transactionId, UserId = userId });
             throw new InvalidOperationException($"Transaction {transactionId} not found for user {userId}");
         }
@@ -136,8 +136,8 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             var securityFromDb = await securityRepository.GetByTickerAsync(request.Ticker);
             if (securityFromDb == null)
             {
-                logger.LogBusinessRuleViolation("UpdateTransaction", 
-                    $"Security not found for ticker: {request.Ticker}", 
+                logger.LogBusinessRuleViolation("UpdateTransaction",
+                    $"Security not found for ticker: {request.Ticker}",
                     request);
                 throw new InvalidOperationException("Security provided not found in our internal database.");
             }
@@ -180,6 +180,9 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             existingTransaction.Fees = request.Fees.Value;
         }
 
+        // Update UpdatedAt timestamp
+        existingTransaction.UpdatedAt = DateTime.UtcNow;
+
         // Save changes
         var updatedTransaction = await transactionRepository.Update(existingTransaction);
 
@@ -211,14 +214,18 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
     }
 
     private static Transaction CreateTransaction(CreateTransactionRequest request, Guid securityId)
-        => new()
+    {
+        var transactionDate = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow;
+        return new()
         {
             SecurityId = securityId,
             TransactionType = request.TransactionType,
-            Date = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow,
+            Date = transactionDate,
+            UpdatedAt = transactionDate,
             SharesQuantity = request.SharesQuantity,
             SharePrice = request.SharePrice,
             Fees = request.Fees,
             UserId = request.UserId ?? Constants.User.RootUserId
         };
+    }
 }

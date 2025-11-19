@@ -425,7 +425,7 @@ public class TransactionServiceTests
     }
 
     [Fact]
-    public async Task GetAllByUser_WithUserId_ShouldReturnTransactionsOrderedByDateDescending()
+    public async Task GetAllByUser_WithUserId_ShouldReturnTransactionsOrderedByUpdatedAtDescending()
     {
         // Arrange
         var userId = fixture.Create<Guid>();
@@ -442,7 +442,7 @@ public class TransactionServiceTests
         var newDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
         var middleDate = new DateTime(2024, 6, 1, 10, 0, 0, DateTimeKind.Utc);
 
-        // Repository returns transactions ordered by date descending, so mock should return them in that order
+        // Repository returns transactions ordered by UpdatedAt descending, so mock should return them in that order
         var transactions = new List<Transaction>
         {
             fixture.Build<Transaction>()
@@ -451,6 +451,7 @@ public class TransactionServiceTests
                 .With(t => t.Security, security2)
                 .With(t => t.TransactionType, TransactionType.Sell)
                 .With(t => t.Date, newDate)
+                .With(t => t.UpdatedAt, newDate)
                 .With(t => t.SharesQuantity, 5m)
                 .With(t => t.SharePrice, 2800m)
                 .With(t => t.Fees, 10m)
@@ -462,6 +463,7 @@ public class TransactionServiceTests
                 .With(t => t.Security, security1)
                 .With(t => t.TransactionType, TransactionType.Buy)
                 .With(t => t.Date, middleDate)
+                .With(t => t.UpdatedAt, middleDate)
                 .With(t => t.SharesQuantity, 20m)
                 .With(t => t.SharePrice, 160m)
                 .With(t => t.Fees, 8m)
@@ -473,6 +475,7 @@ public class TransactionServiceTests
                 .With(t => t.Security, security1)
                 .With(t => t.TransactionType, TransactionType.Buy)
                 .With(t => t.Date, oldDate)
+                .With(t => t.UpdatedAt, oldDate)
                 .With(t => t.SharesQuantity, 10m)
                 .With(t => t.SharePrice, 150m)
                 .With(t => t.Fees, 5m)
@@ -489,7 +492,7 @@ public class TransactionServiceTests
 
         // Assert
         result.Should().HaveCount(3);
-        result.Should().BeInDescendingOrder(t => t.Date);
+        result.Should().BeInDescendingOrder(t => t.Date); // DTO still has Date, but ordering is by UpdatedAt
         result[0].Date.Should().Be(newDate);
         result[1].Date.Should().Be(middleDate);
         result[2].Date.Should().Be(oldDate);
