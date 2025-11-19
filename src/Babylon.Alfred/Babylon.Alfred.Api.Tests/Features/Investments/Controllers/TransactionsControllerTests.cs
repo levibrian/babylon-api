@@ -137,4 +137,81 @@ public class TransactionsControllerTests
         okResult.Value.Should().BeEquivalentTo(transactions);
         autoMocker.GetMock<ITransactionService>().Verify(x => x.GetAllByUser(userId), Times.Once);
     }
+
+    [Fact]
+    public async Task UpdateTransaction_WithValidRequest_ShouldReturnOkWithTransactionDto()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var updateRequest = fixture.Create<UpdateTransactionRequest>();
+        var transactionDto = fixture.Create<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>();
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.Update(userId, transactionId, updateRequest))
+            .ReturnsAsync(transactionDto);
+
+        // Act
+        var result = await sut.UpdateTransaction(userId, transactionId, updateRequest);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(transactionDto);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.Update(userId, transactionId, updateRequest), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_WithTransactionNotFound_ShouldPropagateException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var updateRequest = fixture.Create<UpdateTransactionRequest>();
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.Update(userId, transactionId, updateRequest))
+            .ThrowsAsync(new InvalidOperationException($"Transaction {transactionId} not found for user {userId}"));
+
+        // Act
+        var act = async () => await sut.UpdateTransaction(userId, transactionId, updateRequest);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction {transactionId} not found for user {userId}");
+    }
+
+    [Fact]
+    public async Task DeleteTransaction_WithValidTransactionId_ShouldReturnOkWithSuccessMessage()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.Delete(userId, transactionId))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await sut.DeleteTransaction(userId, transactionId);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(new { message = "Transaction deleted successfully" });
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.Delete(userId, transactionId), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteTransaction_WithTransactionNotFound_ShouldPropagateException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.Delete(userId, transactionId))
+            .ThrowsAsync(new InvalidOperationException($"Transaction {transactionId} not found for user {userId}"));
+
+        // Act
+        var act = async () => await sut.DeleteTransaction(userId, transactionId);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction {transactionId} not found for user {userId}");
+    }
 }

@@ -787,4 +787,246 @@ public class TransactionRepositoryTests : IDisposable
         result.Select(t => t.TransactionType).Should().Contain(TransactionType.Buy);
         result.Select(t => t.TransactionType).Should().Contain(TransactionType.Sell);
     }
+
+    [Fact]
+    public async Task GetById_WithValidTransactionIdAndUserId_ShouldReturnTransaction()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL", "Apple Inc.");
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var transaction = new Transaction
+        {
+            Id = transactionId,
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId
+        };
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetById(transactionId, userId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(transactionId);
+        result.UserId.Should().Be(userId);
+        result.Security.Should().NotBeNull();
+        result.Security.Ticker.Should().Be("AAPL");
+    }
+
+    [Fact]
+    public async Task GetById_WithInvalidTransactionId_ShouldReturnNull()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var nonExistentId = Guid.NewGuid();
+
+        // Act
+        var result = await sut.GetById(nonExistentId, userId);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetById_WithWrongUserId_ShouldReturnNull()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL");
+        var userId1 = Guid.NewGuid();
+        var userId2 = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var transaction = new Transaction
+        {
+            Id = transactionId,
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId1
+        };
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetById(transactionId, userId2);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Update_WithValidTransaction_ShouldUpdateAndReturnTransaction()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL", "Apple Inc.");
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var originalDate = new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc);
+        var transaction = new Transaction
+        {
+            Id = transactionId,
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = originalDate,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId
+        };
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
+
+        // Modify the transaction
+        transaction.SharesQuantity = 20m;
+        transaction.SharePrice = 160m;
+        transaction.Fees = 10m;
+        transaction.Date = new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        var result = await sut.Update(transaction);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.SharesQuantity.Should().Be(20m);
+        result.SharePrice.Should().Be(160m);
+        result.Fees.Should().Be(10m);
+
+        var updatedTransaction = await context.Transactions.FindAsync(transactionId);
+        updatedTransaction.Should().NotBeNull();
+        updatedTransaction!.SharesQuantity.Should().Be(20m);
+        updatedTransaction.SharePrice.Should().Be(160m);
+        updatedTransaction.Fees.Should().Be(10m);
+    }
+
+    [Fact]
+    public async Task Delete_WithValidTransactionIdAndUserId_ShouldDeleteTransaction()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL", "Apple Inc.");
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var transaction = new Transaction
+        {
+            Id = transactionId,
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId
+        };
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
+
+        // Act
+        await sut.Delete(transactionId, userId);
+
+        // Assert
+        var deletedTransaction = await context.Transactions.FindAsync(transactionId);
+        deletedTransaction.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Delete_WithInvalidTransactionId_ShouldThrowException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var nonExistentId = Guid.NewGuid();
+
+        // Act
+        var act = async () => await sut.Delete(nonExistentId, userId);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction {nonExistentId} not found for user {userId}");
+    }
+
+    [Fact]
+    public async Task Delete_WithWrongUserId_ShouldThrowException()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL");
+        var userId1 = Guid.NewGuid();
+        var userId2 = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var transaction = new Transaction
+        {
+            Id = transactionId,
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId1
+        };
+        await context.Transactions.AddAsync(transaction);
+        await context.SaveChangesAsync();
+
+        // Act
+        var act = async () => await sut.Delete(transactionId, userId2);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction {transactionId} not found for user {userId2}");
+    }
+
+    [Fact]
+    public async Task Delete_ShouldNotDeleteOtherTransactions()
+    {
+        // Arrange
+        var security1 = await CreateSecurityAsync("AAPL");
+        var security2 = await CreateSecurityAsync("GOOGL");
+        var userId = Guid.NewGuid();
+        var transactionId1 = Guid.NewGuid();
+        var transactionId2 = Guid.NewGuid();
+        var transactions = new[]
+        {
+            new Transaction
+            {
+                Id = transactionId1,
+                SecurityId = security1.Id,
+                TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 10m,
+                SharePrice = 150m,
+                Fees = 5m,
+                UserId = userId
+            },
+            new Transaction
+            {
+                Id = transactionId2,
+                SecurityId = security2.Id,
+                TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 5m,
+                SharePrice = 2800m,
+                Fees = 10m,
+                UserId = userId
+            }
+        };
+        await context.Transactions.AddRangeAsync(transactions);
+        await context.SaveChangesAsync();
+
+        // Act
+        await sut.Delete(transactionId1, userId);
+
+        // Assert
+        var deletedTransaction = await context.Transactions.FindAsync(transactionId1);
+        deletedTransaction.Should().BeNull();
+
+        var remainingTransaction = await context.Transactions.FindAsync(transactionId2);
+        remainingTransaction.Should().NotBeNull();
+        remainingTransaction!.Id.Should().Be(transactionId2);
+    }
 }

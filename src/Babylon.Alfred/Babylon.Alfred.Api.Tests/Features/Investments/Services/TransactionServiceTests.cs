@@ -606,5 +606,308 @@ public class TransactionServiceTests
         result[0].Ticker.Should().BeEmpty();
         result[0].SecurityName.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task Update_WithValidRequest_ShouldUpdateAndReturnTransactionDto()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .With(s => s.SecurityName, "Apple Inc.")
+            .Create();
+        var existingTransaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc))
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 150m)
+            .With(t => t.Fees, 5m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.Ticker, (string?)null)
+            .With(r => r.SharesQuantity, 20m)
+            .With(r => r.SharePrice, 160m)
+            .With(r => r.Fees, 10m)
+            .With(r => r.Date, new DateOnly(2025, 1, 1))
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(existingTransaction);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Update(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Id.Should().Be(transactionId);
+        result.SharesQuantity.Should().Be(20m);
+        result.SharePrice.Should().Be(160m);
+        result.Fees.Should().Be(10m);
+        result.Ticker.Should().Be("AAPL");
+        autoMocker.GetMock<ITransactionRepository>().Verify(x => x.GetById(transactionId, userId), Times.Once);
+        autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Update(It.IsAny<Transaction>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Update_WithTickerChange_ShouldUpdateSecurityId()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var oldSecurity = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .With(s => s.Id, Guid.NewGuid())
+            .Create();
+        var newSecurity = fixture.Build<Security>()
+            .With(s => s.Ticker, "GOOGL")
+            .With(s => s.Id, Guid.NewGuid())
+            .Create();
+        var existingTransaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.SecurityId, oldSecurity.Id)
+            .With(t => t.Security, oldSecurity)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.Ticker, "GOOGL")
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(existingTransaction);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync("GOOGL"))
+            .ReturnsAsync(newSecurity);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Update(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        autoMocker.GetMock<ITransactionRepository>().Verify(
+            x => x.Update(It.Is<Transaction>(t => t.SecurityId == newSecurity.Id)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Update_WithTransactionNotFound_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var updateRequest = fixture.Create<UpdateTransactionRequest>();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync((Transaction?)null);
+
+        // Act
+        var act = async () => await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction {transactionId} not found for user {userId}");
+        autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Update(It.IsAny<Transaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Update_WithInvalidTicker_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .Create();
+        var existingTransaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.Ticker, "INVALID")
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(existingTransaction);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync("INVALID"))
+            .ReturnsAsync((Security?)null);
+
+        // Act
+        var act = async () => await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Security provided not found in our internal database.");
+    }
+
+    [Fact]
+    public async Task Update_WithZeroSharesQuantity_ShouldThrowArgumentException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .Create();
+        var existingTransaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.Ticker, (string?)null)
+            .With(r => r.SharesQuantity, 0m)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(existingTransaction);
+
+        // Act
+        var act = async () => await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("SharesQuantity must be greater than zero*");
+    }
+
+    [Fact]
+    public async Task Update_WithZeroSharePrice_ShouldThrowArgumentException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .Create();
+        var existingTransaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.Ticker, (string?)null)
+            .With(r => r.SharePrice, 0m)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(existingTransaction);
+
+        // Act
+        var act = async () => await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("SharePrice must be greater than zero*");
+    }
+
+    [Fact]
+    public async Task Update_WithPartialUpdate_ShouldOnlyUpdateProvidedFields()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .Create();
+        var existingTransaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc))
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 150m)
+            .With(t => t.Fees, 5m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.SharesQuantity, 20m)
+            .With(r => r.SharePrice, (decimal?)null)
+            .With(r => r.Fees, (decimal?)null)
+            .With(r => r.Date, (DateOnly?)null)
+            .With(r => r.TransactionType, (TransactionType?)null)
+            .With(r => r.Ticker, (string?)null)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(existingTransaction);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Update(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Update(userId, transactionId, updateRequest);
+
+        // Assert
+        result.SharesQuantity.Should().Be(20m);
+        result.SharePrice.Should().Be(150m); // Should remain unchanged
+        result.Fees.Should().Be(5m); // Should remain unchanged
+        autoMocker.GetMock<ITransactionRepository>().Verify(
+            x => x.Update(It.Is<Transaction>(t => 
+                t.SharesQuantity == 20m &&
+                t.SharePrice == 150m &&
+                t.Fees == 5m)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Delete_WithValidTransactionId_ShouldDeleteTransaction()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Delete(transactionId, userId))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        await sut.Delete(userId, transactionId);
+
+        // Assert
+        autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Delete(transactionId, userId), Times.Once);
+    }
+
+    [Fact]
+    public async Task Delete_WithInvalidTransactionId_ShouldPropagateException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Delete(transactionId, userId))
+            .ThrowsAsync(new InvalidOperationException($"Transaction {transactionId} not found for user {userId}"));
+
+        // Act
+        var act = async () => await sut.Delete(userId, transactionId);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction {transactionId} not found for user {userId}");
+    }
 }
 

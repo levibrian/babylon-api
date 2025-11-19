@@ -33,4 +33,31 @@ public class TransactionsController(ITransactionService transactionService) : Co
         var transactions = await transactionService.GetAllByUser(userId);
         return Ok(transactions);
     }
+
+    /// <summary>
+    /// Updates an existing transaction for a user.
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <param name="transactionId">Transaction ID to update</param>
+    /// <param name="request">Transaction update request</param>
+    /// <returns>Updated transaction</returns>
+    [HttpPut("{userId}/{transactionId}")]
+    public async Task<IActionResult> UpdateTransaction(Guid userId, Guid transactionId, UpdateTransactionRequest request)
+    {
+        var transaction = await transactionService.Update(userId, transactionId, request);
+        return Ok(transaction);
+    }
+
+    /// <summary>
+    /// Deletes a transaction for a user.
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <param name="transactionId">Transaction ID to delete</param>
+    /// <returns>Success message</returns>
+    [HttpDelete("{userId}/{transactionId}")]
+    public async Task<IActionResult> DeleteTransaction(Guid userId, Guid transactionId)
+    {
+        await transactionService.Delete(userId, transactionId);
+        return Ok(new { message = "Transaction deleted successfully" });
+    }
 }

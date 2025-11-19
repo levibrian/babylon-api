@@ -116,6 +116,100 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         return transactionDtos;
     }
 
+    public async Task<TransactionDto> Update(Guid userId, Guid transactionId, UpdateTransactionRequest request)
+    {
+        logger.LogOperationStart("UpdateTransaction", new { TransactionId = transactionId, UserId = userId });
+
+        // Get existing transaction
+        var existingTransaction = await transactionRepository.GetById(transactionId, userId);
+        if (existingTransaction == null)
+        {
+            logger.LogBusinessRuleViolation("UpdateTransaction", 
+                $"Transaction {transactionId} not found for user {userId}", 
+                new { TransactionId = transactionId, UserId = userId });
+            throw new InvalidOperationException($"Transaction {transactionId} not found for user {userId}");
+        }
+
+        // Update ticker/security if provided
+        if (!string.IsNullOrWhiteSpace(request.Ticker))
+        {
+            var securityFromDb = await securityRepository.GetByTickerAsync(request.Ticker);
+            if (securityFromDb == null)
+            {
+                logger.LogBusinessRuleViolation("UpdateTransaction", 
+                    $"Security not found for ticker: {request.Ticker}", 
+                    request);
+                throw new InvalidOperationException("Security provided not found in our internal database.");
+            }
+            existingTransaction.SecurityId = securityFromDb.Id;
+        }
+
+        // Update other properties if provided
+        if (request.TransactionType.HasValue)
+        {
+            existingTransaction.TransactionType = request.TransactionType.Value;
+        }
+
+        if (request.Date.HasValue)
+        {
+            existingTransaction.Date = request.Date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        }
+
+        if (request.SharesQuantity.HasValue)
+        {
+            if (request.SharesQuantity.Value <= 0)
+            {
+                logger.LogValidationFailure("UpdateTransaction", "SharesQuantity must be greater than zero", request);
+                throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request));
+            }
+            existingTransaction.SharesQuantity = request.SharesQuantity.Value;
+        }
+
+        if (request.SharePrice.HasValue)
+        {
+            if (request.SharePrice.Value <= 0)
+            {
+                logger.LogValidationFailure("UpdateTransaction", "SharePrice must be greater than zero", request);
+                throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
+            }
+            existingTransaction.SharePrice = request.SharePrice.Value;
+        }
+
+        if (request.Fees.HasValue)
+        {
+            existingTransaction.Fees = request.Fees.Value;
+        }
+
+        // Save changes
+        var updatedTransaction = await transactionRepository.Update(existingTransaction);
+
+        // Map to DTO
+        var transactionDto = new TransactionDto
+        {
+            Id = updatedTransaction.Id,
+            Ticker = updatedTransaction.Security?.Ticker ?? string.Empty,
+            SecurityName = updatedTransaction.Security?.SecurityName ?? string.Empty,
+            Date = updatedTransaction.Date,
+            SharesQuantity = updatedTransaction.SharesQuantity,
+            SharePrice = updatedTransaction.SharePrice,
+            Fees = updatedTransaction.Fees,
+            TransactionType = updatedTransaction.TransactionType,
+            TotalAmount = updatedTransaction.TotalAmount
+        };
+
+        logger.LogOperationSuccess("UpdateTransaction", new { TransactionId = transactionId, UserId = userId });
+        return transactionDto;
+    }
+
+    public async Task Delete(Guid userId, Guid transactionId)
+    {
+        logger.LogOperationStart("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
+
+        await transactionRepository.Delete(transactionId, userId);
+
+        logger.LogOperationSuccess("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
+    }
+
     private static Transaction CreateTransaction(CreateTransactionRequest request, Guid securityId)
         => new()
         {

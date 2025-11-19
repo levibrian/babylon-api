@@ -9,5 +9,8 @@ public interface ITransactionRepository
     Task<IEnumerable<Transaction>> GetAll();
     Task<IEnumerable<Transaction>> GetOpenPositionsByUser(Guid userId);
     Task<IEnumerable<Transaction>> GetAllByUser(Guid userId);
+    Task<Transaction?> GetById(Guid transactionId, Guid userId);
+    Task<Transaction> Update(Transaction transaction);
+    Task Delete(Guid transactionId, Guid userId);
 }
 
