@@ -28,6 +28,21 @@ try
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Configure CORS
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:3000" }; // Default to localhost:3000 for development
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 // Configure Database
 builder.Services.AddDbContext<BabylonDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -41,6 +56,9 @@ var app = builder.Build();
 // Request logging should come first to capture all requests
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalErrorHandlerMiddleware>();
+
+// CORS must be before UseAuthorization and MapControllers
+app.UseCors();
 
 if (app.Environment.IsDevelopment())
 {

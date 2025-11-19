@@ -128,6 +128,9 @@ public class PortfolioService(
             }
         }
 
+        // Return only the last 5 transactions for display (already ordered by date descending)
+        var displayTransactions = positionTransactions.Take(5).ToList();
+
         return new PortfolioPositionDto
         {
             Ticker = ticker,
@@ -142,7 +145,7 @@ public class PortfolioService(
             RebalancingAmount = rebalancingAmount,
             RebalancingStatus = rebalancingStatus,
             RebalancingMessage = rebalancingMessage,
-            Transactions = positionTransactions
+            Transactions = displayTransactions
         };
     }
 
