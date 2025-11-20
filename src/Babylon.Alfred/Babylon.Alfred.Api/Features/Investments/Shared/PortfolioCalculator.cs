@@ -30,7 +30,7 @@ public static class PortfolioCalculator
     }
 
     /// <summary>
-    /// Calculates the cost basis and total shares using weighted average cost method.
+    /// Calculates the cost basis and total shares using the weighted average cost method.
     /// Processes transactions chronologically: buys add shares and cost, sells reduce proportionally.
     /// </summary>
     public static (decimal totalShares, decimal costBasis) CalculateCostBasis(List<PortfolioTransactionDto> transactions)
@@ -136,9 +136,9 @@ public static class PortfolioCalculator
     /// <returns>Rebalancing status</returns>
     public static RebalancingStatus DetermineRebalancingStatus(decimal currentAllocation, decimal targetAllocation)
     {
-        const decimal rebalancingThreshold = 1m; // Threshold in percentage points
+        const decimal rebalancingThreshold = 0.5m; // Threshold in percentage points
         var deviation = Math.Abs(currentAllocation - targetAllocation);
-        
+
         // Balanced if within ±1% of target
         // Using <= with explicit decimal comparison to avoid precision issues
         if (deviation <= rebalancingThreshold)
