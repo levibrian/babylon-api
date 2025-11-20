@@ -53,24 +53,15 @@ public class PortfolioService(
         var securities = await securityRepository.GetByIdsAsync(securityIds);
         var securitiesLookup = securities.ToDictionary(s => s.Id, s => s);
 
-        // Get tickers for market price lookup
+        // Get tickers for market price lookup (for display purposes only, not used for rebalancing)
         var tickers = securities.Select(s => s.Ticker).ToList();
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
 
         // Fetch target allocations
         var targetAllocations = await allocationStrategyService.GetTargetAllocationsAsync(userId);
 
-        // Calculate total portfolio market value
-        var totalPortfolioValue = groupedTransactions.Sum(group =>
-        {
-            var securityId = group.Key;
-            var security = securitiesLookup.GetValueOrDefault(securityId);
-            var ticker = security?.Ticker ?? string.Empty;
-            var positionTransactions = MapToTransactionDtos(group);
-            var (totalShares, _) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
-            var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
-            return totalShares * currentPrice;
-        });
+        // Calculate total portfolio value using total invested (cost basis) instead of market value
+        var totalPortfolioValue = groupedTransactions.Sum(group => group.Sum(t => t.TotalAmount));
 
         // Process all positions in memory
         return groupedTransactions
@@ -98,34 +89,28 @@ public class PortfolioService(
         var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
         var totalInvested = transactionGroup.Sum(t => t.TotalAmount);
 
-        // Calculate market value and allocation
+        // Calculate market value for display purposes only
         var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
         var currentMarketValue = totalShares * currentPrice;
-        var currentAllocation = PortfolioCalculator.CalculateCurrentAllocationPercentage(currentMarketValue, totalPortfolioValue);
+
+        // Calculate allocation using total invested (cost basis) instead of market value
+        var currentAllocation = PortfolioCalculator.CalculateCurrentAllocationPercentage(totalInvested, totalPortfolioValue);
 
         // Get target allocation if set
         var targetAllocation = targetAllocations.GetValueOrDefault(ticker);
         var hasTargetAllocation = targetAllocations.ContainsKey(ticker);
 
         // Calculate deviation and rebalancing amount if target allocation exists
+        // Using total invested (cost basis) for rebalancing calculations
         decimal? allocationDeviation = null;
         decimal? rebalancingAmount = null;
         var rebalancingStatus = RebalancingStatus.Balanced;
-        string? rebalancingMessage = null;
 
         if (hasTargetAllocation)
         {
             allocationDeviation = currentAllocation - targetAllocation;
-            rebalancingAmount = PortfolioCalculator.CalculateRebalancingAmount(currentMarketValue, targetAllocation, totalPortfolioValue);
+            rebalancingAmount = PortfolioCalculator.CalculateRebalancingAmount(totalInvested, targetAllocation, totalPortfolioValue);
             rebalancingStatus = PortfolioCalculator.DetermineRebalancingStatus(currentAllocation, targetAllocation);
-
-            // Generate message if not balanced
-            if (rebalancingStatus != RebalancingStatus.Balanced)
-            {
-                var status = rebalancingStatus == RebalancingStatus.Overweight ? "Overweight" : "Underweight";
-                var action = rebalancingStatus == RebalancingStatus.Overweight ? "Sell" : "Buy";
-                rebalancingMessage = $"{Math.Abs(allocationDeviation.Value):F1}% {status} {action} ~€{Math.Abs(rebalancingAmount.Value):F0}";
-            }
         }
 
         // Return only the last 8 transactions for display (already ordered by date descending)
@@ -144,7 +129,6 @@ public class PortfolioService(
             AllocationDeviation = allocationDeviation,
             RebalancingAmount = rebalancingAmount,
             RebalancingStatus = rebalancingStatus,
-            RebalancingMessage = rebalancingMessage,
             Transactions = displayTransactions
         };
     }

@@ -136,10 +136,12 @@ public static class PortfolioCalculator
     /// <returns>Rebalancing status</returns>
     public static RebalancingStatus DetermineRebalancingStatus(decimal currentAllocation, decimal targetAllocation)
     {
+        const decimal rebalancingThreshold = 1m; // Threshold in percentage points
         var deviation = Math.Abs(currentAllocation - targetAllocation);
         
         // Balanced if within ±1% of target
-        if (deviation <= 1)
+        // Using <= with explicit decimal comparison to avoid precision issues
+        if (deviation <= rebalancingThreshold)
         {
             return RebalancingStatus.Balanced;
         }

@@ -16,7 +16,6 @@ public class PortfolioPositionDto
     public decimal? AllocationDeviation { get; set; } // current - target
     public decimal? RebalancingAmount { get; set; } // € amount (positive = buy, negative = sell)
     public RebalancingStatus RebalancingStatus { get; set; }
-    public string? RebalancingMessage { get; set; } // "1.0% Overweight Sell ~€155"
     public decimal? CurrentMarketValue { get; set; } // Current position value in €
     
     public List<PortfolioTransactionDto> Transactions { get; set; } = [];

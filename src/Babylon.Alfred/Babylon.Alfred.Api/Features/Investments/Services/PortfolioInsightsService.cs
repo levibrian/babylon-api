@@ -9,7 +9,6 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 
 public class PortfolioInsightsService(
     ITransactionRepository transactionRepository,
-    IMarketPriceService marketPriceService,
     IAllocationStrategyService allocationStrategyService,
     ISecurityRepository securityRepository,
     ILogger<PortfolioInsightsService> logger)
@@ -66,23 +65,10 @@ public class PortfolioInsightsService(
         var securityIds = transactions.Select(t => t.SecurityId).Distinct().ToList();
         var securities = await securityRepository.GetByIdsAsync(securityIds);
         var securitiesLookup = securities.ToDictionary(s => s.Id, s => s);
-
-        // Get market prices for all positions
-        var tickers = securities.Select(s => s.Ticker).Distinct().ToList();
-        var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
         var tickerBySecurityId = securities.ToDictionary(s => s.Id, s => s.Ticker);
 
-        // Calculate total portfolio market value
-        var totalPortfolioValue = transactions
-            .GroupBy(t => t.SecurityId)
-            .Sum(g =>
-            {
-                var securityId = g.Key;
-                var ticker = tickerBySecurityId.GetValueOrDefault(securityId, string.Empty);
-                var totalShares = g.Sum(t => t.TransactionType == TransactionType.Buy ? t.SharesQuantity : -t.SharesQuantity);
-                var price = marketPrices.GetValueOrDefault(ticker, 0);
-                return totalShares * price;
-            });
+        // Calculate total portfolio value using total invested (cost basis) instead of market value
+        var totalPortfolioValue = transactions.Sum(t => t.TotalAmount);
 
         if (totalPortfolioValue == 0)
         {
@@ -101,30 +87,21 @@ public class PortfolioInsightsService(
                 continue; // Skip positions without target allocation
             }
 
-            // Map transactions to DTOs for calculation
-            var transactionDtos = group.Select(t => new PortfolioTransactionDto
-            {
-                TransactionType = t.TransactionType,
-                Date = t.Date,
-                SharesQuantity = t.SharesQuantity,
-                SharePrice = t.SharePrice,
-                Fees = t.Fees
-            }).ToList();
+            // Calculate total invested (cost basis) for this position
+            var totalInvested = group.Sum(t => t.TotalAmount);
 
-            var (totalShares, _) = PortfolioCalculator.CalculatePositionMetrics(transactionDtos);
-
-            var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
-            var currentMarketValue = totalShares * currentPrice;
+            // Calculate allocation using total invested (cost basis) instead of market value
             var currentAllocation = totalPortfolioValue > 0 
-                ? (currentMarketValue / totalPortfolioValue) * 100 
+                ? (totalInvested / totalPortfolioValue) * 100 
                 : 0;
 
             var targetAllocation = targetAllocations[ticker];
             var deviation = currentAllocation - targetAllocation;
-            var rebalancingAmount = (targetAllocation / 100 * totalPortfolioValue) - currentMarketValue;
+            // Rebalancing amount based on total invested (cost basis)
+            var rebalancingAmount = (targetAllocation / 100 * totalPortfolioValue) - totalInvested;
 
             // Only include if deviation is significant (>1%)
-            if (Math.Abs(deviation) > 1)
+            if (Math.Abs(deviation) > 1m)
             {
                 var status = deviation > 0 ? "Overweight" : "Underweight";
                 var action = deviation > 0 ? "Sell" : "Buy";
