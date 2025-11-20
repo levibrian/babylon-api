@@ -128,8 +128,8 @@ public class PortfolioService(
             }
         }
 
-        // Return only the last 5 transactions for display (already ordered by date descending)
-        var displayTransactions = positionTransactions.Take(5).ToList();
+        // Return only the last 8 transactions for display (already ordered by date descending)
+        var displayTransactions = positionTransactions.Take(8).ToList();
 
         return new PortfolioPositionDto
         {
