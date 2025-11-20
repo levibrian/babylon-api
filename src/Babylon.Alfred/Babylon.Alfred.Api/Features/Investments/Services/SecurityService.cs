@@ -12,7 +12,7 @@ public class SecurityService(ISecurityRepository securityRepository) : ISecurity
         var securities = await securityRepository.GetAllAsync();
 
         return securities
-            .Select(x => new CompanyDto(x.Ticker, x.SecurityName))
+            .Select(x => new CompanyDto(x.Ticker, x.SecurityName, x.SecurityType))
             .ToList();
     }
 
@@ -25,7 +25,7 @@ public class SecurityService(ISecurityRepository securityRepository) : ISecurity
             throw new InvalidOperationException("Security provided not found in our internal database.");
         }
 
-        return new CompanyDto(security.Ticker, security.SecurityName);
+        return new CompanyDto(security.Ticker, security.SecurityName, security.SecurityType);
     }
 
     public async Task<Security> CreateAsync(CreateCompanyRequest request)
@@ -34,6 +34,7 @@ public class SecurityService(ISecurityRepository securityRepository) : ISecurity
         {
             Ticker = request.Ticker,
             SecurityName = request.SecurityName,
+            SecurityType = request.SecurityType,
             LastUpdated = DateTime.UtcNow
         };
 
@@ -49,6 +50,10 @@ public class SecurityService(ISecurityRepository securityRepository) : ISecurity
         }
 
         existingSecurity.SecurityName = request.SecurityName;
+        if (request.SecurityType.HasValue)
+        {
+            existingSecurity.SecurityType = request.SecurityType.Value;
+        }
         existingSecurity.LastUpdated = DateTime.UtcNow;
 
         return await securityRepository.AddOrUpdateAsync(existingSecurity);

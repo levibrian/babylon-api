@@ -49,6 +49,7 @@ public class SecurityRepository(BabylonDbContext context, ILogger<SecurityReposi
         if (existing != null)
         {
             existing.SecurityName = security.SecurityName;
+            existing.SecurityType = security.SecurityType;
             existing.LastUpdated = DateTime.UtcNow;
             context.Securities.Update(existing);
         }

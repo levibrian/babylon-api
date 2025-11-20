@@ -12,6 +12,9 @@ public class SecurityConfiguration : IEntityTypeConfiguration<Security>
         entity.Property(e => e.Id).ValueGeneratedOnAdd();
         entity.Property(e => e.Ticker).IsRequired().HasMaxLength(50);
         entity.Property(e => e.SecurityName).IsRequired().HasMaxLength(100);
+        entity.Property(e => e.SecurityType)
+            .IsRequired()
+            .HasConversion<int>();
         entity.Property(e => e.LastUpdated);
 
         // Unique index on Ticker (can have multiple tickers per company in future)

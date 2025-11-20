@@ -83,6 +83,7 @@ public class SecurityServiceTests
         result.Should().NotBeNull();
         result!.Ticker.Should().Be(security.Ticker);
         result.SecurityName.Should().Be(security.SecurityName);
+        result.SecurityType.Should().Be(security.SecurityType);
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(security.Ticker), Times.Once);
     }
 
@@ -118,12 +119,14 @@ public class SecurityServiceTests
         result.Should().NotBeNull();
         result.Ticker.Should().Be(request.Ticker);
         result.SecurityName.Should().Be(request.SecurityName);
+        result.SecurityType.Should().Be(request.SecurityType);
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
             It.Is<Security>(c =>
                 c.Ticker == request.Ticker &&
                 c.SecurityName == request.SecurityName &&
+                c.SecurityType == request.SecurityType &&
                 c.LastUpdated != null)),
             Times.Once);
     }
@@ -170,10 +173,47 @@ public class SecurityServiceTests
         result.Should().NotBeNull();
         result!.Ticker.Should().Be(existingSecurity.Ticker);
         result.SecurityName.Should().Be(request.SecurityName);
+        if (request.SecurityType.HasValue)
+        {
+            result.SecurityType.Should().Be(request.SecurityType.Value);
+        }
         result.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(existingSecurity.Ticker), Times.Once);
-        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(existingSecurity), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
+            It.Is<Security>(s => 
+                s.Ticker == existingSecurity.Ticker &&
+                s.SecurityName == request.SecurityName &&
+                (!request.SecurityType.HasValue || s.SecurityType == request.SecurityType.Value))), 
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithSecurityType_ShouldUpdateSecurityType()
+    {
+        // Arrange
+        var existingSecurity = fixture.Build<Security>()
+            .With(c => c.SecurityType, SecurityType.Stock)
+            .With(c => c.LastUpdated, DateTime.UtcNow.AddDays(-1))
+            .Create();
+        var request = fixture.Build<UpdateCompanyRequest>()
+            .With(r => r.SecurityType, SecurityType.ETF)
+            .Create();
+
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByTickerAsync(existingSecurity.Ticker)).ReturnsAsync(existingSecurity);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Security>()))
+            .ReturnsAsync((Security c) => c);
+
+        // Act
+        var result = await sut.UpdateAsync(existingSecurity.Ticker, request);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.SecurityType.Should().Be(SecurityType.ETF);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
+            It.Is<Security>(s => s.SecurityType == SecurityType.ETF)), 
+            Times.Once);
     }
 
     [Fact]

@@ -124,6 +124,7 @@ public class SecuritiesControllerTests
         var createdSecurity = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.SecurityName, request.SecurityName)
+            .With(c => c.SecurityType, request.SecurityType)
             .Create();
         autoMocker
             .GetMock<ISecurityService>().Setup(x => x.CreateAsync(request)).ReturnsAsync(createdSecurity);
@@ -150,6 +151,7 @@ public class SecuritiesControllerTests
         var updatedSecurity = fixture.Build<Security>()
             .With(c => c.Ticker, ticker)
             .With(c => c.SecurityName, request.SecurityName)
+            .With(c => c.SecurityType, request.SecurityType ?? SecurityType.Stock)
             .Create();
         autoMocker
             .GetMock<ISecurityService>().Setup(x => x.UpdateAsync(ticker, request)).ReturnsAsync(updatedSecurity);
