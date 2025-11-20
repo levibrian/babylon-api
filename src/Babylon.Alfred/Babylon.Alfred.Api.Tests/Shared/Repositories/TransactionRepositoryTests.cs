@@ -636,7 +636,7 @@ public class TransactionRepositoryTests : IDisposable
         var security1 = await CreateSecurityAsync("AAPL", "Apple Inc.");
         var security2 = await CreateSecurityAsync("GOOGL", "Alphabet Inc.");
         var userId = Guid.NewGuid();
-        var otherUserId = fixture.Create<Guid>();
+        var otherUserId = Guid.NewGuid();
 
         var oldDate = new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc);
         var newDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);

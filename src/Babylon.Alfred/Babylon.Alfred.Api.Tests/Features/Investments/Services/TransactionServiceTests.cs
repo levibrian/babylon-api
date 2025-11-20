@@ -47,7 +47,7 @@ public class TransactionServiceTests
             .Create();
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, security.Id)
@@ -226,7 +226,7 @@ public class TransactionServiceTests
             .Create();
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
 
         autoMocker.GetMock<ISecurityRepository>()
@@ -256,7 +256,7 @@ public class TransactionServiceTests
             .Create();
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var beforeCreate = DateTime.UtcNow;
 
@@ -292,7 +292,7 @@ public class TransactionServiceTests
         // Mock securities for bulk create
         var securities = requests.Select(r => fixture.Build<Security>()
             .With(c => c.Ticker, r.Ticker)
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create()).ToList();
         
         autoMocker.GetMock<ISecurityRepository>()
@@ -353,14 +353,14 @@ public class TransactionServiceTests
             .With(r => r.SharePrice, 150m)
             .With(r => r.Fees, 5m)
             .With(r => r.Date, new DateOnly(2025, 1, 15))
-            .With(r => r.UserId, fixture.Create<Guid>())
+            .With(r => r.UserId, Guid.NewGuid())
             .Create();
         var requests = new List<CreateTransactionRequest> { request };
 
         // Mock security for bulk create
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         
         autoMocker.GetMock<ISecurityRepository>()
@@ -402,7 +402,7 @@ public class TransactionServiceTests
         // Mock securities for bulk create
         var securities = requests.Select(r => fixture.Build<Security>()
             .With(c => c.Ticker, r.Ticker)
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create()).ToList();
         
         autoMocker.GetMock<ISecurityRepository>()
@@ -428,7 +428,7 @@ public class TransactionServiceTests
     public async Task GetAllByUser_WithUserId_ShouldReturnTransactionsOrderedByUpdatedAtDescending()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var security1 = fixture.Build<Security>()
             .With(s => s.Ticker, "AAPL")
             .With(s => s.SecurityName, "Apple Inc.")
@@ -446,7 +446,7 @@ public class TransactionServiceTests
         var transactions = new List<Transaction>
         {
             fixture.Build<Transaction>()
-                .With(t => t.Id, fixture.Create<Guid>())
+                .With(t => t.Id, Guid.NewGuid())
                 .With(t => t.SecurityId, security2.Id)
                 .With(t => t.Security, security2)
                 .With(t => t.TransactionType, TransactionType.Sell)
@@ -458,7 +458,7 @@ public class TransactionServiceTests
                 .With(t => t.UserId, userId)
                 .Create(),
             fixture.Build<Transaction>()
-                .With(t => t.Id, fixture.Create<Guid>())
+                .With(t => t.Id, Guid.NewGuid())
                 .With(t => t.SecurityId, security1.Id)
                 .With(t => t.Security, security1)
                 .With(t => t.TransactionType, TransactionType.Buy)
@@ -470,7 +470,7 @@ public class TransactionServiceTests
                 .With(t => t.UserId, userId)
                 .Create(),
             fixture.Build<Transaction>()
-                .With(t => t.Id, fixture.Create<Guid>())
+                .With(t => t.Id, Guid.NewGuid())
                 .With(t => t.SecurityId, security1.Id)
                 .With(t => t.Security, security1)
                 .With(t => t.TransactionType, TransactionType.Buy)
@@ -524,8 +524,8 @@ public class TransactionServiceTests
     public async Task GetAllByUser_ShouldMapAllPropertiesCorrectly()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
-        var transactionId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
         var security = fixture.Build<Security>()
             .With(s => s.Ticker, "MSFT")
             .With(s => s.SecurityName, "Microsoft Corporation")
@@ -568,7 +568,7 @@ public class TransactionServiceTests
     public async Task GetAllByUser_WithNoTransactions_ShouldReturnEmptyList()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(fixture.CreateMany<Transaction>(0).ToList());
@@ -584,10 +584,10 @@ public class TransactionServiceTests
     public async Task GetAllByUser_WithNullSecurity_ShouldHandleGracefully()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var transaction = fixture.Build<Transaction>()
-            .With(t => t.Id, fixture.Create<Guid>())
-            .With(t => t.SecurityId, fixture.Create<Guid>())
+            .With(t => t.Id, Guid.NewGuid())
+            .With(t => t.SecurityId, Guid.NewGuid())
             .With(t => t.Security, (Security)null!)
             .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.Date, DateTime.UtcNow)

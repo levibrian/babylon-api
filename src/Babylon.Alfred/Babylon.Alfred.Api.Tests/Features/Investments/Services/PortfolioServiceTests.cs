@@ -47,7 +47,7 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_WithNoTransactions_ShouldReturnEmptyPortfolio()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var emptyTransactions = new List<Transaction>();
 
         autoMocker.GetMock<ITransactionRepository>()
@@ -87,11 +87,11 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_WithSingleTransaction_ShouldReturnPortfolioWithOnePosition()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var company = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
             .With(c => c.SecurityName, "Apple Inc.")
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
@@ -135,11 +135,11 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_WithMultipleTransactionsSameTicker_ShouldGroupByTicker()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var company = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
             .With(c => c.SecurityName, "Apple Inc.")
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction1 = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
@@ -191,16 +191,16 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_WithMultipleTransactionsDifferentTickers_ShouldCreateSeparatePositions()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var securityApple = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
             .With(c => c.SecurityName, "Apple Inc.")
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var securityGoogle = fixture.Build<Security>()
             .With(c => c.Ticker, "GOOGL")
             .With(c => c.SecurityName, "Alphabet Inc.")
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transactionApple = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityApple.Id)
@@ -253,8 +253,8 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_WhenSecurityNotFound_ShouldUseFallbackTickerAsSecurityName()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
-        var securityId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
+        var securityId = Guid.NewGuid();
         var transaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityId)
             .With(t => t.SharesQuantity, 10m)
@@ -282,10 +282,10 @@ public class PortfolioServiceTests
     }
 
     [Fact]
-    public async Task GetPortfolio_ShouldOrderPositionsByTotalInvestedDescending()
+    public async Task GetPortfolio_ShouldOrderPositionsByTargetAllocationPercentageDescending()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var securitySmall = fixture.Build<Security>().With(c => c.Ticker, "SMALL").With(c => c.Id, Guid.NewGuid()).Create();
         var securityLarge = fixture.Build<Security>().With(c => c.Ticker, "LARGE").With(c => c.Id, Guid.NewGuid()).Create();
         var securityMedium = fixture.Build<Security>().With(c => c.Ticker, "MEDIUM").With(c => c.Id, Guid.NewGuid()).Create();
@@ -335,6 +335,16 @@ public class PortfolioServiceTests
                 }
                 return result;
             });
+        
+        // Set target allocations: LARGE: 50%, MEDIUM: 30%, SMALL: 20%
+        autoMocker.GetMock<IAllocationStrategyService>()
+            .Setup(x => x.GetTargetAllocationsAsync(userId))
+            .ReturnsAsync(new Dictionary<string, decimal>
+            {
+                { "LARGE", 50m },
+                { "MEDIUM", 30m },
+                { "SMALL", 20m }
+            });
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -342,17 +352,23 @@ public class PortfolioServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Positions.Should().HaveCount(3);
+        // Should be ordered by target allocation descending: LARGE (50%), MEDIUM (30%), SMALL (20%)
         result.Positions[0].Ticker.Should().Be("LARGE");
+        result.Positions[0].TargetAllocationPercentage.Should().Be(50m);
         result.Positions[1].Ticker.Should().Be("MEDIUM");
+        result.Positions[1].TargetAllocationPercentage.Should().Be(30m);
         result.Positions[2].Ticker.Should().Be("SMALL");
-        result.Positions.Should().BeInDescendingOrder(p => p.TotalInvested);
+        result.Positions[2].TargetAllocationPercentage.Should().Be(20m);
+        // Verify ordering by checking each position's target allocation is greater than or equal to the next
+        result.Positions[0].TargetAllocationPercentage.Should().BeGreaterThanOrEqualTo(result.Positions[1].TargetAllocationPercentage!.Value);
+        result.Positions[1].TargetAllocationPercentage.Should().BeGreaterThanOrEqualTo(result.Positions[2].TargetAllocationPercentage!.Value);
     }
 
     [Fact]
     public async Task GetPortfolio_ShouldOrderTransactionsWithinPositionByDateDescending()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var company = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
         var oldTransaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
@@ -414,12 +430,12 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_ShouldMapAllTransactionPropertiesCorrectly()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
-        var transactionId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
         var company = fixture.Build<Security>()
             .With(c => c.Ticker, "AAPL")
             .With(c => c.SecurityName, "Apple Inc.")
-            .With(c => c.Id, fixture.Create<Guid>())
+            .With(c => c.Id, Guid.NewGuid())
             .Create();
         var transaction = new Transaction
         {
@@ -469,7 +485,7 @@ public class PortfolioServiceTests
     public async Task GetPortfolio_ShouldCalculateTotalInvestedCorrectly()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var securityApple = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
         var securityGoogle = fixture.Build<Security>().With(c => c.Ticker, "GOOGL").With(c => c.Id, Guid.NewGuid()).Create();
         var transaction1 = fixture.Build<Transaction>()

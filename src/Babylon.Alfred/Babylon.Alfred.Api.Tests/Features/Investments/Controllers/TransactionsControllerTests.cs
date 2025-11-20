@@ -92,7 +92,7 @@ public class TransactionsControllerTests
     public async Task GetTransactions_WithUserId_ShouldReturnOkWithTransactions()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var transactions = fixture.CreateMany<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>(3).ToList();
         autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
 
@@ -125,7 +125,7 @@ public class TransactionsControllerTests
     public async Task GetTransactions_WithNoTransactions_ShouldReturnOkWithEmptyList()
     {
         // Arrange
-        var userId = fixture.Create<Guid>();
+        var userId = Guid.NewGuid();
         var transactions = new List<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>();
         autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
 

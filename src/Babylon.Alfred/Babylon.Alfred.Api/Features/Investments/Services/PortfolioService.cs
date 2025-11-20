@@ -29,8 +29,9 @@ public class PortfolioService(
         var groupedTransactions = transactions.GroupBy(t => t.SecurityId).ToList();
         var positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId);
 
+        // Order by target allocation percentage (descending), with positions without target allocation last
         var orderedPositions = positions
-            .OrderByDescending(p => p.TotalInvested)
+            .OrderByDescending(p => p.TargetAllocationPercentage ?? -1)
             .ToList();
 
         return new PortfolioResponse

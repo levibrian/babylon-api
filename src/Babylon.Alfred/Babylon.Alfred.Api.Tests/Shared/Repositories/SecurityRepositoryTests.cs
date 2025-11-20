@@ -76,9 +76,9 @@ public class SecurityRepositoryTests : IDisposable
         // Arrange
         var securities = new[]
         {
-            new Security { Id = fixture.Create<Guid>(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = fixture.Create<Guid>(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = fixture.Create<Guid>(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
@@ -108,9 +108,9 @@ public class SecurityRepositoryTests : IDisposable
         // Arrange
         var securities = new[]
         {
-            new Security { Id = fixture.Create<Guid>(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = fixture.Create<Guid>(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = fixture.Create<Guid>(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
@@ -275,9 +275,9 @@ public class SecurityRepositoryTests : IDisposable
         // Arrange
         var securities = new[]
         {
-            new Security { Id = fixture.Create<Guid>(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = fixture.Create<Guid>(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
-            new Security { Id = fixture.Create<Guid>(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
+            new Security { Id = Guid.NewGuid(), Ticker = "AAPL", SecurityName = "Apple Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "GOOGL", SecurityName = "Alphabet Inc.", LastUpdated = DateTime.UtcNow },
+            new Security { Id = Guid.NewGuid(), Ticker = "MSFT", SecurityName = "Microsoft Corp.", LastUpdated = DateTime.UtcNow }
         };
         await context.Securities.AddRangeAsync(securities);
         await context.SaveChangesAsync();
