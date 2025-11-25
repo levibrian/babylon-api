@@ -44,8 +44,16 @@ builder.Services.AddCors(options =>
 });
 
 // Configure Database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<BabylonDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // Enable retry on failure for transient errors
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+    }));
 
 // Configure services
 builder.Services.RegisterFeatures();

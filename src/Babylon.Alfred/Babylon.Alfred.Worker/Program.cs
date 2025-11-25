@@ -34,13 +34,20 @@ try
         ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
     // Log connection string (without password) for debugging
-    var maskedConnectionString = connectionString.Contains("Password=") 
-        ? connectionString.Substring(0, connectionString.IndexOf("Password=") + 9) + "***" 
+    var maskedConnectionString = connectionString.Contains("Password=")
+        ? connectionString.Substring(0, connectionString.IndexOf("Password=") + 9) + "***"
         : connectionString;
     Log.Information("Worker connecting to database: {ConnectionString}", maskedConnectionString);
 
     builder.Services.AddDbContext<BabylonDbContext>(options =>
-        options.UseNpgsql(connectionString));
+        options.UseNpgsql(connectionString, npgsqlOptions =>
+        {
+            // Enable retry on failure for transient errors
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+        }));
 
     // Register repositories
     builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
