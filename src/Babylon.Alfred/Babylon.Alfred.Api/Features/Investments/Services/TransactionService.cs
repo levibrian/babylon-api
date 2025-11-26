@@ -221,7 +221,7 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             SecurityId = securityId,
             TransactionType = request.TransactionType,
             Date = transactionDate,
-            UpdatedAt = transactionDate,
+            UpdatedAt = DateTime.UtcNow,
             SharesQuantity = request.SharesQuantity,
             SharePrice = request.SharePrice,
             Fees = request.Fees,

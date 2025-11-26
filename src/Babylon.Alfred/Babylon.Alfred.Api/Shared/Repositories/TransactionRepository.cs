@@ -67,7 +67,8 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         var transactions = await context.Transactions
             .Include(t => t.Security)
             .Where(t => t.UserId == userId)
-            .OrderByDescending(t => t.UpdatedAt)
+            .OrderByDescending(t => t.Date)
+            .ThenByDescending(t => t.UpdatedAt)
             .ToListAsync();
 
         logger.LogDatabaseOperation("RetrievedAllByUser", "Transaction", null, transactions.Count);
