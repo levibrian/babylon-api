@@ -5,7 +5,7 @@ using static Babylon.Alfred.Api.Constants.User;
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
 [ApiController]
-[Route("api/v1/portfolio/insights")]
+[Route("api/v1/portfolios/insights")]
 public class InsightsController(IPortfolioInsightsService portfolioInsightsService) : ControllerBase
 {
     /// <summary>

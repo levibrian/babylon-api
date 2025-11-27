@@ -7,7 +7,7 @@ using static Babylon.Alfred.Api.Constants;
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
 [ApiController]
-[Route("api/v1/portfolio/allocation")]
+[Route("api/v1/portfolios/allocation")]
 public class AllocationController(IAllocationStrategyService allocationStrategyService) : ControllerBase
 {
     /// <summary>
