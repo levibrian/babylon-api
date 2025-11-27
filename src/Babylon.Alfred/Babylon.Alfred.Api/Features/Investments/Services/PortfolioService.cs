@@ -121,6 +121,7 @@ public class PortfolioService(
         {
             Ticker = ticker,
             SecurityName = security?.SecurityName ?? ticker,
+            SecurityType = security?.SecurityType ?? SecurityType.Stock,
             TotalInvested = totalInvested,
             TotalShares = totalShares,
             AverageSharePrice = averageSharePrice,
