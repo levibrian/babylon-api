@@ -27,10 +27,16 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request));
         }
 
-        if (request.SharePrice <= 0)
+        if (request.TransactionType != TransactionType.Dividend && request.SharePrice <= 0)
         {
             logger.LogValidationFailure("CreateTransaction", "SharePrice must be greater than zero", request);
             throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
+        }
+
+        if (request.TransactionType == TransactionType.Dividend && request.SharePrice < 0)
+        {
+            logger.LogValidationFailure("CreateTransaction", "SharePrice cannot be negative for dividends", request);
+            throw new ArgumentException("SharePrice cannot be negative for dividends", nameof(request));
         }
 
         var securityFromDb = await securityRepository.GetByTickerAsync(request.Ticker);
@@ -99,21 +105,42 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
 
         var transactions = await transactionRepository.GetAllByUser(effectiveUserId);
 
-        var transactionDtos = transactions.Select(t => new TransactionDto
+        logger.LogInformation("Retrieved {Count} transactions from repository. Transaction types: {Types}",
+            transactions.Count(),
+            string.Join(", ", transactions.Select(t => t.TransactionType.ToString())));
+
+        var transactionDtos = transactions.Select(t =>
         {
-            Id = t.Id,
-            Ticker = t.Security?.Ticker ?? string.Empty,
-            SecurityName = t.Security?.SecurityName ?? string.Empty,
-            SecurityType = t.Security?.SecurityType ?? SecurityType.Stock,
-            Date = t.Date,
-            SharesQuantity = t.SharesQuantity,
-            SharePrice = t.SharePrice,
-            Fees = t.Fees,
-            TransactionType = t.TransactionType,
-            TotalAmount = t.TotalAmount
+            try
+            {
+                var dto = new TransactionDto
+                {
+                    Id = t.Id,
+                    Ticker = t.Security?.Ticker ?? string.Empty,
+                    SecurityName = t.Security?.SecurityName ?? string.Empty,
+                    SecurityType = t.Security?.SecurityType ?? SecurityType.Stock,
+                    Date = t.Date,
+                    SharesQuantity = t.SharesQuantity,
+                    SharePrice = t.SharePrice,
+                    Fees = t.Fees,
+                    Tax = t.Tax,
+                    TransactionType = t.TransactionType
+                };
+                // Access TotalAmount to ensure it's calculated (for debugging)
+                var _ = dto.TotalAmount;
+                return dto;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error mapping transaction {TransactionId} of type {TransactionType}", t.Id, t.TransactionType);
+                throw;
+            }
         }).ToList();
 
         logger.LogOperationSuccess("GetAllTransactionsByUser", new { transactionDtos.Count, UserId = effectiveUserId });
+        logger.LogInformation("Mapped {Count} transaction DTOs. Transaction types: {Types}",
+            transactionDtos.Count,
+            string.Join(", ", transactionDtos.Select(t => t.TransactionType.ToString())));
         return transactionDtos;
     }
 
@@ -181,6 +208,11 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             existingTransaction.Fees = request.Fees.Value;
         }
 
+        if (request.Tax.HasValue)
+        {
+            existingTransaction.Tax = request.Tax.Value;
+        }
+
         // Update UpdatedAt timestamp
         existingTransaction.UpdatedAt = DateTime.UtcNow;
 
@@ -198,8 +230,8 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             SharesQuantity = updatedTransaction.SharesQuantity,
             SharePrice = updatedTransaction.SharePrice,
             Fees = updatedTransaction.Fees,
-            TransactionType = updatedTransaction.TransactionType,
-            TotalAmount = updatedTransaction.TotalAmount
+            Tax = updatedTransaction.Tax,
+            TransactionType = updatedTransaction.TransactionType
         };
 
         logger.LogOperationSuccess("UpdateTransaction", new { TransactionId = transactionId, UserId = userId });
@@ -218,6 +250,23 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
     private static Transaction CreateTransaction(CreateTransactionRequest request, Guid securityId)
     {
         var transactionDate = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow;
+
+        // For dividends, calculate Gross Dividend Rate from Net Amount + Tax
+        decimal sharePrice;
+        if (request.TransactionType == TransactionType.Dividend)
+        {
+            // User sends Net Amount (TotalAmount) and Tax
+            // Calculate Gross Amount = Net Amount + Tax
+            // Then calculate Gross Dividend Per Share = Gross Amount / SharesQuantity
+            var netAmount = request.TotalAmount ?? 0;
+            var grossAmount = netAmount + request.Tax;
+            sharePrice = grossAmount / request.SharesQuantity;
+        }
+        else
+        {
+            sharePrice = request.SharePrice;
+        }
+
         return new()
         {
             SecurityId = securityId,
@@ -225,8 +274,9 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             Date = transactionDate,
             UpdatedAt = DateTime.UtcNow,
             SharesQuantity = request.SharesQuantity,
-            SharePrice = request.SharePrice,
+            SharePrice = sharePrice,
             Fees = request.Fees,
+            Tax = request.Tax,
             UserId = request.UserId ?? Constants.User.RootUserId
         };
     }

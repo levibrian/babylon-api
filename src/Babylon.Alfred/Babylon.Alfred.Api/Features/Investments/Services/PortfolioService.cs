@@ -14,9 +14,10 @@ public class PortfolioService(
     public async Task<PortfolioResponse> GetPortfolio(Guid? userId)
     {
         var effectiveUserId = userId ?? Constants.User.RootUserId;
-        var transactions = (await transactionRepository.GetOpenPositionsByUser(effectiveUserId)).ToList();
+        // Get Buy transactions to determine which securities have open positions
+        var buyTransactions = (await transactionRepository.GetOpenPositionsByUser(effectiveUserId)).ToList();
 
-        if (transactions.Count == 0)
+        if (buyTransactions.Count == 0)
         {
             return new PortfolioResponse
             {
@@ -25,8 +26,16 @@ public class PortfolioService(
             };
         }
 
+        // Get SecurityIds that have open positions
+        var securityIdsWithPositions = buyTransactions.Select(t => t.SecurityId).Distinct().ToList();
+
+        // Get ALL transactions (Buy, Sell, Dividend) for securities with open positions
+        var allTransactions = (await transactionRepository.GetAllByUser(effectiveUserId))
+            .Where(t => securityIdsWithPositions.Contains(t.SecurityId))
+            .ToList();
+
         // Group by SecurityId instead of Ticker
-        var groupedTransactions = transactions.GroupBy(t => t.SecurityId).ToList();
+        var groupedTransactions = allTransactions.GroupBy(t => t.SecurityId).ToList();
         var positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId);
 
         // Order by target allocation percentage (descending), with positions without target allocation last
@@ -61,8 +70,10 @@ public class PortfolioService(
         // Fetch target allocations
         var targetAllocations = await allocationStrategyService.GetTargetAllocationsAsync(userId);
 
-        // Calculate total portfolio value using total invested (cost basis) instead of market value
-        var totalPortfolioValue = groupedTransactions.Sum(group => group.Sum(t => t.TotalAmount));
+        // Calculate total portfolio value using total invested (cost basis) - only Buy transactions count toward invested amount
+        // Dividends are income, not investment, so they shouldn't be included in total invested
+        var totalPortfolioValue = groupedTransactions.Sum(group =>
+            group.Where(t => t.TransactionType == TransactionType.Buy).Sum(t => t.TotalAmount));
 
         // Process all positions in memory
         return groupedTransactions
@@ -88,7 +99,8 @@ public class PortfolioService(
         var ticker = security?.Ticker ?? string.Empty;
         var positionTransactions = MapToTransactionDtos(transactionGroup);
         var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
-        var totalInvested = transactionGroup.Sum(t => t.TotalAmount);
+        // Total invested should only include Buy transactions (cost basis), not dividends or sells
+        var totalInvested = transactionGroup.Where(t => t.TransactionType == TransactionType.Buy).Sum(t => t.TotalAmount);
 
         // Calculate market value for display purposes only
         var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
@@ -150,7 +162,8 @@ public class PortfolioService(
                 SharesQuantity = t.SharesQuantity,
                 SharePrice = t.SharePrice,
                 Fees = t.Fees,
-                TotalAmount = t.TotalAmount
+                Tax = t.Tax
+                // TotalAmount is computed, so we don't need to set it explicitly
             })
             .OrderByDescending(t => t.Date)
             .ToList();

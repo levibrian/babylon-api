@@ -10,6 +10,8 @@ public class CreateTransactionRequest
     public decimal SharesQuantity { get; set; }
     public decimal SharePrice { get; set; }
     public decimal Fees { get; set; }
+    public decimal Tax { get; set; } = 0;
+    public decimal? TotalAmount { get; set; } // For dividends: Net Amount (Gross - Tax)
 
     public Guid? UserId { get; set; }
 }

@@ -10,5 +10,6 @@ public class UpdateTransactionRequest
     public decimal? SharesQuantity { get; set; }
     public decimal? SharePrice { get; set; }
     public decimal? Fees { get; set; }
+    public decimal? Tax { get; set; }
 }
 

@@ -72,7 +72,13 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
             .ToListAsync();
 
         logger.LogDatabaseOperation("RetrievedAllByUser", "Transaction", null, transactions.Count);
-        logger.LogInformation("Retrieved {Count} transactions for UserId: {UserId}", transactions.Count, userId);
+        var transactionTypes = transactions.GroupBy(t => t.TransactionType)
+            .Select(g => $"{g.Key}: {g.Count()}")
+            .ToList();
+        logger.LogInformation("Retrieved {Count} transactions for UserId: {UserId}. Breakdown: {Types}",
+            transactions.Count,
+            userId,
+            string.Join(", ", transactionTypes));
         return transactions;
     }
 

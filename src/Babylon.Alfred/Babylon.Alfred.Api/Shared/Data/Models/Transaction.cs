@@ -12,6 +12,7 @@ public class Transaction
     public decimal SharesQuantity { get; set; }
     public decimal SharePrice { get; set; }
     public decimal Fees { get; set; }
+    public decimal Tax { get; set; } = 0;
 
     // Foreign key - required
     public Guid? UserId { get; set; }
@@ -25,11 +26,14 @@ public class Transaction
     public decimal Amount => SharesQuantity * SharePrice;
 
     [NotMapped]
-    public decimal TotalAmount => Amount + Fees;
+    public decimal TotalAmount => TransactionType == TransactionType.Dividend 
+        ? (SharesQuantity * SharePrice) - Tax  // Gross - Tax = Net Income
+        : Amount + Fees;  // Principal + Cost = Total Spent
 }
 
 public enum TransactionType
 {
     Buy,
-    Sell
+    Sell,
+    Dividend
 }
