@@ -16,11 +16,12 @@ public class PortfolioTransactionDto
     {
         get
         {
-            if (TransactionType == TransactionType.Dividend)
-                return (SharesQuantity * SharePrice) - Tax; // Gross - Tax = Net Income
-
-            // Standard Buy/Sell
-            return (SharesQuantity * SharePrice) + Fees; // Principal + Cost = Total Spent
+            return TransactionType switch
+            {
+                TransactionType.Dividend => (SharesQuantity * SharePrice) - Tax,  // Gross - Tax = Net Income
+                TransactionType.Split => 0,  // Stock splits don't involve money
+                _ => (SharesQuantity * SharePrice) + Fees  // Principal + Cost = Total Spent (Buy/Sell)
+            };
         }
         private set { } // Allow serialization
     }

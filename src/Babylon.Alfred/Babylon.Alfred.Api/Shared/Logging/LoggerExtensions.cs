@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Babylon.Alfred.Api.Shared.Logging;
 
 /// <summary>

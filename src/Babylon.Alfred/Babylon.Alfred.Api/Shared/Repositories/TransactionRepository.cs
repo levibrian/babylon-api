@@ -2,7 +2,6 @@ using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Logging;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 

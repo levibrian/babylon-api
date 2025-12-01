@@ -1,56 +1,27 @@
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
+using Babylon.Alfred.Api.Features.Investments.Shared;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Logging;
 using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
-public class TransactionService(ITransactionRepository transactionRepository, ISecurityRepository securityRepository, ILogger<TransactionService> logger)
+public class TransactionService(
+    ITransactionRepository transactionRepository,
+    ISecurityRepository securityRepository,
+    ILogger<TransactionService> logger)
     : ITransactionService
 {
     public async Task<Transaction> Create(CreateTransactionRequest request)
     {
         logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = request.UserId });
 
-        // Validation
-        if (string.IsNullOrWhiteSpace(request.Ticker))
-        {
-            logger.LogValidationFailure("CreateTransaction", "Ticker cannot be null or empty", request);
-            throw new ArgumentException("Ticker cannot be null or empty", nameof(request));
-        }
+        TransactionValidator.ValidateCreateRequest(request, logger);
+        var security = await SecurityValidator.ValidateAndGetSecurityAsync(request.Ticker, securityRepository, logger);
 
-        if (request.SharesQuantity <= 0)
-        {
-            logger.LogValidationFailure("CreateTransaction", "SharesQuantity must be greater than zero", request);
-            throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request));
-        }
-
-        if (request.TransactionType != TransactionType.Dividend && request.SharePrice <= 0)
-        {
-            logger.LogValidationFailure("CreateTransaction", "SharePrice must be greater than zero", request);
-            throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
-        }
-
-        if (request.TransactionType == TransactionType.Dividend && request.SharePrice < 0)
-        {
-            logger.LogValidationFailure("CreateTransaction", "SharePrice cannot be negative for dividends", request);
-            throw new ArgumentException("SharePrice cannot be negative for dividends", nameof(request));
-        }
-
-        var securityFromDb = await securityRepository.GetByTickerAsync(request.Ticker);
-
-        if (securityFromDb is null)
-        {
-            logger.LogBusinessRuleViolation("CreateTransaction", $"Security not found for ticker: {request.Ticker}", request);
-            throw new InvalidOperationException("Security provided not found in our internal database.");
-        }
-
-        // Map to entity
-        var transaction = CreateTransaction(request, securityFromDb.Id);
-
-        // Save to database
+        var transaction = CreateTransactionEntity(request, security.Id);
         var result = await transactionRepository.Add(transaction);
 
         logger.LogOperationSuccess("CreateTransaction", new { TransactionId = result.Id, Ticker = request.Ticker });
@@ -61,22 +32,11 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
     {
         logger.LogOperationStart("CreateBulkTransactions", new { Count = requests.Count });
 
-        // Get all unique tickers and fetch securities
         var tickers = requests.Select(r => r.Ticker).Distinct().ToList();
-        var securities = await securityRepository.GetByTickersAsync(tickers);
-
-        // Validate all tickers exist
-        var missingTickers = tickers.Where(t => !securities.ContainsKey(t)).ToList();
-        if (missingTickers.Any())
-        {
-            logger.LogBusinessRuleViolation("CreateBulkTransactions",
-                $"Securities not found for tickers: {string.Join(", ", missingTickers)}",
-                new { MissingTickers = missingTickers });
-            throw new InvalidOperationException($"Securities not found for tickers: {string.Join(", ", missingTickers)}");
-        }
+        var securities = await SecurityValidator.ValidateAndGetSecuritiesAsync(tickers, securityRepository, logger);
 
         var createdTransactions = requests
-            .Select(r => CreateTransaction(r, securities[r.Ticker].Id))
+            .Select(r => CreateTransactionEntity(r, securities[r.Ticker].Id))
             .ToList();
 
         if (createdTransactions.Count == 0)
@@ -85,17 +45,16 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             return new List<Transaction>();
         }
 
-        await transactionRepository.AddBulk(createdTransactions!);
-
+        await transactionRepository.AddBulk(createdTransactions.Cast<Transaction?>().ToList());
         logger.LogOperationSuccess("CreateBulkTransactions", new { Count = createdTransactions.Count });
         return createdTransactions;
     }
 
-    public async Task<PortfolioTransactionDto> GetById(Guid id)
+    public Task<PortfolioTransactionDto> GetById(Guid id)
     {
-        var transaction = new PortfolioTransactionDto();
-
-        return transaction;
+        // TODO: Implement GetById functionality
+        logger.LogWarning("GetById called but not implemented for transaction {TransactionId}", id);
+        return Task.FromResult(new PortfolioTransactionDto());
     }
 
     public async Task<IEnumerable<TransactionDto>> GetAllByUser(Guid? userId)
@@ -104,43 +63,9 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
         logger.LogOperationStart("GetAllTransactionsByUser", new { UserId = effectiveUserId });
 
         var transactions = await transactionRepository.GetAllByUser(effectiveUserId);
-
-        logger.LogInformation("Retrieved {Count} transactions from repository. Transaction types: {Types}",
-            transactions.Count(),
-            string.Join(", ", transactions.Select(t => t.TransactionType.ToString())));
-
-        var transactionDtos = transactions.Select(t =>
-        {
-            try
-            {
-                var dto = new TransactionDto
-                {
-                    Id = t.Id,
-                    Ticker = t.Security?.Ticker ?? string.Empty,
-                    SecurityName = t.Security?.SecurityName ?? string.Empty,
-                    SecurityType = t.Security?.SecurityType ?? SecurityType.Stock,
-                    Date = t.Date,
-                    SharesQuantity = t.SharesQuantity,
-                    SharePrice = t.SharePrice,
-                    Fees = t.Fees,
-                    Tax = t.Tax,
-                    TransactionType = t.TransactionType
-                };
-                // Access TotalAmount to ensure it's calculated (for debugging)
-                var _ = dto.TotalAmount;
-                return dto;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error mapping transaction {TransactionId} of type {TransactionType}", t.Id, t.TransactionType);
-                throw;
-            }
-        }).ToList();
+        var transactionDtos = TransactionMapper.ToDtoCollection(transactions).ToList();
 
         logger.LogOperationSuccess("GetAllTransactionsByUser", new { transactionDtos.Count, UserId = effectiveUserId });
-        logger.LogInformation("Mapped {Count} transaction DTOs. Transaction types: {Types}",
-            transactionDtos.Count,
-            string.Join(", ", transactionDtos.Select(t => t.TransactionType.ToString())));
         return transactionDtos;
     }
 
@@ -148,126 +73,43 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
     {
         logger.LogOperationStart("UpdateTransaction", new { TransactionId = transactionId, UserId = userId });
 
-        // Get existing transaction
         var existingTransaction = await transactionRepository.GetById(transactionId, userId);
         if (existingTransaction == null)
         {
             logger.LogBusinessRuleViolation("UpdateTransaction",
-                $"Transaction {transactionId} not found for user {userId}",
+                string.Format(ErrorMessages.TransactionNotFound, transactionId, userId),
                 new { TransactionId = transactionId, UserId = userId });
-            throw new InvalidOperationException($"Transaction {transactionId} not found for user {userId}");
+            throw new InvalidOperationException(
+                string.Format(ErrorMessages.TransactionNotFound, transactionId, userId));
         }
 
-        // Update ticker/security if provided
-        if (!string.IsNullOrWhiteSpace(request.Ticker))
-        {
-            var securityFromDb = await securityRepository.GetByTickerAsync(request.Ticker);
-            if (securityFromDb == null)
-            {
-                logger.LogBusinessRuleViolation("UpdateTransaction",
-                    $"Security not found for ticker: {request.Ticker}",
-                    request);
-                throw new InvalidOperationException("Security provided not found in our internal database.");
-            }
-            existingTransaction.SecurityId = securityFromDb.Id;
-        }
+        // Determine effective transaction type for validation (use request value if provided, otherwise existing)
+        var effectiveTransactionType = request.TransactionType ?? existingTransaction.TransactionType;
+        TransactionValidator.ValidateUpdateRequest(request, effectiveTransactionType, logger);
+        await UpdateTransactionPropertiesAsync(existingTransaction, request, securityRepository, logger);
 
-        // Update other properties if provided
-        if (request.TransactionType.HasValue)
-        {
-            existingTransaction.TransactionType = request.TransactionType.Value;
-        }
-
-        if (request.Date.HasValue)
-        {
-            existingTransaction.Date = request.Date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        }
-
-        if (request.SharesQuantity.HasValue)
-        {
-            if (request.SharesQuantity.Value <= 0)
-            {
-                logger.LogValidationFailure("UpdateTransaction", "SharesQuantity must be greater than zero", request);
-                throw new ArgumentException("SharesQuantity must be greater than zero", nameof(request));
-            }
-            existingTransaction.SharesQuantity = request.SharesQuantity.Value;
-        }
-
-        if (request.SharePrice.HasValue)
-        {
-            if (request.SharePrice.Value <= 0)
-            {
-                logger.LogValidationFailure("UpdateTransaction", "SharePrice must be greater than zero", request);
-                throw new ArgumentException("SharePrice must be greater than zero", nameof(request));
-            }
-            existingTransaction.SharePrice = request.SharePrice.Value;
-        }
-
-        if (request.Fees.HasValue)
-        {
-            existingTransaction.Fees = request.Fees.Value;
-        }
-
-        if (request.Tax.HasValue)
-        {
-            existingTransaction.Tax = request.Tax.Value;
-        }
-
-        // Update UpdatedAt timestamp
         existingTransaction.UpdatedAt = DateTime.UtcNow;
-
-        // Save changes
         var updatedTransaction = await transactionRepository.Update(existingTransaction);
 
-        // Map to DTO
-        var transactionDto = new TransactionDto
-        {
-            Id = updatedTransaction.Id,
-            Ticker = updatedTransaction.Security?.Ticker ?? string.Empty,
-            SecurityName = updatedTransaction.Security?.SecurityName ?? string.Empty,
-            SecurityType = updatedTransaction.Security?.SecurityType ?? SecurityType.Stock,
-            Date = updatedTransaction.Date,
-            SharesQuantity = updatedTransaction.SharesQuantity,
-            SharePrice = updatedTransaction.SharePrice,
-            Fees = updatedTransaction.Fees,
-            Tax = updatedTransaction.Tax,
-            TransactionType = updatedTransaction.TransactionType
-        };
-
         logger.LogOperationSuccess("UpdateTransaction", new { TransactionId = transactionId, UserId = userId });
-        return transactionDto;
+        return TransactionMapper.ToDto(updatedTransaction);
     }
 
     public async Task Delete(Guid userId, Guid transactionId)
     {
         logger.LogOperationStart("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
-
         await transactionRepository.Delete(transactionId, userId);
-
         logger.LogOperationSuccess("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
     }
 
-    private static Transaction CreateTransaction(CreateTransactionRequest request, Guid securityId)
+    private static Transaction CreateTransactionEntity(CreateTransactionRequest request, Guid securityId)
     {
         var transactionDate = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow;
+        var sharePrice = request.TransactionType == TransactionType.Dividend
+            ? DividendCalculator.CalculateSharePriceForDividend(request)
+            : request.SharePrice;
 
-        // For dividends, calculate Gross Dividend Rate from Net Amount + Tax
-        decimal sharePrice;
-        if (request.TransactionType == TransactionType.Dividend)
-        {
-            // User sends Net Amount (TotalAmount) and Tax
-            // Calculate Gross Amount = Net Amount + Tax
-            // Then calculate Gross Dividend Per Share = Gross Amount / SharesQuantity
-            var netAmount = request.TotalAmount ?? 0;
-            var grossAmount = netAmount + request.Tax;
-            sharePrice = grossAmount / request.SharesQuantity;
-        }
-        else
-        {
-            sharePrice = request.SharePrice;
-        }
-
-        return new()
+        return new Transaction
         {
             SecurityId = securityId,
             TransactionType = request.TransactionType,
@@ -279,5 +121,66 @@ public class TransactionService(ITransactionRepository transactionRepository, IS
             Tax = request.Tax,
             UserId = request.UserId ?? Constants.User.RootUserId
         };
+    }
+
+    private static async Task UpdateTransactionPropertiesAsync(
+        Transaction transaction,
+        UpdateTransactionRequest request,
+        ISecurityRepository securityRepository,
+        ILogger logger)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Ticker))
+        {
+            var security = await SecurityValidator.ValidateAndGetSecurityAsync(request.Ticker, securityRepository, logger);
+            transaction.SecurityId = security.Id;
+        }
+
+        // Update transaction type first, as it affects validation of other fields
+        if (request.TransactionType.HasValue)
+        {
+            transaction.TransactionType = request.TransactionType.Value;
+        }
+
+        // Determine effective transaction type (use updated value if changed, otherwise existing)
+        var effectiveTransactionType = request.TransactionType ?? transaction.TransactionType;
+
+        if (request.Date.HasValue)
+        {
+            transaction.Date = request.Date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        }
+
+        if (request.SharesQuantity.HasValue)
+        {
+            transaction.SharesQuantity = request.SharesQuantity.Value;
+        }
+
+        if (request.SharePrice.HasValue)
+        {
+            // For Split transactions, SharePrice must be 0
+            if (effectiveTransactionType == TransactionType.Split)
+            {
+                if (request.SharePrice.Value != 0)
+                {
+                    logger.LogValidationFailure("UpdateTransactionPropertiesAsync", ErrorMessages.SharePriceMustBeZeroForSplits, new { SharePrice = request.SharePrice.Value });
+                    throw new ArgumentException(ErrorMessages.SharePriceMustBeZeroForSplits, nameof(request.SharePrice));
+                }
+            }
+            transaction.SharePrice = request.SharePrice.Value;
+        }
+        else if (effectiveTransactionType == TransactionType.Split && transaction.SharePrice != 0)
+        {
+            // If changing to Split type but SharePrice not provided, ensure it's set to 0
+            transaction.SharePrice = 0;
+        }
+
+        if (request.Fees.HasValue)
+        {
+            transaction.Fees = request.Fees.Value;
+        }
+
+        if (request.Tax.HasValue)
+        {
+            transaction.Tax = request.Tax.Value;
+        }
     }
 }

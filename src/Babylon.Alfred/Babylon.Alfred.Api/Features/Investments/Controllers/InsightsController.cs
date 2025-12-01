@@ -9,13 +9,14 @@ namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 public class InsightsController(IPortfolioInsightsService portfolioInsightsService) : ControllerBase
 {
     /// <summary>
-    /// Gets top portfolio insights for a user (rebalancing recommendations, performance milestones, etc.).
+    /// Gets top portfolio insights for a user (rebalancing recommendations, dividend watch, etc.).
+    /// Returns a short list (max 3 by default) of high-impact, actionable insights.
     /// </summary>
     /// <param name="userId">User ID (optional, defaults to root user)</param>
-    /// <param name="limit">Maximum number of insights to return (default: 5)</param>
+    /// <param name="limit">Maximum number of insights to return (default: 3)</param>
     /// <returns>List of portfolio insights</returns>
     [HttpGet]
-    public async Task<IActionResult> GetInsights(Guid? userId, [FromQuery] int limit = 5)
+    public async Task<IActionResult> GetInsights(Guid? userId, [FromQuery] int limit = 3)
     {
         var effectiveUserId = userId ?? RootUserId;
 

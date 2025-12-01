@@ -26,14 +26,18 @@ public class Transaction
     public decimal Amount => SharesQuantity * SharePrice;
 
     [NotMapped]
-    public decimal TotalAmount => TransactionType == TransactionType.Dividend 
-        ? (SharesQuantity * SharePrice) - Tax  // Gross - Tax = Net Income
-        : Amount + Fees;  // Principal + Cost = Total Spent
+    public decimal TotalAmount => TransactionType switch
+    {
+        TransactionType.Dividend => (SharesQuantity * SharePrice) - Tax,  // Gross - Tax = Net Income
+        TransactionType.Split => 0,  // Stock splits don't involve money
+        _ => Amount + Fees  // Principal + Cost = Total Spent (Buy/Sell)
+    };
 }
 
 public enum TransactionType
 {
     Buy,
     Sell,
-    Dividend
+    Dividend,
+    Split
 }

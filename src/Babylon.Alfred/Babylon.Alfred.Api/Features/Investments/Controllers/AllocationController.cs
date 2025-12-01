@@ -2,7 +2,6 @@ using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Microsoft.AspNetCore.Mvc;
-using static Babylon.Alfred.Api.Constants;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 

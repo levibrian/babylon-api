@@ -31,13 +31,19 @@ public static class PortfolioCalculator
 
     /// <summary>
     /// Calculates the cost basis and total shares using the weighted average cost method.
-    /// Processes transactions chronologically: buys add shares and cost, sells reduce proportionally.
+    /// Processes transactions chronologically (ordered by date ascending):
+    /// - Buys add shares and cost
+    /// - Sells reduce shares and cost proportionally
+    /// - Splits multiply existing shares (only those held before split date) while keeping cost basis unchanged
+    /// - Dividends don't affect cost basis
     /// </summary>
     public static (decimal totalShares, decimal costBasis) CalculateCostBasis(List<PortfolioTransactionDto> transactions)
     {
         decimal totalShares = 0;
         decimal costBasis = 0;
 
+        // CRITICAL: Order by date ascending to process transactions chronologically
+        // This ensures splits only affect shares that existed before the split date
         var orderedTransactions = transactions.OrderBy(t => t.Date).ToList();
 
         foreach (var transaction in orderedTransactions)
@@ -46,7 +52,8 @@ public static class PortfolioCalculator
             {
                 TransactionType.Buy => ProcessBuyTransaction(transaction, totalShares, costBasis),
                 TransactionType.Sell => ProcessSellTransaction(transaction, totalShares, costBasis),
-                _ => (totalShares, costBasis)
+                TransactionType.Split => ProcessSplitTransaction(transaction, totalShares, costBasis),
+                _ => (totalShares, costBasis) // Dividends don't affect cost basis
             };
         }
 
@@ -97,6 +104,49 @@ public static class PortfolioCalculator
         }
 
         return (remainingShares, remainingCostBasis);
+    }
+
+    /// <summary>
+    /// Processes a stock split transaction.
+    /// Multiplies existing shares held at the split date by the split ratio while keeping cost basis unchanged.
+    ///
+    /// IMPORTANT: Only affects shares that exist BEFORE the split date (chronological processing).
+    /// Any shares purchased AFTER the split date are added normally and are not affected by the split.
+    ///
+    /// Example: 2-for-1 split on March 1st
+    /// - Jan 1: Buy 100 shares → currentShares = 100
+    /// - Feb 1: Buy 50 shares → currentShares = 150
+    /// - Mar 1: Split 2-for-1 → currentShares = 300 (150 × 2.0), cost basis unchanged
+    /// - Apr 1: Buy 20 shares → currentShares = 320 (split doesn't affect new purchase)
+    ///
+    /// For example, a 2-for-1 split (SharesQuantity = 2.0) doubles the shares held at that date.
+    /// </summary>
+    /// <param name="transaction">The split transaction (SharesQuantity = split ratio, SharePrice = 0)</param>
+    /// <param name="currentShares">Current number of shares held BEFORE the split date (accumulated from all prior transactions)</param>
+    /// <param name="currentCostBasis">Current cost basis (unchanged by splits)</param>
+    /// <returns>Updated shares and cost basis</returns>
+    private static (decimal totalShares, decimal costBasis) ProcessSplitTransaction(
+        PortfolioTransactionDto transaction,
+        decimal currentShares,
+        decimal currentCostBasis)
+    {
+        if (currentShares == 0)
+        {
+            // No shares held at split date - ignore this transaction
+            return (currentShares, currentCostBasis);
+        }
+
+        if (transaction.SharesQuantity <= 0)
+        {
+            // Invalid split ratio - ignore this transaction
+            return (currentShares, currentCostBasis);
+        }
+
+        // Multiply shares held at split date by split ratio, cost basis remains the same
+        // This automatically adjusts the average cost per share downward
+        var newShares = currentShares * transaction.SharesQuantity;
+
+        return (newShares, currentCostBasis);
     }
 
     /// <summary>

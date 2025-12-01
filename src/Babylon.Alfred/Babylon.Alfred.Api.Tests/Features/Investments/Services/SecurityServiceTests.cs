@@ -1,6 +1,5 @@
 
 using AutoFixture;
-using AutoFixture.AutoMoq;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Services;

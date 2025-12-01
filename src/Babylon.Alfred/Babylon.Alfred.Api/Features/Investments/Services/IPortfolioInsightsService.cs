@@ -4,6 +4,6 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 
 public interface IPortfolioInsightsService
 {
-    Task<List<PortfolioInsightDto>> GetTopInsightsAsync(Guid userId, int count = 5);
+    Task<List<PortfolioInsightDto>> GetTopInsightsAsync(Guid userId, int count = 3);
 }
 

@@ -1,5 +1,4 @@
 using AutoFixture;
-using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
@@ -53,6 +52,9 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(emptyTransactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(emptyTransactions);
 
         // Act
         var result = await sut.GetPortfolio(userId);
@@ -73,6 +75,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(Constants.User.RootUserId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(Constants.User.RootUserId))
             .ReturnsAsync(transactions);
 
         // Act
@@ -95,6 +100,7 @@ public class PortfolioServiceTests
             .Create();
         var transaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -104,6 +110,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
@@ -143,6 +152,7 @@ public class PortfolioServiceTests
             .Create();
         var transaction1 = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -151,6 +161,7 @@ public class PortfolioServiceTests
             .Create();
         var transaction2 = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
@@ -161,6 +172,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
@@ -204,6 +218,7 @@ public class PortfolioServiceTests
             .Create();
         var transactionApple = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityApple.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -211,6 +226,7 @@ public class PortfolioServiceTests
             .Create();
         var transactionGoogle = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityGoogle.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m)
@@ -220,6 +236,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
@@ -257,6 +276,7 @@ public class PortfolioServiceTests
         var securityId = Guid.NewGuid();
         var transaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityId)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 5m)
@@ -266,6 +286,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
@@ -291,6 +314,7 @@ public class PortfolioServiceTests
         var securityMedium = fixture.Build<Security>().With(c => c.Ticker, "MEDIUM").With(c => c.Id, Guid.NewGuid()).Create();
         var transactionSmall = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securitySmall.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 1m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 1m)
@@ -298,6 +322,7 @@ public class PortfolioServiceTests
             .Create();
         var transactionLarge = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityLarge.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 100m)
             .With(t => t.SharePrice, 1000m)
             .With(t => t.Fees, 50m)
@@ -305,6 +330,7 @@ public class PortfolioServiceTests
             .Create();
         var transactionMedium = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityMedium.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 500m)
             .With(t => t.Fees, 10m)
@@ -314,6 +340,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
@@ -335,7 +364,7 @@ public class PortfolioServiceTests
                 }
                 return result;
             });
-        
+
         // Set target allocations: LARGE: 50%, MEDIUM: 30%, SMALL: 20%
         autoMocker.GetMock<IAllocationStrategyService>()
             .Setup(x => x.GetTargetAllocationsAsync(userId))
@@ -372,6 +401,7 @@ public class PortfolioServiceTests
         var company = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
         var oldTransaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
@@ -380,6 +410,7 @@ public class PortfolioServiceTests
             .Create();
         var newTransaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
@@ -388,6 +419,7 @@ public class PortfolioServiceTests
             .Create();
         var middleTransaction = fixture.Build<Transaction>()
             .With(t => t.SecurityId, company.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 7m)
             .With(t => t.SharePrice, 155m)
             .With(t => t.Fees, 4m)
@@ -398,6 +430,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
@@ -453,6 +488,9 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
             .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
             .ReturnsAsync((IEnumerable<Guid> securityIds) =>
@@ -490,6 +528,7 @@ public class PortfolioServiceTests
         var securityGoogle = fixture.Build<Security>().With(c => c.Ticker, "GOOGL").With(c => c.Id, Guid.NewGuid()).Create();
         var transaction1 = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityApple.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m) // TotalAmount = 1505
@@ -497,6 +536,7 @@ public class PortfolioServiceTests
             .Create();
         var transaction2 = fixture.Build<Transaction>()
             .With(t => t.SecurityId, securityGoogle.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m) // TotalAmount = 14010
@@ -506,6 +546,9 @@ public class PortfolioServiceTests
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(transactions);
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
