@@ -42,11 +42,7 @@ public class AllocationController(IAllocationStrategyService allocationStrategyS
 
         var response = new AllocationStrategyResponse
         {
-            Allocations = allocations.Select(kvp => new AllocationStrategyDto
-            {
-                Ticker = kvp.Key,
-                TargetPercentage = kvp.Value
-            }).ToList(),
+            Allocations = allocations,
             TotalAllocated = totalAllocated
         };
 

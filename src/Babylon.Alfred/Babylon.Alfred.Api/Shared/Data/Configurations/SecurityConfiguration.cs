@@ -15,6 +15,8 @@ public class SecurityConfiguration : IEntityTypeConfiguration<Security>
         entity.Property(e => e.SecurityType)
             .IsRequired()
             .HasConversion<int>();
+        entity.Property(e => e.Currency).HasMaxLength(10);
+        entity.Property(e => e.Exchange).HasMaxLength(50);
         entity.Property(e => e.LastUpdated);
 
         // Unique index on Ticker (can have multiple tickers per company in future)

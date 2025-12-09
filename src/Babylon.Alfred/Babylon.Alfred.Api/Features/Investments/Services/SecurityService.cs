@@ -1,18 +1,22 @@
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
+using Babylon.Alfred.Api.Infrastructure.YahooFinance.Mappers;
+using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
-public class SecurityService(ISecurityRepository securityRepository) : ISecurityService
+public class SecurityService(
+    ISecurityRepository securityRepository,
+    IYahooMarketDataService yahooMarketDataService) : ISecurityService
 {
     public async Task<IList<CompanyDto>> GetAllAsync()
     {
         var securities = await securityRepository.GetAllAsync();
 
         return securities
-            .Select(x => new CompanyDto(x.Ticker, x.SecurityName, x.SecurityType))
+            .Select(x => new CompanyDto(x.Ticker, x.SecurityName, x.SecurityType, x.Currency, x.Exchange))
             .ToList();
     }
 
@@ -25,7 +29,52 @@ public class SecurityService(ISecurityRepository securityRepository) : ISecurity
             throw new InvalidOperationException("Security provided not found in our internal database.");
         }
 
-        return new CompanyDto(security.Ticker, security.SecurityName, security.SecurityType);
+        return new CompanyDto(security.Ticker, security.SecurityName, security.SecurityType, security.Currency, security.Exchange);
+    }
+
+    /// <summary>
+    /// Creates or retrieves a security by ticker symbol.
+    /// If the security doesn't exist in the database, it fetches metadata from Yahoo Finance.
+    /// </summary>
+    public async Task<CompanyDto> CreateOrGetByTickerAsync(string ticker)
+    {
+        // Check if security already exists
+        var existingSecurity = await securityRepository.GetByTickerAsync(ticker);
+        if (existingSecurity != null)
+        {
+            return new CompanyDto(
+                existingSecurity.Ticker,
+                existingSecurity.SecurityName,
+                existingSecurity.SecurityType,
+                existingSecurity.Currency,
+                existingSecurity.Exchange);
+        }
+
+        // Fetch from Yahoo Finance
+        var quotes = await yahooMarketDataService.GetQuotesAsync(new[] { ticker });
+        if (!quotes.TryGetValue(ticker, out var quote))
+        {
+            throw new InvalidOperationException($"Ticker '{ticker}' not found on Yahoo Finance.");
+        }
+
+        // Map Yahoo data to Security entity
+        var security = new Security
+        {
+            Ticker = ticker.ToUpperInvariant(),
+            SecurityName = quote.ShortName ?? ticker,
+            SecurityType = QuoteTypeMapper.ToSecurityType(quote.QuoteType),
+            Currency = quote.Currency,
+            Exchange = quote.Exchange,
+            LastUpdated = DateTime.UtcNow
+        };
+
+        var savedSecurity = await securityRepository.AddOrUpdateAsync(security);
+        return new CompanyDto(
+            savedSecurity.Ticker,
+            savedSecurity.SecurityName,
+            savedSecurity.SecurityType,
+            savedSecurity.Currency,
+            savedSecurity.Exchange);
     }
 
     public async Task<Security> CreateAsync(CreateCompanyRequest request)

@@ -116,7 +116,7 @@ public class SecuritiesControllerTests
     }
 
     [Fact]
-    public async Task CreateAsync_WithValidRequest_ShouldReturnCreatedAtAction()
+    public async Task CreateAdminAsync_WithValidRequest_ShouldReturnCreatedAtAction()
     {
         // Arrange
         var request = fixture.Create<CreateCompanyRequest>();
@@ -129,7 +129,7 @@ public class SecuritiesControllerTests
             .GetMock<ISecurityService>().Setup(x => x.CreateAsync(request)).ReturnsAsync(createdSecurity);
 
         // Act
-        var result = await sut.CreateAsync(request);
+        var result = await sut.CreateAdminAsync(request);
 
         // Assert
         var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;

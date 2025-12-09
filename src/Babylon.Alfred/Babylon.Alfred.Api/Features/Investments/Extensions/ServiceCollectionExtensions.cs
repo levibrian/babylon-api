@@ -1,5 +1,6 @@
 using Babylon.Alfred.Api.Features.Investments.Analyzers;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 using Babylon.Alfred.Api.Shared.Repositories;
 
 namespace Babylon.Alfred.Api.Features.Investments.Extensions;
@@ -13,6 +14,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISecurityRepository, SecurityRepository>();
         services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
         services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
 
         // Services
         services.AddScoped<ITransactionService, TransactionService>();
@@ -29,6 +31,9 @@ public static class ServiceCollectionExtensions
 
         // Insights Service (depends on analyzers)
         services.AddScoped<IPortfolioInsightsService, PortfolioInsightsService>();
+
+        // External Services
+        services.AddHttpClient<IYahooMarketDataService, YahooMarketDataService>();
     }
 }
 

@@ -33,21 +33,32 @@ public class AllocationStrategyService(
         var allocationStrategies = allocations.Select(a => new AllocationStrategy
         {
             SecurityId = securities[a.Ticker].Id,
-            TargetPercentage = a.TargetPercentage
+            TargetPercentage = a.TargetPercentage,
+            IsEnabledForWeekly = a.IsEnabledForWeekly,
+            IsEnabledForBiWeekly = a.IsEnabledForBiWeekly,
+            IsEnabledForMonthly = a.IsEnabledForMonthly
         }).ToList();
 
         await allocationStrategyRepository.SetAllocationStrategyAsync(userId, allocationStrategies);
     }
 
-    public async Task<Dictionary<string, decimal>> GetTargetAllocationsAsync(Guid userId)
+    public async Task<List<AllocationStrategyDto>> GetTargetAllocationsAsync(Guid userId)
     {
-        return await allocationStrategyRepository.GetTargetAllocationsByUserIdAsync(userId);
+        var strategies = await allocationStrategyRepository.GetAllocationStrategiesByUserIdAsync(userId);
+        return strategies.Select(s => new AllocationStrategyDto
+        {
+            Ticker = s.Security.Ticker,
+            TargetPercentage = s.TargetPercentage,
+            IsEnabledForWeekly = s.IsEnabledForWeekly,
+            IsEnabledForBiWeekly = s.IsEnabledForBiWeekly,
+            IsEnabledForMonthly = s.IsEnabledForMonthly
+        }).ToList();
     }
 
     public async Task<decimal> GetTotalAllocatedPercentageAsync(Guid userId)
     {
-        var allocations = await allocationStrategyRepository.GetTargetAllocationsByUserIdAsync(userId);
-        return allocations.Values.Sum();
+        var strategies = await allocationStrategyRepository.GetAllocationStrategiesByUserIdAsync(userId);
+        return strategies.Sum(s => s.TargetPercentage);
     }
 }
 

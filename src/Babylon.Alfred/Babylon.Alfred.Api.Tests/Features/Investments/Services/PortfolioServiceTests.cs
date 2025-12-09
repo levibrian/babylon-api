@@ -1,4 +1,5 @@
 using AutoFixture;
+using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
@@ -39,7 +40,7 @@ public class PortfolioServiceTests
             .ReturnsAsync(new Dictionary<string, decimal>());
         autoMocker.GetMock<IAllocationStrategyService>()
             .Setup(x => x.GetTargetAllocationsAsync(It.IsAny<Guid>()))
-            .ReturnsAsync(new Dictionary<string, decimal>());
+            .ReturnsAsync(new List<AllocationStrategyDto>());
     }
 
     [Fact]
@@ -368,11 +369,11 @@ public class PortfolioServiceTests
         // Set target allocations: LARGE: 50%, MEDIUM: 30%, SMALL: 20%
         autoMocker.GetMock<IAllocationStrategyService>()
             .Setup(x => x.GetTargetAllocationsAsync(userId))
-            .ReturnsAsync(new Dictionary<string, decimal>
+            .ReturnsAsync(new List<AllocationStrategyDto>
             {
-                { "LARGE", 50m },
-                { "MEDIUM", 30m },
-                { "SMALL", 20m }
+                new() { Ticker = "LARGE", TargetPercentage = 50m },
+                new() { Ticker = "MEDIUM", TargetPercentage = 30m },
+                new() { Ticker = "SMALL", TargetPercentage = 20m }
             });
 
         // Act

@@ -3,7 +3,6 @@ using Babylon.Alfred.Api.Features.Investments.Analyzers;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using FluentAssertions;
-using Moq.AutoMock;
 
 namespace Babylon.Alfred.Api.Tests.Features.Investments.Analyzers;
 

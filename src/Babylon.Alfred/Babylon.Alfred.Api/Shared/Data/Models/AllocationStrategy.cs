@@ -6,6 +6,9 @@ public class AllocationStrategy
     public Guid UserId { get; set; }
     public Guid SecurityId { get; set; }
     public decimal TargetPercentage { get; set; }
+    public bool IsEnabledForWeekly { get; set; }
+    public bool IsEnabledForBiWeekly { get; set; }
+    public bool IsEnabledForMonthly { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

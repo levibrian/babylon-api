@@ -6,14 +6,12 @@ namespace Babylon.Alfred.Api.Shared.Repositories;
 
 public class AllocationStrategyRepository(BabylonDbContext context) : IAllocationStrategyRepository
 {
-    public async Task<Dictionary<string, decimal>> GetTargetAllocationsByUserIdAsync(Guid userId)
+    public async Task<List<AllocationStrategy>> GetAllocationStrategiesByUserIdAsync(Guid userId)
     {
-        var strategies = await context.AllocationStrategies
+        return await context.AllocationStrategies
             .Include(s => s.Security)
             .Where(s => s.UserId == userId)
             .ToListAsync();
-
-        return strategies.ToDictionary(s => s.Security.Ticker, s => s.TargetPercentage);
     }
 
     public async Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategy> allocations)
@@ -40,6 +38,9 @@ public class AllocationStrategyRepository(BabylonDbContext context) : IAllocatio
             if (existing != null)
             {
                 existing.TargetPercentage = allocation.TargetPercentage;
+                existing.IsEnabledForWeekly = allocation.IsEnabledForWeekly;
+                existing.IsEnabledForBiWeekly = allocation.IsEnabledForBiWeekly;
+                existing.IsEnabledForMonthly = allocation.IsEnabledForMonthly;
                 existing.UpdatedAt = DateTime.UtcNow;
                 context.AllocationStrategies.Update(existing);
             }

@@ -68,7 +68,8 @@ public class PortfolioService(
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
 
         // Fetch target allocations
-        var targetAllocations = await allocationStrategyService.GetTargetAllocationsAsync(userId);
+        var allocationDtos = await allocationStrategyService.GetTargetAllocationsAsync(userId);
+        var targetAllocations = allocationDtos.ToDictionary(a => a.Ticker, a => a.TargetPercentage);
 
         // Calculate total portfolio value using total invested (cost basis) - only Buy transactions count toward invested amount
         // Dividends are income, not investment, so they shouldn't be included in total invested

@@ -27,7 +27,31 @@ public class SecuritiesController(ISecurityService securityService) : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateAsync(CreateCompanyRequest request)
+    public async Task<IActionResult> CreateAsync(CreateSecurityByTickerRequest request)
+    {
+        try
+        {
+            var security = await securityService.CreateOrGetByTickerAsync(request.Ticker);
+            
+            // Return 200 OK if security already exists (not Created)
+            // This is intentional - we're not creating a new resource in the REST sense
+            return Ok(security);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred while creating the security", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Admin endpoint: Create a security with full metadata (without Yahoo Finance lookup)
+    /// </summary>
+    [HttpPost("admin")]
+    public async Task<IActionResult> CreateAdminAsync(CreateCompanyRequest request)
     {
         var security = await securityService.CreateAsync(request);
         return CreatedAtAction(

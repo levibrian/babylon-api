@@ -4,7 +4,7 @@ namespace Babylon.Alfred.Api.Shared.Repositories;
 
 public interface IAllocationStrategyRepository
 {
-    Task<Dictionary<string, decimal>> GetTargetAllocationsByUserIdAsync(Guid userId); // Returns Dictionary<Ticker, TargetPercentage>
+    Task<List<AllocationStrategy>> GetAllocationStrategiesByUserIdAsync(Guid userId);
     Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategy> allocations);
     Task<List<Guid>> GetDistinctSecurityIdsAsync();
 }
