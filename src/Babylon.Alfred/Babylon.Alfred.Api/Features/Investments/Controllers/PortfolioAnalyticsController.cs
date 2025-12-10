@@ -1,3 +1,4 @@
+using Babylon.Alfred.Api.Features.Investments.Models.Responses.Analytics;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,19 +8,21 @@ namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 /// Controller for portfolio analytics including diversification and risk metrics.
 /// </summary>
 [ApiController]
-[Route("api/v1/portfolios/{userId:guid}/analytics")]
+[Route("api/v1/portfolios/{userId:guid}")]
 public class PortfolioAnalyticsController(IPortfolioAnalyticsService analyticsService) : ControllerBase
 {
     /// <summary>
     /// Get diversification metrics for a user's portfolio.
-    /// Calculates HHI, Effective Number of Bets, Diversification Score, and concentration metrics.
     /// </summary>
+    /// <remarks>
+    /// Calculates HHI, Effective Number of Bets, Diversification Score, and concentration metrics.
+    /// </remarks>
     /// <param name="userId">User ID</param>
     /// <returns>Diversification metrics</returns>
     [HttpGet("diversification")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetDiversification(Guid userId)
+    [ProducesResponseType(typeof(DiversificationMetricsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DiversificationMetricsDto>> GetDiversification(Guid userId)
     {
         try
         {
@@ -28,36 +31,52 @@ public class PortfolioAnalyticsController(IPortfolioAnalyticsService analyticsSe
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { error = ex.Message });
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Portfolio not found",
+                Detail = ex.Message
+            });
         }
     }
-    
+
     /// <summary>
     /// Get risk metrics for a user's portfolio.
-    /// Calculates volatility, beta, and Sharpe ratio.
-    /// Note: Currently not implemented - requires historical price data.
     /// </summary>
+    /// <remarks>
+    /// Calculates volatility, beta, and Sharpe ratio using historical price data.
+    /// </remarks>
     /// <param name="userId">User ID</param>
-    /// <param name="period">Time period for analysis (1Y, 3M, 6M)</param>
+    /// <param name="period">Time period for analysis: 1Y, 6M, or 3M</param>
     /// <returns>Risk metrics</returns>
     [HttpGet("risk")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status501NotImplemented)]
-    public async Task<IActionResult> GetRisk(Guid userId, [FromQuery] string period = "1Y")
+    [ProducesResponseType(typeof(RiskMetricsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RiskMetricsDto>> GetRisk(Guid userId, [FromQuery] string period = "1Y")
     {
         try
         {
             var metrics = await analyticsService.GetRiskMetricsAsync(userId, period);
             return Ok(metrics);
         }
-        catch (NotImplementedException ex)
+        catch (ArgumentException ex)
         {
-            return StatusCode(StatusCodes.Status501NotImplemented, new { error = ex.Message });
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Invalid request",
+                Detail = ex.Message
+            });
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { error = ex.Message });
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Insufficient data",
+                Detail = ex.Message
+            });
         }
     }
 }

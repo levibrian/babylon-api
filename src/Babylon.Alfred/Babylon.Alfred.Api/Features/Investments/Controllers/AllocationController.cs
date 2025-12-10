@@ -5,53 +5,80 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
+/// <summary>
+/// Controller for managing portfolio allocation strategies.
+/// </summary>
 [ApiController]
-[Route("api/v1/portfolios/allocation")]
+[Route("api/v1/portfolios/{userId:guid}/allocation")]
 public class AllocationController(IAllocationStrategyService allocationStrategyService) : ControllerBase
 {
     /// <summary>
     /// Sets or updates the allocation strategy for a user.
     /// </summary>
-    /// <param name="userId">User ID (optional, defaults to root user)</param>
+    /// <param name="userId">User ID</param>
     /// <param name="request">List of allocations with ticker and target percentage</param>
-    /// <returns>Success message</returns>
+    /// <returns>No content on success</returns>
     [HttpPut]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetAllocationStrategy(
-        Guid? userId,
+        Guid userId,
         [FromBody] SetAllocationStrategyRequest request)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
-
-        await allocationStrategyService.SetAllocationStrategyAsync(effectiveUserId, request.Allocations);
-
-        return Ok(new { message = "Allocation strategy updated successfully" });
+        try
+        {
+            await allocationStrategyService.SetAllocationStrategyAsync(userId, request.Allocations);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Invalid allocation strategy",
+                Detail = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Resource not found",
+                Detail = ex.Message
+            });
+        }
     }
 
     /// <summary>
     /// Gets the current allocation strategy for a user.
     /// </summary>
-    /// <param name="userId">User ID (optional, defaults to root user)</param>
+    /// <param name="userId">User ID</param>
     /// <returns>Allocation strategy with total allocated percentage</returns>
     [HttpGet]
-    public async Task<IActionResult> GetAllocationStrategy(Guid? userId)
+    [ProducesResponseType(typeof(AllocationStrategyResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AllocationStrategyResponse>> GetAllocationStrategy(Guid userId)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var allocations = await allocationStrategyService.GetTargetAllocationsAsync(userId);
+        var totalAllocated = await allocationStrategyService.GetTotalAllocatedPercentageAsync(userId);
 
-        var allocations = await allocationStrategyService.GetTargetAllocationsAsync(effectiveUserId);
-        var totalAllocated = await allocationStrategyService.GetTotalAllocatedPercentageAsync(effectiveUserId);
-
-        var response = new AllocationStrategyResponse
+        return Ok(new AllocationStrategyResponse
         {
             Allocations = allocations,
             TotalAllocated = totalAllocated
-        };
-
-        return Ok(response);
+        });
     }
 }
 
+/// <summary>
+/// Request to set allocation strategy.
+/// </summary>
 public class SetAllocationStrategyRequest
 {
-    public required List<AllocationStrategyDto> Allocations { get; set; }
+    /// <summary>
+    /// List of allocation targets per ticker.
+    /// </summary>
+    public required List<AllocationStrategyDto> Allocations { get; init; }
 }
 

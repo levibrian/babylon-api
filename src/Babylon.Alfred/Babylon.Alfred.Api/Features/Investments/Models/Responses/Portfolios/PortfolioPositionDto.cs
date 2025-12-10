@@ -11,6 +11,12 @@ public class PortfolioPositionDto
     public decimal TotalShares { get; set; }
     public decimal AverageSharePrice { get; set; }
 
+    // Security metadata
+    public string? Sector { get; set; }
+    public string? Industry { get; set; }
+    public string? Geography { get; set; }
+    public decimal? MarketCap { get; set; }
+
     // Allocation properties
     public decimal? CurrentAllocationPercentage { get; set; }
     public decimal? TargetAllocationPercentage { get; set; }

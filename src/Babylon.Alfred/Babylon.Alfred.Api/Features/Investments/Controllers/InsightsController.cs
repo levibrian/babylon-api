@@ -1,28 +1,45 @@
+using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Microsoft.AspNetCore.Mvc;
-using static Babylon.Alfred.Api.Constants.User;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
+/// <summary>
+/// Controller for portfolio insights and recommendations.
+/// </summary>
 [ApiController]
-[Route("api/v1/portfolios/insights")]
+[Route("api/v1/portfolios/{userId:guid}/insights")]
 public class InsightsController(IPortfolioInsightsService portfolioInsightsService) : ControllerBase
 {
     /// <summary>
-    /// Gets top portfolio insights for a user (rebalancing recommendations, dividend watch, etc.).
-    /// Returns a short list (max 3 by default) of high-impact, actionable insights.
+    /// Gets top portfolio insights for a user.
     /// </summary>
-    /// <param name="userId">User ID (optional, defaults to root user)</param>
-    /// <param name="limit">Maximum number of insights to return (default: 3)</param>
+    /// <remarks>
+    /// Returns a short list of high-impact, actionable insights including:
+    /// rebalancing recommendations, dividend opportunities, risk alerts, etc.
+    /// </remarks>
+    /// <param name="userId">User ID</param>
+    /// <param name="limit">Maximum number of insights to return (default: 3, max: 10)</param>
     /// <returns>List of portfolio insights</returns>
     [HttpGet]
-    public async Task<IActionResult> GetInsights(Guid? userId, [FromQuery] int limit = 3)
+    [ProducesResponseType(typeof(List<PortfolioInsightDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<List<PortfolioInsightDto>>> GetInsights(
+        Guid userId,
+        [FromQuery] int limit = 3)
     {
-        var effectiveUserId = userId ?? RootUserId;
+        if (limit is < 1 or > 10)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Invalid limit",
+                Detail = "Limit must be between 1 and 10"
+            });
+        }
 
-        var insights = await portfolioInsightsService.GetTopInsightsAsync(effectiveUserId, limit);
-
-        return Ok(new { insights });
+        var insights = await portfolioInsightsService.GetTopInsightsAsync(userId, limit);
+        return Ok(insights);
     }
 }
 

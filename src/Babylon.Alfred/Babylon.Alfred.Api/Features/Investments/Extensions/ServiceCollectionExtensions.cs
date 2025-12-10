@@ -22,6 +22,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPortfolioService, PortfolioService>();
         services.AddScoped<IMarketPriceService, MarketPriceService>();
         services.AddScoped<IAllocationStrategyService, AllocationStrategyService>();
+        services.AddScoped<IPortfolioAnalyticsService, PortfolioAnalyticsService>();
+        services.AddScoped<IRebalancingService, RebalancingService>();
 
         // Portfolio Analyzers
         services.AddScoped<IPortfolioAnalyzer, RiskAnalyzer>();
@@ -34,6 +36,7 @@ public static class ServiceCollectionExtensions
 
         // External Services
         services.AddHttpClient<IYahooMarketDataService, YahooMarketDataService>();
+        services.AddHttpClient<IHistoricalPriceService, HistoricalPriceService>();
     }
 }
 

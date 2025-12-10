@@ -67,7 +67,7 @@ public class SecurityService(
             Exchange = quote.Exchange,
             Sector = quote.Sector,
             Industry = quote.Industry,
-            MarketCap = quote.MarketCap,
+            MarketCap = quote.MarketCap.HasValue ? (decimal?)quote.MarketCap.Value : null,
             Geography = GeographyMapper.ToGeography(quote.Exchange, quote.Currency),
             LastUpdated = DateTime.UtcNow
         };
