@@ -17,6 +17,10 @@ public class SecurityConfiguration : IEntityTypeConfiguration<Security>
             .HasConversion<int>();
         entity.Property(e => e.Currency).HasMaxLength(10);
         entity.Property(e => e.Exchange).HasMaxLength(50);
+        entity.Property(e => e.Sector).HasMaxLength(100);
+        entity.Property(e => e.Industry).HasMaxLength(150);
+        entity.Property(e => e.Geography).HasMaxLength(50);
+        entity.Property(e => e.MarketCap).HasColumnType("decimal(20,2)"); // Support up to hundreds of trillions
         entity.Property(e => e.LastUpdated);
 
         // Unique index on Ticker (can have multiple tickers per company in future)

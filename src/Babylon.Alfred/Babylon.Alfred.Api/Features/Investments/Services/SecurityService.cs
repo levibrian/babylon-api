@@ -16,7 +16,7 @@ public class SecurityService(
         var securities = await securityRepository.GetAllAsync();
 
         return securities
-            .Select(x => new CompanyDto(x.Ticker, x.SecurityName, x.SecurityType, x.Currency, x.Exchange))
+            .Select(x => new CompanyDto(x.Ticker, x.SecurityName, x.SecurityType, x.Currency, x.Exchange, x.Sector, x.Industry, x.Geography, x.MarketCap))
             .ToList();
     }
 
@@ -29,7 +29,7 @@ public class SecurityService(
             throw new InvalidOperationException("Security provided not found in our internal database.");
         }
 
-        return new CompanyDto(security.Ticker, security.SecurityName, security.SecurityType, security.Currency, security.Exchange);
+        return new CompanyDto(security.Ticker, security.SecurityName, security.SecurityType, security.Currency, security.Exchange, security.Sector, security.Industry, security.Geography, security.MarketCap);
     }
 
     /// <summary>
@@ -65,6 +65,10 @@ public class SecurityService(
             SecurityType = QuoteTypeMapper.ToSecurityType(quote.QuoteType),
             Currency = quote.Currency,
             Exchange = quote.Exchange,
+            Sector = quote.Sector,
+            Industry = quote.Industry,
+            MarketCap = quote.MarketCap,
+            Geography = GeographyMapper.ToGeography(quote.Exchange, quote.Currency),
             LastUpdated = DateTime.UtcNow
         };
 
@@ -74,7 +78,11 @@ public class SecurityService(
             savedSecurity.SecurityName,
             savedSecurity.SecurityType,
             savedSecurity.Currency,
-            savedSecurity.Exchange);
+            savedSecurity.Exchange,
+            savedSecurity.Sector,
+            savedSecurity.Industry,
+            savedSecurity.Geography,
+            savedSecurity.MarketCap);
     }
 
     public async Task<Security> CreateAsync(CreateCompanyRequest request)

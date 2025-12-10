@@ -27,5 +27,10 @@ namespace Babylon.Alfred.Api.Infrastructure.YahooFinance.Models
         public string QuoteType { get; set; } // EQUITY, ETF, CRYPTOCURRENCY
         public string Exchange { get; set; }
         public long RegularMarketTime { get; set; } // Unix Timestamp
+        
+        // Fundamental Metadata
+        public string? Sector { get; set; }      // e.g., "Technology"
+        public string? Industry { get; set; }    // e.g., "Consumer Electronics"
+        public long? MarketCap { get; set; }     // Market cap in USD (Yahoo returns as long)
     }
 }
