@@ -23,13 +23,17 @@ resource "aws_security_group" "rds_sg" {
   description = "Allow inbound traffic from local IP for RDS connection"
   vpc_id      = aws_vpc.main.id
 
-  # Ingress Rule: Allows PostgreSQL traffic (5432) from YOUR local IP
+  # Ingress Rule: Allows PostgreSQL traffic (5432) from ANY IP
+  # WARNING: This allows public access to your database. Ensure you have:
+  # 1. Strong database password (auto-generated in this config)
+  # 2. Proper authentication configured in your application
+  # 3. Consider using AWS VPN or restricting to specific IP ranges for production
   ingress {
-    description = "PostgreSQL access from local machine"
+    description = "PostgreSQL access from anywhere"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = [var.local_ip_cidr] # CRITICAL: Only your IP can connect!
+    cidr_blocks = ["0.0.0.0/0"] # Allows connections from any IP address
   }
 
   # Egress Rule: Allows all outbound traffic (needed for patching/updates)

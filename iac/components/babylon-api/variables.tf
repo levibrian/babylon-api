@@ -34,9 +34,13 @@ variable "db_username" {
   default     = "babylonadmin"
 }
 
-variable "local_ip_cidr" {
-  description = "Your local public IP address in CIDR notation (e.g., 12.34.56.78/32) for secure connection."
-  type        = string
-  sensitive   = false
-}
+# NOTE: local_ip_cidr variable is no longer required
+# RDS security group now allows connections from any IP (0.0.0.0/0)
+# If you want to restrict access again, uncomment this variable and update security.tf
+#
+# variable "local_ip_cidr" {
+#   description = "Your local public IP address in CIDR notation (e.g., 12.34.56.78/32) for secure connection."
+#   type        = string
+#   sensitive   = false
+# }
 
