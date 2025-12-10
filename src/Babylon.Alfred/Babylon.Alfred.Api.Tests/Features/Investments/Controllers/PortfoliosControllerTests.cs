@@ -50,32 +50,14 @@ public class PortfoliosControllerTests
         var result = await sut.Get(userId);
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = okResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
+        var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedPortfolio = actionResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
         returnedPortfolio.Should().BeEquivalentTo(portfolioResponse);
         autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);
     }
 
-    [Fact]
-    public async Task Get_WithNullUserId_ShouldReturnOkWithPortfolio()
-    {
-        // Arrange
-        Guid? userId = null;
-        var portfolioResponse = fixture.Create<PortfolioResponse>();
-        autoMocker
-            .GetMock<IPortfolioService>()
-            .Setup(x => x.GetPortfolio(userId))
-            .ReturnsAsync(portfolioResponse);
-
-        // Act
-        var result = await sut.Get(userId);
-
-        // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = okResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
-        returnedPortfolio.Should().BeEquivalentTo(portfolioResponse);
-        autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);
-    }
+    // Note: Test for null userId was removed because the controller now requires
+    // a non-nullable Guid in the route: GET /portfolios/{userId:guid}
 
     [Fact]
     public async Task Get_WhenPortfolioIsEmpty_ShouldReturnOkWithEmptyPortfolio()
@@ -96,8 +78,8 @@ public class PortfoliosControllerTests
         var result = await sut.Get(userId);
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = okResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
+        var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedPortfolio = actionResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
         returnedPortfolio.Positions.Should().BeEmpty();
         returnedPortfolio.TotalInvested.Should().Be(0);
         autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);
@@ -123,8 +105,8 @@ public class PortfoliosControllerTests
         var result = await sut.Get(userId);
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = okResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
+        var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedPortfolio = actionResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
         returnedPortfolio.Positions.Should().HaveCount(3);
         returnedPortfolio.TotalInvested.Should().Be(positions.Sum(p => p.TotalInvested));
         autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);

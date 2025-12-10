@@ -26,16 +26,27 @@ public class PortfolioAnalyticsService(
     public async Task<DiversificationMetricsDto> GetDiversificationMetricsAsync(Guid userId)
     {
         var portfolio = await portfolioService.GetPortfolio(userId);
-        var totalValue = portfolio.Positions.Sum(p => p.CurrentMarketValue ?? 0);
         
-        if (totalValue == 0 || portfolio.Positions.Count == 0)
+        if (portfolio.Positions.Count == 0)
         {
             return DiversificationMetricsDto.Empty;
         }
 
-        var weights = portfolio.Positions
-            .Select(p => (p.CurrentMarketValue ?? 0) / totalValue)
-            .Where(w => w > 0)
+        // Use CurrentMarketValue if available, fallback to TotalInvested (cost basis)
+        var positionValues = portfolio.Positions
+            .Select(p => p.CurrentMarketValue ?? p.TotalInvested)
+            .Where(v => v > 0)
+            .ToList();
+
+        var totalValue = positionValues.Sum();
+        
+        if (totalValue == 0)
+        {
+            return DiversificationMetricsDto.Empty;
+        }
+
+        var weights = positionValues
+            .Select(v => v / totalValue)
             .ToList();
         
         var hhi = weights.Sum(w => w * w);
