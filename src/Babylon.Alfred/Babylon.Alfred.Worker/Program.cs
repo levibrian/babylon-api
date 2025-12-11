@@ -68,11 +68,12 @@ try
         var priceFetchingJobKey = new JobKey("PriceFetchingJob");
         q.AddJob<PriceFetchingJob>(opts => opts.WithIdentity(priceFetchingJobKey));
 
-        // Schedule job with cron expression (every minute)
+        // Schedule job with cron expression (every 5 minutes)
+        // Reduced frequency to avoid Yahoo Finance rate limiting
         q.AddTrigger(opts => opts
             .ForJob(priceFetchingJobKey)
             .WithIdentity("PriceFetchingJob-trigger")
-            .WithCronSchedule("0 * * * * ?")); // Every minute at second 0
+            .WithCronSchedule("0 */5 * * * ?")); // Every 5 minutes
     });
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

@@ -9,6 +9,7 @@ public class HistoricalPriceService(HttpClient httpClient, ILogger<HistoricalPri
 {
     private const string BaseUrl = "https://query1.finance.yahoo.com/v8/finance/chart";
     private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+    private const int RequestDelayMs = 100; // Small delay to avoid rate limiting
 
     /// <inheritdoc />
     public async Task<Dictionary<DateTime, decimal>> GetHistoricalPricesAsync(
@@ -47,6 +48,83 @@ public class HistoricalPriceService(HttpClient httpClient, ILogger<HistoricalPri
             logger.LogError(ex, "Error fetching historical prices for {Ticker}", ticker);
             return new Dictionary<DateTime, decimal>();
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<Dictionary<string, decimal>> GetCurrentPricesAsync(IEnumerable<string> tickers)
+    {
+        var prices = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var tickerList = tickers.ToList();
+
+        foreach (var ticker in tickerList)
+        {
+            try
+            {
+                // Use range=1d to get current price from meta.regularMarketPrice
+                var url = $"{BaseUrl}/{ticker}?interval=1d&range=1d";
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("User-Agent", UserAgent);
+
+                using var response = await httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var price = ParseCurrentPriceFromJson(content);
+                    if (price > 0)
+                    {
+                        prices[ticker] = price;
+                    }
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "Failed to fetch current price for {Ticker}: {StatusCode}",
+                        ticker,
+                        response.StatusCode);
+                }
+
+                // Small delay between requests to avoid rate limiting
+                if (tickerList.IndexOf(ticker) < tickerList.Count - 1)
+                {
+                    await Task.Delay(RequestDelayMs);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error fetching current price for {Ticker}", ticker);
+            }
+        }
+
+        return prices;
+    }
+
+    private decimal ParseCurrentPriceFromJson(string json)
+    {
+        try
+        {
+            using var jsonDoc = JsonDocument.Parse(json);
+
+            if (jsonDoc.RootElement.TryGetProperty("chart", out var chart) &&
+                chart.TryGetProperty("result", out var resultArray) &&
+                resultArray.ValueKind == JsonValueKind.Array &&
+                resultArray.GetArrayLength() > 0)
+            {
+                var firstResult = resultArray[0];
+                if (firstResult.TryGetProperty("meta", out var meta) &&
+                    meta.TryGetProperty("regularMarketPrice", out var price))
+                {
+                    return price.GetDecimal();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to parse current price from JSON");
+        }
+
+        return 0;
     }
 
     private Dictionary<DateTime, decimal> ParsePricesFromJson(string json, string ticker)

@@ -13,5 +13,13 @@ public interface IHistoricalPriceService
     /// <param name="endDate">End date</param>
     /// <returns>Dictionary of date to closing price</returns>
     Task<Dictionary<DateTime, decimal>> GetHistoricalPricesAsync(string ticker, DateTime startDate, DateTime endDate);
+    
+    /// <summary>
+    /// Gets current market prices for multiple tickers using the chart endpoint.
+    /// More reliable than /v7/finance/quote as it doesn't require crumb authentication.
+    /// </summary>
+    /// <param name="tickers">Ticker symbols</param>
+    /// <returns>Dictionary of ticker to current price</returns>
+    Task<Dictionary<string, decimal>> GetCurrentPricesAsync(IEnumerable<string> tickers);
 }
 
