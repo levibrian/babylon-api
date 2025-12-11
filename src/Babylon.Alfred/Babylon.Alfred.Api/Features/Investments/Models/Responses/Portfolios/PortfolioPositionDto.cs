@@ -17,13 +17,17 @@ public class PortfolioPositionDto
     public string? Geography { get; set; }
     public decimal? MarketCap { get; set; }
 
+    // Market value & P&L
+    public decimal? CurrentMarketValue { get; set; } // Current position value in €
+    public decimal? UnrealizedPnL { get; set; } // CurrentMarketValue - TotalInvested
+    public decimal? UnrealizedPnLPercentage { get; set; } // (UnrealizedPnL / TotalInvested) * 100
+
     // Allocation properties
     public decimal? CurrentAllocationPercentage { get; set; }
     public decimal? TargetAllocationPercentage { get; set; }
     public decimal? AllocationDeviation { get; set; } // current - target
     public decimal? RebalancingAmount { get; set; } // € amount (positive = buy, negative = sell)
     public RebalancingStatus RebalancingStatus { get; set; }
-    public decimal? CurrentMarketValue { get; set; } // Current position value in €
 
     public List<PortfolioTransactionDto> Transactions { get; set; } = [];
 }

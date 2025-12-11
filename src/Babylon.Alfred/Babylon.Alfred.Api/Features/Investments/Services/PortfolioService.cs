@@ -43,10 +43,28 @@ public class PortfolioService(
             .OrderByDescending(p => p.TargetAllocationPercentage ?? -1)
             .ToList();
 
+        // Calculate portfolio totals
+        var totalInvested = orderedPositions.Sum(p => p.TotalInvested);
+        var totalMarketValue = orderedPositions
+            .Where(p => p.CurrentMarketValue.HasValue)
+            .Sum(p => p.CurrentMarketValue!.Value);
+
+        decimal? totalUnrealizedPnL = null;
+        decimal? totalUnrealizedPnLPercentage = null;
+
+        if (totalMarketValue > 0 && totalInvested > 0)
+        {
+            totalUnrealizedPnL = Math.Round(totalMarketValue - totalInvested, 2);
+            totalUnrealizedPnLPercentage = Math.Round((totalUnrealizedPnL.Value / totalInvested) * 100, 2);
+        }
+
         return new PortfolioResponse
         {
             Positions = orderedPositions,
-            TotalInvested = orderedPositions.Sum(p => p.TotalInvested)
+            TotalInvested = totalInvested,
+            TotalMarketValue = totalMarketValue > 0 ? totalMarketValue : null,
+            TotalUnrealizedPnL = totalUnrealizedPnL,
+            TotalUnrealizedPnLPercentage = totalUnrealizedPnLPercentage
         };
     }
 
@@ -127,7 +145,17 @@ public class PortfolioService(
             rebalancingStatus = PortfolioCalculator.DetermineRebalancingStatus(currentAllocation, targetAllocation);
         }
 
-        // Return only the last 8 transactions for display (already ordered by date descending)
+        // Calculate P&L (only if we have market value)
+        decimal? unrealizedPnL = null;
+        decimal? unrealizedPnLPercentage = null;
+
+        if (currentMarketValue > 0 && totalInvested > 0)
+        {
+            unrealizedPnL = currentMarketValue - totalInvested;
+            unrealizedPnLPercentage = (unrealizedPnL / totalInvested) * 100;
+        }
+
+        // Return only the last 5 transactions for display (already ordered by date descending)
         var displayTransactions = positionTransactions.Take(5).ToList();
 
         return new PortfolioPositionDto
@@ -143,6 +171,8 @@ public class PortfolioService(
             Geography = security?.Geography,
             MarketCap = security?.MarketCap,
             CurrentMarketValue = currentMarketValue > 0 ? currentMarketValue : null,
+            UnrealizedPnL = unrealizedPnL.HasValue ? Math.Round(unrealizedPnL.Value, 2) : null,
+            UnrealizedPnLPercentage = unrealizedPnLPercentage.HasValue ? Math.Round(unrealizedPnLPercentage.Value, 2) : null,
             CurrentAllocationPercentage = totalPortfolioValue > 0 ? currentAllocation : null,
             TargetAllocationPercentage = hasTargetAllocation ? targetAllocation : null,
             AllocationDeviation = allocationDeviation,
