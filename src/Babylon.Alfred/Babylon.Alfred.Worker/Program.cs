@@ -74,7 +74,7 @@ try
         q.AddTrigger(opts => opts
             .ForJob(priceFetchingJobKey)
             .WithIdentity("PriceFetchingJob-trigger")
-            .WithCronSchedule("0 0 * * * ?")); // Every hour at :00
+            .WithCronSchedule("0 0 22 * * ?")); // Every day at 10 PM UTC (after US/EU markets close)
     });
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
