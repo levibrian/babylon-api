@@ -61,20 +61,26 @@ try
     // Register jobs
     builder.Services.AddScoped<PriceFetchingJob>();
 
-    // Configure Quartz
+    // Configure Quartz scheduled jobs
+    const string priceFetchingCron = "0 0 9-22 ? * MON-FRI"; // Every hour from 9 AM to 10 PM UTC, weekdays only
+
+    Log.Information("=== Job Configuration ===");
+    Log.Information("PriceFetchingJob Schedule: {CronExpression}", priceFetchingCron);
+    Log.Information("  → Runs every hour on the hour");
+    Log.Information("  → Active hours: 9:00 AM - 10:00 PM UTC");
+    Log.Information("  → Active days: Monday through Friday (market days)");
+    Log.Information("  → Purpose: Fetch latest market prices from Yahoo Finance");
+    Log.Information("=========================");
+
     builder.Services.AddQuartz(q =>
     {
-        // Register job
         var priceFetchingJobKey = new JobKey("PriceFetchingJob");
         q.AddJob<PriceFetchingJob>(opts => opts.WithIdentity(priceFetchingJobKey));
 
-        // Schedule job with cron expression (every hour at minute 0)
-        // Hourly is sufficient for portfolio valuation - we only need EOD prices
-        // Reference: https://github.com/Scarvy/yahoo-finance-api-collection
         q.AddTrigger(opts => opts
             .ForJob(priceFetchingJobKey)
             .WithIdentity("PriceFetchingJob-trigger")
-            .WithCronSchedule("0 9-22 * * 1-5")); // Every day at 10 PM UTC (after US/EU markets close)
+            .WithCronSchedule(priceFetchingCron));
     });
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
