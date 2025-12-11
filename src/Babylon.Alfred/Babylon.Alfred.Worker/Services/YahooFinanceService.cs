@@ -3,142 +3,141 @@ using Microsoft.Extensions.Logging;
 
 namespace Babylon.Alfred.Worker.Services;
 
-public class YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceService> logger)
+/// <summary>
+/// Result from fetching a price from Yahoo Finance.
+/// </summary>
+public record YahooPriceResult(decimal Price, string? Currency);
+
+/// <summary>
+/// Service for fetching prices from Yahoo Finance using the chart API.
+/// </summary>
+public class YahooFinanceService : IDisposable
 {
-    private const string BaseUrl = "https://query1.finance.yahoo.com/v8/finance/chart";
-    private static bool _sessionInitialized;
-    private static readonly SemaphoreSlim InitLock = new(1, 1);
+    private readonly HttpClient httpClient;
+    private readonly ILogger<YahooFinanceService> logger;
 
-    private async Task EnsureSessionInitializedAsync()
+    // Same User-Agent as YahooMarketDataService in the API project
+    private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+    private const string BaseUrl = "https://query2.finance.yahoo.com/v8/finance/chart";
+
+    public YahooFinanceService(HttpClient httpClient, ILogger<YahooFinanceService> logger)
     {
-        if (_sessionInitialized) return;
+        this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        await InitLock.WaitAsync();
-        try
+        // Set User-Agent in constructor (same pattern as YahooMarketDataService)
+        if (this.httpClient.DefaultRequestHeaders.UserAgent.Count == 0)
         {
-            if (_sessionInitialized) return;
-
-            // Make an initial request to Yahoo Finance quote page to establish cookies/session
-            // Accessing a quote page first mimics real browser behavior better than homepage
-            logger.LogInformation("Initializing Yahoo Finance session...");
-
-            // First, visit a quote page (like a real user would)
-            var quoteRequest = new HttpRequestMessage(HttpMethod.Get, "https://finance.yahoo.com/quote/AAPL");
-            var quoteResponse = await httpClient.SendAsync(quoteRequest);
-            await quoteResponse.Content.ReadAsStringAsync(); // Read to ensure cookies are set
-
-            // Small delay to mimic human behavior
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
-
-            _sessionInitialized = true;
-            logger.LogInformation("Yahoo Finance session initialized");
-        }
-        finally
-        {
-            InitLock.Release();
+            this.httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         }
     }
 
-    public async Task<decimal?> GetCurrentPriceAsync(string ticker)
+    public void Dispose()
+    {
+        // HttpClient is managed by DI, don't dispose it
+    }
+
+    /// <summary>
+    /// Fetches the current price and currency for a ticker.
+    /// Uses simple GetAsync like the SearchAsync method does.
+    /// </summary>
+    public async Task<YahooPriceResult?> GetCurrentPriceAsync(string ticker)
     {
         try
         {
-            // Ensure session is initialized (like yfinance does)
-            await EnsureSessionInitializedAsync();
-
-            // Add query parameters that browsers typically send
             var url = $"{BaseUrl}/{ticker}?interval=1d&range=1d";
-            logger.LogInformation("Fetching price for {Ticker} from Yahoo Finance at {Timestamp}", ticker, DateTime.UtcNow);
+            logger.LogDebug("Fetching price for {Ticker}", ticker);
 
-            // Use HttpRequestMessage for more control over the request
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-
-            // Add a small random delay to mimic human behavior (50-200ms)
-            var random = new Random();
-            await Task.Delay(TimeSpan.FromMilliseconds(random.Next(50, 200)));
-
-            var response = await httpClient.SendAsync(request);
+            // Use simple GetAsync - inherits all default headers from HttpClient
+            var response = await httpClient.GetAsync(url);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                logger.LogWarning("Yahoo Finance API returned {StatusCode} for {Ticker}. Response: {Response}",
-                    response.StatusCode, ticker, errorContent.Substring(0, Math.Min(500, errorContent.Length)));
+                logger.LogWarning(
+                    "Yahoo Finance returned {StatusCode} for {Ticker}",
+                    response.StatusCode,
+                    ticker);
 
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 {
-                    logger.LogError("Rate limited by Yahoo Finance. This may indicate bot detection.");
+                    throw new InvalidOperationException("Yahoo Finance rate limited");
                 }
 
                 return null;
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            var jsonDoc = JsonDocument.Parse(content);
-
-            // Yahoo Finance returns data in chart.result array
-            if (jsonDoc.RootElement.TryGetProperty("chart", out var chart))
-            {
-                // Check for error in chart first (indicates ticker not found or invalid)
-                if (chart.TryGetProperty("error", out var error))
-                {
-                    var errorText = error.GetRawText();
-                    logger.LogWarning("Yahoo Finance API error for {Ticker}: {Error}. Ticker not found or invalid - will skip in future runs.", ticker, errorText);
-                    throw new InvalidOperationException($"Ticker not found: {ticker}");
-                }
-
-                // Check if result array is empty (ticker not found)
-                if (chart.TryGetProperty("result", out var result))
-                {
-                    if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() == 0)
-                    {
-                        logger.LogWarning("Yahoo Finance returned empty result for {Ticker}. Ticker not found - will skip in future runs.", ticker);
-                        throw new InvalidOperationException($"Ticker not found: {ticker}");
-                    }
-
-                    if (result.ValueKind == JsonValueKind.Array && result.GetArrayLength() > 0)
-                    {
-                        var firstResult = result[0];
-
-                        // Get price from meta.previousClose (previous day's closing price)
-                        // This is appropriate for portfolio balance calculations as it uses stable end-of-day prices
-                        if (firstResult.TryGetProperty("meta", out var meta))
-                        {
-                            // Prioritize previousClose for portfolio valuation (stable end-of-day price)
-                            if (meta.TryGetProperty("previousClose", out var previousCloseElement))
-                            {
-                                if (previousCloseElement.ValueKind == JsonValueKind.Number && previousCloseElement.TryGetDecimal(out var price))
-                                {
-                                    logger.LogInformation("Successfully fetched previous close price for {Ticker}: {Price} at {Timestamp}", ticker, price, DateTime.UtcNow);
-                                    return price;
-                                }
-                            }
-
-                            // Fallback to regularMarketPrice if previousClose is not available
-                            if (meta.TryGetProperty("regularMarketPrice", out var priceElement))
-                            {
-                                if (priceElement.ValueKind == JsonValueKind.Number && priceElement.TryGetDecimal(out var price))
-                                {
-                                    logger.LogInformation("Using regularMarketPrice as fallback for {Ticker}: {Price} at {Timestamp}", ticker, price, DateTime.UtcNow);
-                                    return price;
-                                }
-                            }
-
-                            logger.LogWarning("No price data available for {Ticker}. previousClose and regularMarketPrice both unavailable.", ticker);
-                            return null;
-                        }
-                    }
-                }
-            }
-
-            logger.LogWarning("Unexpected response format for {Ticker}. Response: {Response}", ticker, content.Substring(0, Math.Min(500, content.Length)));
-            return null;
+            return ParsePriceFromJson(content, ticker);
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching price for {Ticker} from Yahoo Finance", ticker);
+            logger.LogError(ex, "Error fetching price for {Ticker}", ticker);
             return null;
         }
     }
-}
 
+    private YahooPriceResult? ParsePriceFromJson(string json, string ticker)
+    {
+        using var jsonDoc = JsonDocument.Parse(json);
+
+        if (!jsonDoc.RootElement.TryGetProperty("chart", out var chart))
+        {
+            logger.LogWarning("No chart property for {Ticker}", ticker);
+            return null;
+        }
+
+        // Check for error
+        if (chart.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
+        {
+            logger.LogWarning("API error for {Ticker}: {Error}", ticker, error.GetRawText());
+            throw new InvalidOperationException($"Ticker not found: {ticker}");
+        }
+
+        if (!chart.TryGetProperty("result", out var result) ||
+            result.ValueKind != JsonValueKind.Array ||
+            result.GetArrayLength() == 0)
+        {
+            logger.LogWarning("Empty result for {Ticker}", ticker);
+            throw new InvalidOperationException($"Ticker not found: {ticker}");
+        }
+
+        var firstResult = result[0];
+        if (!firstResult.TryGetProperty("meta", out var meta))
+        {
+            logger.LogWarning("No meta for {Ticker}", ticker);
+            return null;
+        }
+
+        // Extract currency
+        string? currency = null;
+        if (meta.TryGetProperty("currency", out var currencyElement) &&
+            currencyElement.ValueKind == JsonValueKind.String)
+        {
+            currency = currencyElement.GetString();
+        }
+
+        // Try regularMarketPrice first, then previousClose
+        if (meta.TryGetProperty("regularMarketPrice", out var priceElement) &&
+            priceElement.ValueKind == JsonValueKind.Number)
+        {
+            var price = priceElement.GetDecimal();
+            logger.LogDebug("Got price for {Ticker}: {Price} {Currency}", ticker, price, currency);
+            return new YahooPriceResult(price, currency);
+        }
+
+        if (meta.TryGetProperty("previousClose", out var prevCloseElement) &&
+            prevCloseElement.ValueKind == JsonValueKind.Number)
+        {
+            var price = prevCloseElement.GetDecimal();
+            logger.LogDebug("Got previousClose for {Ticker}: {Price} {Currency}", ticker, price, currency);
+            return new YahooPriceResult(price, currency);
+        }
+
+        logger.LogWarning("No price data for {Ticker}", ticker);
+        return null;
+    }
+}

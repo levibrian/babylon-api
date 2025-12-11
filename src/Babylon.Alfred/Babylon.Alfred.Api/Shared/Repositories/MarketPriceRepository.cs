@@ -10,8 +10,8 @@ public class MarketPriceRepository(BabylonDbContext context, ILogger<MarketPrice
     public async Task<MarketPrice?> GetByTickerAsync(string ticker)
     {
         return await context.MarketPrices
-            .Where(mp => mp.Ticker == ticker)
-            .OrderByDescending(mp => mp.LastUpdated)
+            .Include(mp => mp.Security)
+            .Where(mp => mp.Security.Ticker == ticker)
             .FirstOrDefaultAsync();
     }
 
@@ -23,75 +23,66 @@ public class MarketPriceRepository(BabylonDbContext context, ILogger<MarketPrice
             return new Dictionary<string, MarketPrice>();
         }
 
-        // Get the latest price for each ticker
         var prices = await context.MarketPrices
-            .Where(mp => tickerList.Contains(mp.Ticker))
-            .GroupBy(mp => mp.Ticker)
-            .Select(g => g.OrderByDescending(mp => mp.LastUpdated).First())
+            .Include(mp => mp.Security)
+            .Where(mp => tickerList.Contains(mp.Security.Ticker))
             .ToListAsync();
 
-        return prices.ToDictionary(mp => mp.Ticker, mp => mp);
+        return prices.ToDictionary(mp => mp.Security.Ticker, mp => mp);
     }
 
-    public async Task UpsertMarketPriceAsync(string ticker, decimal price)
+    public async Task UpsertMarketPriceAsync(Guid securityId, decimal price, string? currency = null)
     {
-        logger.LogDatabaseOperation("Upsert", "MarketPrice", new { Ticker = ticker, Price = price });
+        logger.LogDatabaseOperation("Upsert", "MarketPrice", new { SecurityId = securityId, Price = price });
         
         var existing = await context.MarketPrices
-            .Where(mp => mp.Ticker == ticker)
-            .OrderByDescending(mp => mp.LastUpdated)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(mp => mp.SecurityId == securityId);
 
         if (existing != null)
         {
-            // Update existing (we only keep latest, so update the most recent one)
             existing.Price = price;
+            existing.Currency = currency ?? existing.Currency;
             existing.LastUpdated = DateTime.UtcNow;
             context.MarketPrices.Update(existing);
-            logger.LogDatabaseOperation("Updated", "MarketPrice", new { Ticker = ticker, Price = price });
+            logger.LogDatabaseOperation("Updated", "MarketPrice", new { SecurityId = securityId, Price = price });
         }
         else
         {
-            // Create new
             var marketPrice = new MarketPrice
             {
                 Id = Guid.NewGuid(),
-                Ticker = ticker,
+                SecurityId = securityId,
                 Price = price,
+                Currency = currency,
                 LastUpdated = DateTime.UtcNow
             };
             await context.MarketPrices.AddAsync(marketPrice);
-            logger.LogDatabaseOperation("Created", "MarketPrice", new { Ticker = ticker, Price = price });
+            logger.LogDatabaseOperation("Created", "MarketPrice", new { SecurityId = securityId, Price = price });
         }
 
         await context.SaveChangesAsync();
     }
 
-    public async Task MarkTickerAsNotFoundAsync(string ticker)
+    public async Task MarkSecurityAsNotFoundAsync(Guid securityId)
     {
-        // Mark ticker as "not found" by storing a price of 0 with a far-future timestamp
-        // This ensures GetTickersNeedingUpdateAsync won't pick it up again
+        // Mark security as "not found" by storing a price of 0 with a far-future timestamp
         var existing = await context.MarketPrices
-            .Where(mp => mp.Ticker == ticker)
-            .OrderByDescending(mp => mp.LastUpdated)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(mp => mp.SecurityId == securityId);
 
         if (existing != null)
         {
-            // Update existing with far-future timestamp
             existing.Price = 0;
-            existing.LastUpdated = DateTime.UtcNow.AddYears(100); // Far future - won't be picked up
+            existing.LastUpdated = DateTime.UtcNow.AddYears(100);
             context.MarketPrices.Update(existing);
         }
         else
         {
-            // Create new with far-future timestamp
             var marketPrice = new MarketPrice
             {
                 Id = Guid.NewGuid(),
-                Ticker = ticker,
+                SecurityId = securityId,
                 Price = 0,
-                LastUpdated = DateTime.UtcNow.AddYears(100) // Far future - won't be picked up
+                LastUpdated = DateTime.UtcNow.AddYears(100)
             };
             await context.MarketPrices.AddAsync(marketPrice);
         }
@@ -99,48 +90,49 @@ public class MarketPriceRepository(BabylonDbContext context, ILogger<MarketPrice
         await context.SaveChangesAsync();
     }
 
-    public async Task<List<string>> GetTickersNeedingUpdateAsync(TimeSpan maxAge)
+    public async Task<List<Security>> GetSecuritiesNeedingUpdateAsync(TimeSpan maxAge)
     {
-        logger.LogDatabaseOperation("GetTickersNeedingUpdate", "MarketPrice", new { MaxAge = maxAge });
+        logger.LogDatabaseOperation("GetSecuritiesNeedingUpdate", "MarketPrice", new { MaxAge = maxAge });
         
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
 
-        // Get all distinct tickers from allocation strategies (desired portfolio)
-        // This includes securities users want to own, even if they haven't bought them yet
-        var allTickers = await context.AllocationStrategies
+        // Get all distinct securities from allocation strategies
+        var securitiesInPortfolio = await context.AllocationStrategies
             .Include(s => s.Security)
             .Where(s => s.Security != null)
-            .Select(s => s.Security!.Ticker)
+            .Select(s => s.Security!)
             .Distinct()
             .ToListAsync();
 
-        if (allTickers.Count == 0)
+        if (securitiesInPortfolio.Count == 0)
         {
-            logger.LogInformation("No tickers found in allocation strategies");
-            return new List<string>();
+            logger.LogInformation("No securities found in allocation strategies");
+            return new List<Security>();
         }
 
-        // Get tickers that either don't exist or are older than maxAge
-        var tickersNeedingUpdate = await context.MarketPrices
-            .Where(mp => allTickers.Contains(mp.Ticker))
-            .GroupBy(mp => mp.Ticker)
-            .Select(g => new { Ticker = g.Key, LastUpdated = g.Max(mp => mp.LastUpdated) })
-            .Where(x => x.LastUpdated < cutoffTime)
-            .Select(x => x.Ticker)
+        var securityIds = securitiesInPortfolio.Select(s => s.Id).ToList();
+
+        // Get securities that have stale prices
+        var securitiesWithStalePrices = await context.MarketPrices
+            .Where(mp => securityIds.Contains(mp.SecurityId) && mp.LastUpdated < cutoffTime)
+            .Select(mp => mp.SecurityId)
             .ToListAsync();
 
-        // Add tickers that don't have any price record
-        var tickersWithPrices = await context.MarketPrices
-            .Select(mp => mp.Ticker)
+        // Get securities that don't have any price record
+        var securitiesWithPrices = await context.MarketPrices
+            .Where(mp => securityIds.Contains(mp.SecurityId))
+            .Select(mp => mp.SecurityId)
             .Distinct()
             .ToListAsync();
 
-        var tickersWithoutPrices = allTickers.Except(tickersWithPrices).ToList();
+        var securitiesWithoutPrices = securityIds.Except(securitiesWithPrices).ToList();
 
-        var result = tickersNeedingUpdate.Concat(tickersWithoutPrices).Distinct().ToList();
-        logger.LogDatabaseOperation("RetrievedTickersNeedingUpdate", "MarketPrice", null, result.Count);
+        // Combine and get full Security objects
+        var needsUpdate = securitiesWithStalePrices.Concat(securitiesWithoutPrices).Distinct().ToList();
+        var result = securitiesInPortfolio.Where(s => needsUpdate.Contains(s.Id)).ToList();
+        
+        logger.LogDatabaseOperation("RetrievedSecuritiesNeedingUpdate", "MarketPrice", null, result.Count);
         
         return result;
     }
 }
-

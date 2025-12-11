@@ -68,12 +68,13 @@ try
         var priceFetchingJobKey = new JobKey("PriceFetchingJob");
         q.AddJob<PriceFetchingJob>(opts => opts.WithIdentity(priceFetchingJobKey));
 
-        // Schedule job with cron expression (every 5 minutes)
-        // Reduced frequency to avoid Yahoo Finance rate limiting
+        // Schedule job with cron expression (every hour at minute 0)
+        // Hourly is sufficient for portfolio valuation - we only need EOD prices
+        // Reference: https://github.com/Scarvy/yahoo-finance-api-collection
         q.AddTrigger(opts => opts
             .ForJob(priceFetchingJobKey)
             .WithIdentity("PriceFetchingJob-trigger")
-            .WithCronSchedule("0 */5 * * * ?")); // Every 5 minutes
+            .WithCronSchedule("0 0 * * * ?")); // Every hour at :00
     });
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

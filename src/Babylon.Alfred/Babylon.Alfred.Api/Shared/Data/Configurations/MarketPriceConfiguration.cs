@@ -10,12 +10,20 @@ public class MarketPriceConfiguration : IEntityTypeConfiguration<MarketPrice>
     {
         entity.HasKey(e => e.Id);
         entity.Property(e => e.Id).ValueGeneratedOnAdd();
-        entity.Property(e => e.Ticker).IsRequired().HasMaxLength(50);
+        
+        // Foreign key to Security (normalized)
+        entity.Property(e => e.SecurityId).IsRequired();
+        entity.HasOne(e => e.Security)
+            .WithMany()
+            .HasForeignKey(e => e.SecurityId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
         entity.Property(e => e.Price).IsRequired().HasPrecision(18, 4);
+        entity.Property(e => e.Currency).HasMaxLength(10);
         entity.Property(e => e.LastUpdated).IsRequired();
 
-        // Index on Ticker for fast lookups
-        entity.HasIndex(e => e.Ticker);
+        // Unique index on SecurityId - one price per security
+        entity.HasIndex(e => e.SecurityId).IsUnique();
         
         // Index on LastUpdated for filtering stale prices
         entity.HasIndex(e => e.LastUpdated);

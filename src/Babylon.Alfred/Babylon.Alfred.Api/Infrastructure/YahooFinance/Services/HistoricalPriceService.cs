@@ -7,7 +7,9 @@ namespace Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 /// </summary>
 public class HistoricalPriceService(HttpClient httpClient, ILogger<HistoricalPriceService> logger) : IHistoricalPriceService
 {
-    private const string BaseUrl = "https://query1.finance.yahoo.com/v8/finance/chart";
+    // Using query2 instead of query1 - often less rate-limited
+    // Reference: https://github.com/Scarvy/yahoo-finance-api-collection
+    private const string BaseUrl = "https://query2.finance.yahoo.com/v8/finance/chart";
     private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
     private const int RequestDelayMs = 100; // Small delay to avoid rate limiting
 
@@ -180,9 +182,27 @@ public class HistoricalPriceService(HttpClient httpClient, ILogger<HistoricalPri
         timestamps = new List<JsonElement>();
         closes = new List<JsonElement>();
 
-        if (chartResult.TryGetProperty("timestamp", out var timestampElement) &&
-            chartResult.TryGetProperty("indicators", out var indicators) &&
-            indicators.TryGetProperty("quote", out var quote) &&
+        if (!chartResult.TryGetProperty("timestamp", out var timestampElement) ||
+            !chartResult.TryGetProperty("indicators", out var indicators))
+        {
+            return false;
+        }
+
+        // Prefer adjusted close for historical analysis (accounts for splits/dividends)
+        // Path: indicators.adjclose[0].adjclose
+        if (indicators.TryGetProperty("adjclose", out var adjclose) &&
+            adjclose.ValueKind == JsonValueKind.Array &&
+            adjclose.GetArrayLength() > 0 &&
+            adjclose[0].TryGetProperty("adjclose", out var adjcloseElement))
+        {
+            timestamps = timestampElement.EnumerateArray().ToList();
+            closes = adjcloseElement.EnumerateArray().ToList();
+            return true;
+        }
+
+        // Fallback to regular close if adjclose not available
+        // Path: indicators.quote[0].close
+        if (indicators.TryGetProperty("quote", out var quote) &&
             quote.ValueKind == JsonValueKind.Array &&
             quote.GetArrayLength() > 0 &&
             quote[0].TryGetProperty("close", out var closeElement))

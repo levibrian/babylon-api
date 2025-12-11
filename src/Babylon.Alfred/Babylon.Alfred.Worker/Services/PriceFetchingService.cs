@@ -1,3 +1,4 @@
+using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 using Microsoft.Extensions.Logging;
 
@@ -8,12 +9,11 @@ public class PriceFetchingService(
     YahooFinanceService yahooFinanceService,
     ILogger<PriceFetchingService> logger)
 {
-    // Yahoo Finance rate limiting - be very conservative
-    private const int MaxApiCallsPerRun = 10;
-    // Delay between calls to avoid rate limiting (10 seconds)
-    private const int DelayBetweenCallsSeconds = 10;
-    // Cache prices for 30 minutes to reduce API calls
-    private static readonly TimeSpan MaxPriceAge = TimeSpan.FromMinutes(30);
+    // Conservative rate limiting settings for Yahoo Finance
+    private const int MaxApiCallsPerRun = 20;
+    private const int DelayBetweenCallsSeconds = 5; // 5 seconds between calls
+    private const int MaxRetries = 3;
+    private static readonly TimeSpan MaxPriceAge = TimeSpan.FromHours(1);
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
     {
@@ -21,21 +21,20 @@ public class PriceFetchingService(
 
         try
         {
-            // Get tickers that need price updates (not updated in last 15 minutes)
-            var tickersNeedingUpdate = await marketPriceRepository.GetTickersNeedingUpdateAsync(MaxPriceAge);
+            var securitiesNeedingUpdate = await marketPriceRepository.GetSecuritiesNeedingUpdateAsync(MaxPriceAge);
 
-            if (tickersNeedingUpdate.Count == 0)
+            if (securitiesNeedingUpdate.Count == 0)
             {
-                logger.LogInformation("No tickers need price updates at {Timestamp}", DateTime.UtcNow);
+                logger.LogInformation("No securities need price updates");
                 return;
             }
 
-            logger.LogInformation("Found {Count} tickers needing price updates", tickersNeedingUpdate.Count);
+            logger.LogInformation("Found {Count} securities needing price updates", securitiesNeedingUpdate.Count);
 
-            var apiCallsMade = 0;
-            var tickerIndex = 0;
+            var processed = 0;
+            var rateLimitHits = 0;
 
-            foreach (var ticker in tickersNeedingUpdate)
+            foreach (var security in securitiesNeedingUpdate)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -43,56 +42,39 @@ public class PriceFetchingService(
                     break;
                 }
 
-                // Stop if we've reached the rate limit
-                if (apiCallsMade >= MaxApiCallsPerRun)
+                if (processed >= MaxApiCallsPerRun)
                 {
-                    logger.LogInformation("Reached rate limit ({MaxCalls} calls). Stopping. Remaining tickers will be processed in next run", MaxApiCallsPerRun);
+                    logger.LogInformation(
+                        "Reached max calls ({MaxCalls}). Remaining will be processed in next run",
+                        MaxApiCallsPerRun);
                     break;
                 }
 
-                // Fetch price from Yahoo Finance
-                try
+                // Add delay before each call (except first)
+                if (processed > 0)
                 {
-                    var price = await yahooFinanceService.GetCurrentPriceAsync(ticker);
-
-                    if (price.HasValue)
-                    {
-                        // Upsert the price in database
-                        await marketPriceRepository.UpsertMarketPriceAsync(ticker, price.Value);
-                        logger.LogInformation("Updated price for {Ticker}: {Price}", ticker, price.Value);
-                        apiCallsMade++;
-                    }
-                    else
-                    {
-                        logger.LogWarning("Failed to fetch price for {Ticker}. Will retry in next run", ticker);
-                    }
-                }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("Ticker not found"))
-                {
-                    // Ticker not found - mark it with a far-future timestamp so it won't be retried
-                    await marketPriceRepository.MarkTickerAsNotFoundAsync(ticker);
-                    logger.LogWarning("Ticker {Ticker} not found in Yahoo Finance. Marking as invalid and skipping future attempts.", ticker);
-                    // Don't increment apiCallsMade since this wasn't a successful call
-                    // The ticker will be skipped in future runs because of the far-future timestamp
-                }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("rate limited"))
-                {
-                    // Yahoo Finance rate limited us - stop immediately and wait for next run
-                    logger.LogWarning("Rate limited by Yahoo Finance. Stopping price fetching. Processed {Processed} tickers. Will resume in next run.", apiCallsMade);
-                    break;
+                    var delay = DelayBetweenCallsSeconds + rateLimitHits * 5; // Increase delay after rate limits
+                    await Task.Delay(TimeSpan.FromSeconds(delay), cancellationToken);
                 }
 
-                // Delay of 10 seconds between calls to give Yahoo Finance API time to recover (except for the last one)
-                tickerIndex++;
-                if (apiCallsMade < MaxApiCallsPerRun && tickerIndex < tickersNeedingUpdate.Count)
+                var success = await FetchAndStorePriceWithRetryAsync(security, cancellationToken);
+
+                if (!success)
                 {
-                    logger.LogDebug("Waiting {Delay} seconds before next API call...", DelayBetweenCallsSeconds);
-                    await Task.Delay(TimeSpan.FromSeconds(DelayBetweenCallsSeconds), cancellationToken);
+                    rateLimitHits++;
+                    if (rateLimitHits >= 3)
+                    {
+                        logger.LogWarning("Too many rate limit hits. Stopping job early.");
+                        break;
+                    }
                 }
+
+                processed++;
             }
 
-            logger.LogInformation("Price fetching job completed. Processed {Processed} tickers out of {Total} needing updates at {Timestamp}",
-                apiCallsMade, tickersNeedingUpdate.Count, DateTime.UtcNow);
+            logger.LogInformation(
+                "Price fetching completed. Processed {Processed}/{Total} securities",
+                processed, securitiesNeedingUpdate.Count);
         }
         catch (Exception ex)
         {
@@ -100,5 +82,62 @@ public class PriceFetchingService(
             throw;
         }
     }
-}
 
+    private async Task<bool> FetchAndStorePriceWithRetryAsync(Security security, CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; attempt <= MaxRetries; attempt++)
+        {
+            try
+            {
+                var result = await yahooFinanceService.GetCurrentPriceAsync(security.Ticker);
+
+                if (result != null)
+                {
+                    var currency = result.Currency ?? security.Currency;
+
+                    await marketPriceRepository.UpsertMarketPriceAsync(
+                        security.Id,
+                        result.Price,
+                        currency);
+
+                    logger.LogInformation(
+                        "Updated price for {Ticker}: {Price} {Currency}",
+                        security.Ticker, result.Price, currency);
+                    return true;
+                }
+
+                logger.LogWarning("No price data for {Ticker}", security.Ticker);
+                return true; // Don't retry if no data (vs rate limit)
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Ticker not found"))
+            {
+                await marketPriceRepository.MarkSecurityAsNotFoundAsync(security.Id);
+                logger.LogWarning("Ticker {Ticker} not found. Marking as invalid.", security.Ticker);
+                return true; // Don't retry
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("rate limited"))
+            {
+                var backoffSeconds = (int)Math.Pow(2, attempt) * 5; // 10s, 20s, 40s
+                logger.LogWarning(
+                    "Rate limited on attempt {Attempt}/{MaxRetries} for {Ticker}. Waiting {Backoff}s",
+                    attempt, MaxRetries, security.Ticker, backoffSeconds);
+
+                if (attempt < MaxRetries)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), cancellationToken);
+                }
+                else
+                {
+                    return false; // Exhausted retries
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error fetching price for {Ticker}", security.Ticker);
+                return true; // Don't retry on unknown errors
+            }
+        }
+
+        return false;
+    }
+}
