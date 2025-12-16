@@ -12,6 +12,7 @@ public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbCo
     public DbSet<AllocationStrategy> AllocationStrategies { get; set; }
     public DbSet<MarketPrice> MarketPrices { get; set; }
     public DbSet<RecurringSchedule> RecurringSchedules { get; set; }
+    public DbSet<PortfolioSnapshot> PortfolioSnapshots { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,5 +24,6 @@ public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbCo
         modelBuilder.ApplyConfiguration(new AllocationStrategyConfiguration());
         modelBuilder.ApplyConfiguration(new MarketPriceConfiguration());
         modelBuilder.ApplyConfiguration(new RecurringScheduleConfiguration());
+        modelBuilder.ApplyConfiguration(new PortfolioSnapshotConfiguration());
     }
 }

@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
         services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
 
         // Services
         services.AddScoped<ITransactionService, TransactionService>();
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAllocationStrategyService, AllocationStrategyService>();
         services.AddScoped<IPortfolioAnalyticsService, PortfolioAnalyticsService>();
         services.AddScoped<IRebalancingService, RebalancingService>();
+        services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
 
         // Portfolio Analyzers
         services.AddScoped<IPortfolioAnalyzer, RiskAnalyzer>();

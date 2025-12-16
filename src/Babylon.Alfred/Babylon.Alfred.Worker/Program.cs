@@ -52,17 +52,23 @@ try
     // Register repositories
     builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
     builder.Services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
+    builder.Services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
+    builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+    builder.Services.AddScoped<ISecurityRepository, SecurityRepository>();
 
     // Register services
     builder.Services.ConfigureYahooClient();
     builder.Services.AddScoped<YahooFinanceService>();
     builder.Services.AddScoped<PriceFetchingService>();
+    builder.Services.AddScoped<PortfolioSnapshotService>();
 
     // Register jobs
     builder.Services.AddScoped<PriceFetchingJob>();
+    builder.Services.AddScoped<PortfolioSnapshotJob>();
 
     // Configure Quartz scheduled jobs
     const string priceFetchingCron = "0 0 9-22 ? * MON-FRI"; // Every hour from 9 AM to 10 PM UTC, weekdays only
+    const string portfolioSnapshotCron = "0 0 23 * * ?"; // Every day at 11 PM UTC
 
     Log.Information("=== Job Configuration ===");
     Log.Information("PriceFetchingJob Schedule: {CronExpression}", priceFetchingCron);
@@ -70,6 +76,10 @@ try
     Log.Information("  → Active hours: 9:00 AM - 10:00 PM UTC");
     Log.Information("  → Active days: Monday through Friday (market days)");
     Log.Information("  → Purpose: Fetch latest market prices from Yahoo Finance");
+    Log.Information("");
+    Log.Information("PortfolioSnapshotJob Schedule: {CronExpression}", portfolioSnapshotCron);
+    Log.Information("  → Runs once daily at 11:00 PM UTC");
+    Log.Information("  → Purpose: Save daily portfolio value, P&L, and P&L % for historical tracking");
     Log.Information("=========================");
 
     builder.Services.AddQuartz(q =>
@@ -81,6 +91,14 @@ try
             .ForJob(priceFetchingJobKey)
             .WithIdentity("PriceFetchingJob-trigger")
             .WithCronSchedule(priceFetchingCron));
+
+        var portfolioSnapshotJobKey = new JobKey("PortfolioSnapshotJob");
+        q.AddJob<PortfolioSnapshotJob>(opts => opts.WithIdentity(portfolioSnapshotJobKey));
+
+        q.AddTrigger(opts => opts
+            .ForJob(portfolioSnapshotJobKey)
+            .WithIdentity("PortfolioSnapshotJob-trigger")
+            .WithCronSchedule(portfolioSnapshotCron));
     });
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
