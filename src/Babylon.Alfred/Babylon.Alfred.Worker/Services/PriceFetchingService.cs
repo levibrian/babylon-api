@@ -13,7 +13,7 @@ public class PriceFetchingService(
     private const int MaxApiCallsPerRun = 50; // Can process more since we run less frequently
     private const int DelayBetweenCallsSeconds = 3;
     private const int MaxRetries = 3;
-    private static readonly TimeSpan MaxPriceAge = TimeSpan.FromHours(24);
+    private static readonly TimeSpan MaxPriceAge = TimeSpan.FromHours(2);
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
     {
