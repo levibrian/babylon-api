@@ -14,7 +14,7 @@ public class PortfolioSnapshotJob(
     ILogger<PortfolioSnapshotJob> logger)
     : IJobBase
 {
-    public string CronExpression => "0 0 23 * * ?"; // Every day at 11 PM UTC
+    public string CronExpression => "* * * * * ?"; // Every day at 11 PM UTC
 
     public async Task Execute(IJobExecutionContext context)
     {

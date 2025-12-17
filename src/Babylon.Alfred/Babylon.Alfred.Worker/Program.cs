@@ -68,7 +68,7 @@ try
 
     // Configure Quartz scheduled jobs
     const string priceFetchingCron = "0 0 9-22 ? * MON-FRI"; // Every hour from 9 AM to 10 PM UTC, weekdays only
-    const string portfolioSnapshotCron = "0 0 23 * * ?"; // Every day at 11 PM UTC
+    const string portfolioSnapshotCron = "* * * * * ?"; // Every day at 11 PM UTC
 
     Log.Information("=== Job Configuration ===");
     Log.Information("PriceFetchingJob Schedule: {CronExpression}", priceFetchingCron);

@@ -40,7 +40,7 @@ public class PortfolioService(
 
         // Order by total invested (descending), so largest positions appear first
         var orderedPositions = positions
-            .OrderByDescending(p => p.TotalInvested)
+            .OrderByDescending(p => p.CurrentMarketValue ?? p.TotalInvested)
             .ToList();
 
         // Calculate portfolio totals

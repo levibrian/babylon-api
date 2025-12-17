@@ -10,7 +10,7 @@ public class PriceFetchingJob(
     ILogger<PriceFetchingJob> logger)
     : IJobBase
 {
-    public string CronExpression => "* * * * *"; // Every minute
+    public string CronExpression => "0 */2 * * *"; // Every minute
 
     public async Task Execute(IJobExecutionContext context)
     {
