@@ -38,9 +38,9 @@ public class PortfolioService(
         var groupedTransactions = allTransactions.GroupBy(t => t.SecurityId).ToList();
         var positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId);
 
-        // Order by target allocation percentage (descending), with positions without target allocation last
+        // Order by total invested (descending), so largest positions appear first
         var orderedPositions = positions
-            .OrderByDescending(p => p.TargetAllocationPercentage ?? -1)
+            .OrderByDescending(p => p.TotalInvested)
             .ToList();
 
         // Calculate portfolio totals
