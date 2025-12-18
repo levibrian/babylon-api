@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Babylon.Alfred.Api.Shared.Data.Migrations
 {
     [DbContext(typeof(BabylonDbContext))]
-    [Migration("20251216103213_AddPortfolioSnapshot")]
+    [Migration("20251218110250_AddPortfolioSnapshot")]
     partial class AddPortfolioSnapshot
     {
         /// <inheritdoc />
@@ -102,11 +102,8 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateOnly>("SnapshotDate")
-                        .HasColumnType("date");
 
                     b.Property<decimal>("TotalInvested")
                         .HasPrecision(18, 2)
@@ -129,10 +126,9 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SnapshotDate");
+                    b.HasIndex("Timestamp");
 
-                    b.HasIndex("UserId", "SnapshotDate")
-                        .IsUnique();
+                    b.HasIndex("UserId", "Timestamp");
 
                     b.ToTable("portfolio_snapshots", (string)null);
                 });

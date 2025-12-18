@@ -17,12 +17,11 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SnapshotDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     TotalInvested = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
                     TotalMarketValue = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
                     UnrealizedPnL = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    UnrealizedPnLPercentage = table.Column<decimal>(type: "numeric(8,4)", precision: 8, scale: 4, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    UnrealizedPnLPercentage = table.Column<decimal>(type: "numeric(8,4)", precision: 8, scale: 4, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -36,15 +35,14 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_portfolio_snapshots_SnapshotDate",
+                name: "IX_portfolio_snapshots_Timestamp",
                 table: "portfolio_snapshots",
-                column: "SnapshotDate");
+                column: "Timestamp");
 
             migrationBuilder.CreateIndex(
-                name: "IX_portfolio_snapshots_UserId_SnapshotDate",
+                name: "IX_portfolio_snapshots_UserId_Timestamp",
                 table: "portfolio_snapshots",
-                columns: new[] { "UserId", "SnapshotDate" },
-                unique: true);
+                columns: new[] { "UserId", "Timestamp" });
         }
 
         /// <inheritdoc />

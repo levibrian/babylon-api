@@ -5,52 +5,36 @@ using Microsoft.Extensions.Logging;
 
 namespace Babylon.Alfred.Api.Shared.Repositories;
 
-public class PortfolioSnapshotRepository(BabylonDbContext context, ILogger<PortfolioSnapshotRepository> logger) 
+public class PortfolioSnapshotRepository(BabylonDbContext context, ILogger<PortfolioSnapshotRepository> logger)
     : IPortfolioSnapshotRepository
 {
-    public async Task UpsertSnapshotAsync(PortfolioSnapshot snapshot)
+    public async Task AddSnapshotAsync(PortfolioSnapshot snapshot)
     {
-        var existing = await context.PortfolioSnapshots
-            .FirstOrDefaultAsync(ps => ps.UserId == snapshot.UserId && ps.SnapshotDate == snapshot.SnapshotDate);
-
-        if (existing != null)
-        {
-            existing.TotalInvested = snapshot.TotalInvested;
-            existing.TotalMarketValue = snapshot.TotalMarketValue;
-            existing.UnrealizedPnL = snapshot.UnrealizedPnL;
-            existing.UnrealizedPnLPercentage = snapshot.UnrealizedPnLPercentage;
-            existing.CreatedAt = DateTime.UtcNow;
-            context.PortfolioSnapshots.Update(existing);
-            logger.LogDebug("Updated portfolio snapshot for user {UserId} on {Date}", snapshot.UserId, snapshot.SnapshotDate);
-        }
-        else
-        {
-            snapshot.Id = Guid.NewGuid();
-            snapshot.CreatedAt = DateTime.UtcNow;
-            await context.PortfolioSnapshots.AddAsync(snapshot);
-            logger.LogDebug("Created portfolio snapshot for user {UserId} on {Date}", snapshot.UserId, snapshot.SnapshotDate);
-        }
-
+        snapshot.Id = Guid.NewGuid();
+        snapshot.Timestamp = DateTime.UtcNow;
+        await context.PortfolioSnapshots.AddAsync(snapshot);
         await context.SaveChangesAsync();
+
+        logger.LogDebug("Created portfolio snapshot for user {UserId} at {Timestamp}", snapshot.UserId, snapshot.Timestamp);
     }
 
-    public async Task<List<PortfolioSnapshot>> GetSnapshotsByUserAsync(Guid userId, DateOnly? fromDate = null, DateOnly? toDate = null)
+    public async Task<List<PortfolioSnapshot>> GetSnapshotsByUserAsync(Guid userId, DateTime? from = null, DateTime? to = null)
     {
         var query = context.PortfolioSnapshots
             .Where(ps => ps.UserId == userId);
 
-        if (fromDate.HasValue)
+        if (from.HasValue)
         {
-            query = query.Where(ps => ps.SnapshotDate >= fromDate.Value);
+            query = query.Where(ps => ps.Timestamp >= from.Value);
         }
 
-        if (toDate.HasValue)
+        if (to.HasValue)
         {
-            query = query.Where(ps => ps.SnapshotDate <= toDate.Value);
+            query = query.Where(ps => ps.Timestamp <= to.Value);
         }
 
         return await query
-            .OrderBy(ps => ps.SnapshotDate)
+            .OrderBy(ps => ps.Timestamp)
             .ToListAsync();
     }
 
@@ -58,7 +42,7 @@ public class PortfolioSnapshotRepository(BabylonDbContext context, ILogger<Portf
     {
         return await context.PortfolioSnapshots
             .Where(ps => ps.UserId == userId)
-            .OrderByDescending(ps => ps.SnapshotDate)
+            .OrderByDescending(ps => ps.Timestamp)
             .FirstOrDefaultAsync();
     }
 

@@ -5,8 +5,8 @@ using Quartz;
 namespace Babylon.Alfred.Worker.Jobs;
 
 /// <summary>
-/// Job that creates daily portfolio snapshots for all users.
-/// Runs once per day after market close to capture portfolio performance metrics.
+/// Job that creates hourly portfolio snapshots for all users.
+/// Runs 15 minutes after each price fetch to capture portfolio performance metrics.
 /// </summary>
 [DisallowConcurrentExecution]
 public class PortfolioSnapshotJob(
@@ -14,7 +14,12 @@ public class PortfolioSnapshotJob(
     ILogger<PortfolioSnapshotJob> logger)
     : IJobBase
 {
-    public string CronExpression => "* * * * * ?"; // Every day at 11 PM UTC
+    /// <summary>
+    /// 15 minutes after each hour (after price fetch), 9 AM to 10 PM UTC, weekdays only.
+    /// </summary>
+    public const string Cron = "0 15 9-22 ? * MON-FRI";
+    
+    public string CronExpression => Cron;
 
     public async Task Execute(IJobExecutionContext context)
     {

@@ -1,3 +1,5 @@
+using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
+using Babylon.Alfred.Api.Features.Investments.Shared;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 using Microsoft.Extensions.Logging;
@@ -5,8 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Babylon.Alfred.Worker.Services;
 
 /// <summary>
-/// Service for creating daily portfolio snapshots.
-/// Calculates portfolio metrics for each user and persists them for historical tracking.
+/// Service for creating hourly portfolio snapshots.
+/// Calculates portfolio metrics for each user and persists them for historical tracking and intraday charts.
 /// </summary>
 public class PortfolioSnapshotService(
     IPortfolioSnapshotRepository snapshotRepository,
@@ -32,7 +34,6 @@ public class PortfolioSnapshotService(
 
             logger.LogInformation("Found {Count} users with portfolios to snapshot", userIds.Count);
 
-            var snapshotDate = DateOnly.FromDateTime(DateTime.UtcNow);
             var successCount = 0;
             var skipCount = 0;
 
@@ -46,11 +47,11 @@ public class PortfolioSnapshotService(
 
                 try
                 {
-                    var snapshot = await CreateSnapshotForUserAsync(userId, snapshotDate);
-                    
+                    var snapshot = await CreateSnapshotForUserAsync(userId);
+
                     if (snapshot != null)
                     {
-                        await snapshotRepository.UpsertSnapshotAsync(snapshot);
+                        await snapshotRepository.AddSnapshotAsync(snapshot);
                         successCount++;
                         logger.LogDebug(
                             "Snapshot created for user {UserId}: Value={MarketValue:C}, P&L={PnL:C} ({PnLPct:F2}%)",
@@ -83,11 +84,11 @@ public class PortfolioSnapshotService(
     /// Creates a portfolio snapshot for a single user.
     /// Returns null if market values are not available.
     /// </summary>
-    private async Task<PortfolioSnapshot?> CreateSnapshotForUserAsync(Guid userId, DateOnly snapshotDate)
+    private async Task<PortfolioSnapshot?> CreateSnapshotForUserAsync(Guid userId)
     {
         // Get all transactions for the user
         var allTransactions = (await transactionRepository.GetAllByUser(userId)).ToList();
-        
+
         if (allTransactions.Count == 0)
         {
             return null;
@@ -95,14 +96,14 @@ public class PortfolioSnapshotService(
 
         // Group transactions by security
         var transactionsBySecurityId = allTransactions.GroupBy(t => t.SecurityId).ToList();
-        
+
         // Get all security IDs
         var securityIds = transactionsBySecurityId.Select(g => g.Key).ToList();
-        
+
         // Get securities to map to tickers for market prices
         var securities = await securityRepository.GetByIdsAsync(securityIds);
         var securityLookup = securities.ToDictionary(s => s.Id, s => s);
-        
+
         // Get market prices
         var tickers = securities.Select(s => s.Ticker).ToList();
         var marketPrices = await marketPriceRepository.GetByTickersAsync(tickers);
@@ -123,7 +124,8 @@ public class PortfolioSnapshotService(
             totalInvested += invested;
 
             // Calculate total shares using weighted average cost method
-            var (totalShares, _) = CalculateCostBasis(transactions);
+            var transactionDtos = MapToTransactionDtos(transactions);
+            var (totalShares, _) = PortfolioCalculator.CalculateCostBasis(transactionDtos);
 
             // Skip if no shares (position was fully sold)
             if (totalShares <= 0)
@@ -151,14 +153,13 @@ public class PortfolioSnapshotService(
         }
 
         var unrealizedPnL = totalMarketValue - totalInvested;
-        var unrealizedPnLPercentage = totalInvested > 0 
-            ? (unrealizedPnL / totalInvested) * 100 
+        var unrealizedPnLPercentage = totalInvested > 0
+            ? (unrealizedPnL / totalInvested) * 100
             : 0;
 
         return new PortfolioSnapshot
         {
             UserId = userId,
-            SnapshotDate = snapshotDate,
             TotalInvested = Math.Round(totalInvested, 2),
             TotalMarketValue = Math.Round(totalMarketValue, 2),
             UnrealizedPnL = Math.Round(unrealizedPnL, 2),
@@ -167,53 +168,20 @@ public class PortfolioSnapshotService(
     }
 
     /// <summary>
-    /// Calculates the cost basis and total shares using weighted average cost method.
-    /// Processes transactions chronologically.
+    /// Maps Transaction entities to PortfolioTransactionDto for use with PortfolioCalculator.
     /// </summary>
-    private static (decimal totalShares, decimal costBasis) CalculateCostBasis(List<Transaction> transactions)
+    private static List<PortfolioTransactionDto> MapToTransactionDtos(List<Transaction> transactions)
     {
-        decimal totalShares = 0;
-        decimal costBasis = 0;
-
-        // Order by date ascending to process transactions chronologically
-        var orderedTransactions = transactions.OrderBy(t => t.Date).ToList();
-
-        foreach (var t in orderedTransactions)
+        return transactions.Select(t => new PortfolioTransactionDto
         {
-            switch (t.TransactionType)
-            {
-                case TransactionType.Buy:
-                    totalShares += t.SharesQuantity;
-                    costBasis += (t.SharesQuantity * t.SharePrice) + t.Fees;
-                    break;
-                    
-                case TransactionType.Sell:
-                    if (totalShares > 0)
-                    {
-                        var avgCost = costBasis / totalShares;
-                        var sharesToSell = Math.Min(t.SharesQuantity, totalShares);
-                        costBasis -= sharesToSell * avgCost;
-                        totalShares -= sharesToSell;
-                        
-                        if (totalShares == 0)
-                        {
-                            costBasis = 0;
-                        }
-                    }
-                    break;
-                    
-                case TransactionType.Split:
-                    if (totalShares > 0 && t.SharesQuantity > 0)
-                    {
-                        totalShares *= t.SharesQuantity;
-                    }
-                    break;
-                    
-                // Dividends don't affect cost basis or share count
-            }
-        }
-
-        return (totalShares, costBasis);
+            Id = t.Id,
+            TransactionType = t.TransactionType,
+            Date = t.Date,
+            SharesQuantity = t.SharesQuantity,
+            SharePrice = t.SharePrice,
+            Fees = t.Fees,
+            Tax = t.Tax
+        }).ToList();
     }
 }
 

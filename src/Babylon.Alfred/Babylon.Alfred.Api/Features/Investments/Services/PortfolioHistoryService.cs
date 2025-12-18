@@ -9,17 +9,17 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 /// </summary>
 public class PortfolioHistoryService(IPortfolioSnapshotRepository snapshotRepository) : IPortfolioHistoryService
 {
-    public async Task<PortfolioHistoryResponse> GetHistoryAsync(Guid userId, DateOnly? fromDate = null, DateOnly? toDate = null)
+    public async Task<PortfolioHistoryResponse> GetHistoryAsync(Guid userId, DateTime? from = null, DateTime? to = null)
     {
-        var snapshots = await snapshotRepository.GetSnapshotsByUserAsync(userId, fromDate, toDate);
+        var snapshots = await snapshotRepository.GetSnapshotsByUserAsync(userId, from, to);
 
         var snapshotDtos = snapshots.Select(MapToDto).ToList();
 
         return new PortfolioHistoryResponse
         {
             UserId = userId,
-            FromDate = fromDate,
-            ToDate = toDate,
+            From = from,
+            To = to,
             Count = snapshotDtos.Count,
             Snapshots = snapshotDtos,
             Summary = CalculateSummary(snapshotDtos)
@@ -36,7 +36,7 @@ public class PortfolioHistoryService(IPortfolioSnapshotRepository snapshotReposi
     {
         return new PortfolioSnapshotDto
         {
-            SnapshotDate = snapshot.SnapshotDate,
+            Timestamp = snapshot.Timestamp,
             TotalInvested = snapshot.TotalInvested,
             TotalMarketValue = snapshot.TotalMarketValue,
             UnrealizedPnL = snapshot.UnrealizedPnL,
@@ -69,9 +69,9 @@ public class PortfolioHistoryService(IPortfolioSnapshotRepository snapshotReposi
             ValueChange = Math.Round(valueChange, 2),
             ValueChangePercentage = Math.Round(valueChangePercentage, 2),
             HighestValue = highestSnapshot.TotalMarketValue,
-            HighestValueDate = highestSnapshot.SnapshotDate,
+            HighestValueTimestamp = highestSnapshot.Timestamp,
             LowestValue = lowestSnapshot.TotalMarketValue,
-            LowestValueDate = lowestSnapshot.SnapshotDate
+            LowestValueTimestamp = lowestSnapshot.Timestamp
         };
     }
 }

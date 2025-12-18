@@ -10,26 +10,25 @@ public class PortfolioSnapshotConfiguration : IEntityTypeConfiguration<Portfolio
     {
         entity.HasKey(e => e.Id);
         entity.Property(e => e.Id).ValueGeneratedOnAdd();
-        
+
         // Foreign key to User
         entity.Property(e => e.UserId).IsRequired();
         entity.HasOne(e => e.User)
             .WithMany()
             .HasForeignKey(e => e.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-        
-        entity.Property(e => e.SnapshotDate).IsRequired();
+
+        entity.Property(e => e.Timestamp).IsRequired();
         entity.Property(e => e.TotalInvested).IsRequired().HasPrecision(18, 2);
         entity.Property(e => e.TotalMarketValue).IsRequired().HasPrecision(18, 2);
         entity.Property(e => e.UnrealizedPnL).IsRequired().HasPrecision(18, 2);
         entity.Property(e => e.UnrealizedPnLPercentage).IsRequired().HasPrecision(8, 4);
-        entity.Property(e => e.CreatedAt).IsRequired();
 
-        // Unique index on UserId + SnapshotDate - one snapshot per user per day
-        entity.HasIndex(e => new { e.UserId, e.SnapshotDate }).IsUnique();
-        
-        // Index on SnapshotDate for date range queries
-        entity.HasIndex(e => e.SnapshotDate);
+        // Index on UserId + Timestamp for efficient user queries
+        entity.HasIndex(e => new { e.UserId, e.Timestamp });
+
+        // Index on Timestamp for date range queries
+        entity.HasIndex(e => e.Timestamp);
 
         entity.ToTable("portfolio_snapshots");
     }

@@ -66,39 +66,37 @@ try
     builder.Services.AddScoped<PriceFetchingJob>();
     builder.Services.AddScoped<PortfolioSnapshotJob>();
 
-    // Configure Quartz scheduled jobs
-    const string priceFetchingCron = "0 0 9-22 ? * MON-FRI"; // Every hour from 9 AM to 10 PM UTC, weekdays only
-    const string portfolioSnapshotCron = "* * * * * ?"; // Every day at 11 PM UTC
-
+    // Configure Quartz scheduled jobs (cron expressions defined in job classes)
     Log.Information("=== Job Configuration ===");
-    Log.Information("PriceFetchingJob Schedule: {CronExpression}", priceFetchingCron);
+    Log.Information("PriceFetchingJob Schedule: {CronExpression}", PriceFetchingJob.Cron);
     Log.Information("  → Runs every hour on the hour");
     Log.Information("  → Active hours: 9:00 AM - 10:00 PM UTC");
     Log.Information("  → Active days: Monday through Friday (market days)");
     Log.Information("  → Purpose: Fetch latest market prices from Yahoo Finance");
     Log.Information("");
-    Log.Information("PortfolioSnapshotJob Schedule: {CronExpression}", portfolioSnapshotCron);
-    Log.Information("  → Runs once daily at 11:00 PM UTC");
-    Log.Information("  → Purpose: Save daily portfolio value, P&L, and P&L % for historical tracking");
+    Log.Information("PortfolioSnapshotJob Schedule: {CronExpression}", PortfolioSnapshotJob.Cron);
+    Log.Information("  → Runs hourly at :15 (15 min after price fetch)");
+    Log.Information("  → Active hours: 9:15 AM - 10:15 PM UTC, weekdays only");
+    Log.Information("  → Purpose: Save hourly portfolio snapshots for intraday performance charts");
     Log.Information("=========================");
 
     builder.Services.AddQuartz(q =>
     {
-        var priceFetchingJobKey = new JobKey("PriceFetchingJob");
+        var priceFetchingJobKey = new JobKey(nameof(PriceFetchingJob));
         q.AddJob<PriceFetchingJob>(opts => opts.WithIdentity(priceFetchingJobKey));
 
         q.AddTrigger(opts => opts
             .ForJob(priceFetchingJobKey)
-            .WithIdentity("PriceFetchingJob-trigger")
-            .WithCronSchedule(priceFetchingCron));
+            .WithIdentity($"{nameof(PriceFetchingJob)}-trigger")
+            .WithCronSchedule(PriceFetchingJob.Cron));
 
-        var portfolioSnapshotJobKey = new JobKey("PortfolioSnapshotJob");
+        var portfolioSnapshotJobKey = new JobKey(nameof(PortfolioSnapshotJob));
         q.AddJob<PortfolioSnapshotJob>(opts => opts.WithIdentity(portfolioSnapshotJobKey));
 
         q.AddTrigger(opts => opts
             .ForJob(portfolioSnapshotJobKey)
-            .WithIdentity("PortfolioSnapshotJob-trigger")
-            .WithCronSchedule(portfolioSnapshotCron));
+            .WithIdentity($"{nameof(PortfolioSnapshotJob)}-trigger")
+            .WithCronSchedule(PortfolioSnapshotJob.Cron));
     });
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

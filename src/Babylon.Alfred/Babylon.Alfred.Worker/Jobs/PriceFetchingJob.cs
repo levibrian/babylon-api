@@ -10,7 +10,12 @@ public class PriceFetchingJob(
     ILogger<PriceFetchingJob> logger)
     : IJobBase
 {
-    public string CronExpression => "0 */2 * * *"; // Every minute
+    /// <summary>
+    /// Every hour from 9 AM to 10 PM UTC, weekdays only.
+    /// </summary>
+    public const string Cron = "0 0 9-22 ? * MON-FRI";
+    
+    public string CronExpression => Cron;
 
     public async Task Execute(IJobExecutionContext context)
     {

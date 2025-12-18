@@ -8,14 +8,14 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 public interface IPortfolioHistoryService
 {
     /// <summary>
-    /// Gets historical portfolio snapshots for a user within an optional date range.
+    /// Gets historical portfolio snapshots for a user within an optional date/time range.
     /// </summary>
     /// <param name="userId">User ID</param>
-    /// <param name="fromDate">Optional start date (inclusive)</param>
-    /// <param name="toDate">Optional end date (inclusive)</param>
+    /// <param name="from">Optional start timestamp (inclusive)</param>
+    /// <param name="to">Optional end timestamp (inclusive)</param>
     /// <returns>Portfolio history response with snapshots and summary</returns>
-    Task<PortfolioHistoryResponse> GetHistoryAsync(Guid userId, DateOnly? fromDate = null, DateOnly? toDate = null);
-    
+    Task<PortfolioHistoryResponse> GetHistoryAsync(Guid userId, DateTime? from = null, DateTime? to = null);
+
     /// <summary>
     /// Gets the latest portfolio snapshot for a user.
     /// </summary>

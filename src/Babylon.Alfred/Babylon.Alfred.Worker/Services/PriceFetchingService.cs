@@ -9,11 +9,11 @@ public class PriceFetchingService(
     YahooFinanceService yahooFinanceService,
     ILogger<PriceFetchingService> logger)
 {
-    // Rate limiting settings - job runs once daily at 10 PM UTC
-    private const int MaxApiCallsPerRun = 50; // Can process more since we run less frequently
+    // Rate limiting settings - job runs hourly during market hours
+    private const int MaxApiCallsPerRun = 50;
     private const int DelayBetweenCallsSeconds = 3;
     private const int MaxRetries = 3;
-    private static readonly TimeSpan MaxPriceAge = TimeSpan.FromHours(2);
+    private static readonly TimeSpan MaxPriceAge = TimeSpan.FromHours(1);
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
     {

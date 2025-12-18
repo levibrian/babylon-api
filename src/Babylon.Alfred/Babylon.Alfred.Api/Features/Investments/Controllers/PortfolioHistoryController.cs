@@ -15,25 +15,25 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
     /// Gets historical portfolio snapshots for a user.
     /// </summary>
     /// <remarks>
-    /// Returns daily portfolio snapshots including total invested, market value, P&amp;L, and P&amp;L %.
-    /// Optionally filter by date range. If no dates provided, returns all available history.
+    /// Returns hourly portfolio snapshots including total invested, market value, P&amp;L, and P&amp;L %.
+    /// Optionally filter by date/time range. If no dates provided, returns all available history.
     /// 
     /// Example:
     /// - GET /api/v1/portfolios/{userId}/history
     /// - GET /api/v1/portfolios/{userId}/history?from=2024-01-01
-    /// - GET /api/v1/portfolios/{userId}/history?from=2024-01-01&amp;to=2024-12-31
+    /// - GET /api/v1/portfolios/{userId}/history?from=2024-01-01T09:00:00Z&amp;to=2024-01-01T22:00:00Z
     /// </remarks>
     /// <param name="userId">User ID</param>
-    /// <param name="from">Optional start date (inclusive, format: YYYY-MM-DD)</param>
-    /// <param name="to">Optional end date (inclusive, format: YYYY-MM-DD)</param>
+    /// <param name="from">Optional start timestamp (inclusive)</param>
+    /// <param name="to">Optional end timestamp (inclusive)</param>
     /// <returns>Portfolio history with snapshots and summary statistics</returns>
     [HttpGet]
     [ProducesResponseType(typeof(PortfolioHistoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PortfolioHistoryResponse>> GetHistory(
         Guid userId,
-        [FromQuery] DateOnly? from = null,
-        [FromQuery] DateOnly? to = null)
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
     {
         // Validate date range
         if (from.HasValue && to.HasValue && from > to)
@@ -42,7 +42,7 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "Invalid date range",
-                Detail = "'from' date must be before or equal to 'to' date"
+                Detail = "'from' must be before or equal to 'to'"
             });
         }
 
