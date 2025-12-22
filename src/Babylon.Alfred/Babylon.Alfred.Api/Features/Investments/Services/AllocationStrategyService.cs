@@ -6,7 +6,8 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 
 public class AllocationStrategyService(
     IAllocationStrategyRepository allocationStrategyRepository,
-    ISecurityRepository securityRepository)
+    ISecurityRepository securityRepository,
+    ISecurityService securityService)
     : IAllocationStrategyService
 {
     public async Task SetAllocationStrategyAsync(Guid userId, List<AllocationStrategyDto> allocations)
@@ -18,21 +19,28 @@ public class AllocationStrategyService(
             throw new InvalidOperationException($"Total allocation percentage ({totalPercentage}%) cannot exceed 100%.");
         }
 
-        // Get all unique tickers and fetch securities
-        var tickers = allocations.Select(a => a.Ticker).Distinct().ToList();
+        // Get all unique tickers and fetch existing securities
+        var tickers = allocations.Select(a => a.Ticker.ToUpperInvariant()).Distinct().ToList();
         var securities = await securityRepository.GetByTickersAsync(tickers);
 
-        // Validate all tickers exist
+        // For missing tickers, fetch from Yahoo Finance and create in database
         var missingTickers = tickers.Where(t => !securities.ContainsKey(t)).ToList();
-        if (missingTickers.Any())
+        foreach (var ticker in missingTickers)
         {
-            throw new InvalidOperationException($"Securities not found for tickers: {string.Join(", ", missingTickers)}");
+            // This will fetch from Yahoo Finance and save to database
+            await securityService.CreateOrGetByTickerAsync(ticker);
+        }
+
+        // Re-fetch all securities now that missing ones have been created
+        if (missingTickers.Count > 0)
+        {
+            securities = await securityRepository.GetByTickersAsync(tickers);
         }
 
         // Convert DTOs to entities with SecurityId
         var allocationStrategies = allocations.Select(a => new AllocationStrategy
         {
-            SecurityId = securities[a.Ticker].Id,
+            SecurityId = securities[a.Ticker.ToUpperInvariant()].Id,
             TargetPercentage = a.TargetPercentage,
             IsEnabledForWeekly = a.IsEnabledForWeekly,
             IsEnabledForBiWeekly = a.IsEnabledForBiWeekly,
