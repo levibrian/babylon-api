@@ -5,12 +5,14 @@ using Babylon.Alfred.Api.Features.Investments.Shared;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Logging;
 using Babylon.Alfred.Api.Shared.Repositories;
+using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 
 namespace Babylon.Alfred.Api.Features.Investments.Services;
 
 public class TransactionService(
     ITransactionRepository transactionRepository,
     ISecurityRepository securityRepository,
+    IYahooMarketDataService yahooMarketDataService,
     ILogger<TransactionService> logger)
     : ITransactionService
 {
@@ -19,7 +21,44 @@ public class TransactionService(
         logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = request.UserId });
 
         TransactionValidator.ValidateCreateRequest(request, logger);
-        var security = await SecurityValidator.ValidateAndGetSecurityAsync(request.Ticker, securityRepository, logger);
+        
+        // Check if security exists locally
+        var security = await securityRepository.GetByTickerAsync(request.Ticker);
+        
+        if (security == null)
+        {
+            logger.LogInformation("Security not found locally for ticker {Ticker}. Searching Yahoo Finance...", request.Ticker);
+            
+            // Search in Yahoo Finance
+            var searchResults = await yahooMarketDataService.SearchAsync(request.Ticker);
+            
+            // Find an exact match or a very close match (case-insensitive)
+            var match = searchResults.FirstOrDefault(s => string.Equals(s.Symbol, request.Ticker, StringComparison.OrdinalIgnoreCase));
+
+            if (match == null)
+            {
+                logger.LogBusinessRuleViolation("CreateTransaction", 
+                    $"Security not found locally and not found in Yahoo Finance for ticker: {request.Ticker}", 
+                    new { request.Ticker });
+                throw new InvalidOperationException(ErrorMessages.SecurityNotFound);
+            }
+
+            // Map and create new security
+            security = new Security
+            {
+                Id = Guid.NewGuid(),
+                Ticker = match.Symbol.ToUpperInvariant(), // Standardize ticker casing
+                SecurityName = !string.IsNullOrWhiteSpace(match.LongName) ? match.LongName : match.ShortName,
+                SecurityType = MapYahooQuoteTypeToSecurityType(match.QuoteType),
+                Exchange = match.Exchange,
+                Sector = match.Sector,
+                Industry = match.Industry,
+                LastUpdated = DateTime.UtcNow
+            };
+
+            security = await securityRepository.AddOrUpdateAsync(security);
+            logger.LogInformation("Created new security {Ticker} from Yahoo Finance data", security.Ticker);
+        }
 
         var transaction = CreateTransactionEntity(request, security.Id);
         var result = await transactionRepository.Add(transaction);
@@ -45,8 +84,8 @@ public class TransactionService(
             return new List<Transaction>();
         }
 
-        await transactionRepository.AddBulk(createdTransactions.Cast<Transaction?>().ToList());
-        logger.LogOperationSuccess("CreateBulkTransactions", new { Count = createdTransactions.Count });
+        await transactionRepository.AddBulk([.. createdTransactions.Cast<Transaction?>()]);
+        logger.LogOperationSuccess("CreateBulkTransactions", new { createdTransactions.Count });
         return createdTransactions;
     }
 
@@ -182,5 +221,18 @@ public class TransactionService(
         {
             transaction.Tax = request.Tax.Value;
         }
+    }
+    private static SecurityType MapYahooQuoteTypeToSecurityType(string quoteType)
+    {
+        return quoteType.ToUpperInvariant() switch
+        {
+            "EQUITY" => SecurityType.Stock,
+            "ETF" => SecurityType.ETF,
+            "MUTUALFUND" => SecurityType.MutualFund,
+            "CRYPTOCURRENCY" => SecurityType.Crypto,
+            "FUTURE" => SecurityType.Commodity,
+            "OPTION" => SecurityType.Options,
+            _ => SecurityType.Stock // Default fallback
+        };
     }
 }
