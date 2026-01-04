@@ -67,27 +67,6 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ITransactionRepository>().Verify(x => x.GetOpenPositionsByUser(userId), Times.Once);
     }
 
-    [Fact]
-    public async Task GetPortfolio_WithNullUserId_ShouldUseRootUserId()
-    {
-        // Arrange
-        Guid? userId = null;
-        var transactions = new List<Transaction>();
-
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetOpenPositionsByUser(Constants.User.RootUserId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetAllByUser(Constants.User.RootUserId))
-            .ReturnsAsync(transactions);
-
-        // Act
-        await sut.GetPortfolio(userId);
-
-        // Assert
-        autoMocker.GetMock<ITransactionRepository>()
-            .Verify(x => x.GetOpenPositionsByUser(Constants.User.RootUserId), Times.Once);
-    }
 
     [Fact]
     public async Task GetPortfolio_WithSingleTransaction_ShouldReturnPortfolioWithOnePosition()

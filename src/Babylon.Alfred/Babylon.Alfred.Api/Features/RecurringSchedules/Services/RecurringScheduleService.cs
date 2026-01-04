@@ -9,9 +9,9 @@ public class RecurringScheduleService(
     IRecurringScheduleRepository recurringScheduleRepository,
     ISecurityRepository securityRepository) : IRecurringScheduleService
 {
-    public async Task<RecurringScheduleDto> CreateOrUpdateAsync(Guid? userId, CreateRecurringScheduleRequest request)
+    public async Task<RecurringScheduleDto> CreateOrUpdateAsync(Guid userId, CreateRecurringScheduleRequest request)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var effectiveUserId = userId;
 
         // Step 1: Check if Security exists, create if not
         var security = await securityRepository.GetByTickerAsync(request.Ticker);
@@ -19,23 +19,25 @@ public class RecurringScheduleService(
         {
             var newSecurity = new Security
             {
+                Id = Guid.NewGuid(),
                 Ticker = request.Ticker,
                 SecurityName = request.SecurityName,
-                SecurityType = SecurityType.Stock, // Default to Stock as specified
+                SecurityType = SecurityType.Stock,
                 LastUpdated = DateTime.UtcNow
             };
-            security = await securityRepository.AddOrUpdateAsync(newSecurity);
+            await securityRepository.AddOrUpdateAsync(newSecurity);
+            security = newSecurity;
         }
 
-        // Step 2: Check if schedule exists for this User+Security
+        // Step 2: Check if RecurringSchedule exists
         var existingSchedule = await recurringScheduleRepository.GetByUserIdAndSecurityIdAsync(effectiveUserId, security.Id);
 
         if (existingSchedule != null)
         {
-            // Reactivate and update
+            // Update existing
             existingSchedule.IsActive = true;
             existingSchedule.Platform = request.Platform;
-            existingSchedule.TargetAmount = request.TargetAmount;
+            existingSchedule.TargetAmount = request.TargetAmount ?? 0; // Assuming 0 if null
             await recurringScheduleRepository.UpdateAsync(existingSchedule);
 
             return new RecurringScheduleDto
@@ -47,44 +49,56 @@ public class RecurringScheduleService(
                 TargetAmount = existingSchedule.TargetAmount
             };
         }
-
-        // Create new schedule
-        var newSchedule = new RecurringSchedule
+        else
         {
-            UserId = effectiveUserId,
-            SecurityId = security.Id,
-            Platform = request.Platform,
-            TargetAmount = request.TargetAmount,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
+            // Create new
+            var newSchedule = new RecurringSchedule
+            {
+                Id = Guid.NewGuid(),
+                UserId = effectiveUserId,
+                SecurityId = security.Id,
+                Platform = request.Platform,
+                TargetAmount = request.TargetAmount ?? 0,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            await recurringScheduleRepository.AddAsync(newSchedule);
 
-        var createdSchedule = await recurringScheduleRepository.AddAsync(newSchedule);
-
-        return new RecurringScheduleDto
-        {
-            Id = createdSchedule.Id,
-            Ticker = security.Ticker,
-            SecurityName = security.SecurityName,
-            Platform = createdSchedule.Platform,
-            TargetAmount = createdSchedule.TargetAmount
-        };
+            return new RecurringScheduleDto
+            {
+                Id = newSchedule.Id,
+                Ticker = security.Ticker,
+                SecurityName = security.SecurityName,
+                Platform = newSchedule.Platform,
+                TargetAmount = newSchedule.TargetAmount
+            };
+        }
     }
 
-    public async Task<List<RecurringScheduleDto>> GetActiveByUserIdAsync(Guid? userId)
+    public async Task<List<RecurringScheduleDto>> GetActiveByUserIdAsync(Guid userId)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var effectiveUserId = userId;
 
         var schedules = await recurringScheduleRepository.GetActiveByUserIdAsync(effectiveUserId);
 
-        return schedules.Select(s => new RecurringScheduleDto
+        var dtos = new List<RecurringScheduleDto>();
+        foreach (var schedule in schedules)
         {
-            Id = s.Id,
-            Ticker = s.Security.Ticker,
-            SecurityName = s.Security.SecurityName,
-            Platform = s.Platform,
-            TargetAmount = s.TargetAmount
-        }).ToList();
+             // If Security navigation property is loaded
+             var ticker = schedule.Security?.Ticker ?? "UNKNOWN";
+             var name = schedule.Security?.SecurityName ?? "Unknown";
+             
+             dtos.Add(new RecurringScheduleDto
+             {
+                 Id = schedule.Id,
+                 Ticker = ticker,
+                 SecurityName = name,
+                 Platform = schedule.Platform,
+                 TargetAmount = schedule.TargetAmount
+             });
+        }
+
+        return dtos;
     }
 
     public async Task DeleteAsync(Guid id)
@@ -99,4 +113,3 @@ public class RecurringScheduleService(
         await recurringScheduleRepository.UpdateAsync(schedule);
     }
 }
-

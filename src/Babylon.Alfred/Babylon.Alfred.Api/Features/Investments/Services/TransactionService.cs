@@ -16,9 +16,9 @@ public class TransactionService(
     ILogger<TransactionService> logger)
     : ITransactionService
 {
-    public async Task<Transaction> Create(CreateTransactionRequest request)
+    public async Task<Transaction> Create(Guid userId, CreateTransactionRequest request)
     {
-        logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = request.UserId });
+        logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = userId });
 
         TransactionValidator.ValidateCreateRequest(request, logger);
         
@@ -60,22 +60,22 @@ public class TransactionService(
             logger.LogInformation("Created new security {Ticker} from Yahoo Finance data", security.Ticker);
         }
 
-        var transaction = CreateTransactionEntity(request, security.Id);
+        var transaction = CreateTransactionEntity(userId, request, security.Id);
         var result = await transactionRepository.Add(transaction);
 
         logger.LogOperationSuccess("CreateTransaction", new { TransactionId = result.Id, Ticker = request.Ticker });
         return result;
     }
 
-    public async Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests)
+    public async Task<IList<Transaction>> CreateBulk(Guid userId, List<CreateTransactionRequest> requests)
     {
-        logger.LogOperationStart("CreateBulkTransactions", new { Count = requests.Count });
+        logger.LogOperationStart("CreateBulkTransactions", new { Count = requests.Count, UserId = userId });
 
         var tickers = requests.Select(r => r.Ticker).Distinct().ToList();
         var securities = await SecurityValidator.ValidateAndGetSecuritiesAsync(tickers, securityRepository, logger);
 
         var createdTransactions = requests
-            .Select(r => CreateTransactionEntity(r, securities[r.Ticker].Id))
+            .Select(r => CreateTransactionEntity(userId, r, securities[r.Ticker].Id))
             .ToList();
 
         if (createdTransactions.Count == 0)
@@ -96,9 +96,9 @@ public class TransactionService(
         return Task.FromResult(new PortfolioTransactionDto());
     }
 
-    public async Task<IEnumerable<TransactionDto>> GetAllByUser(Guid? userId)
+    public async Task<IEnumerable<TransactionDto>> GetAllByUser(Guid userId)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var effectiveUserId = userId;
         logger.LogOperationStart("GetAllTransactionsByUser", new { UserId = effectiveUserId });
 
         var transactions = await transactionRepository.GetAllByUser(effectiveUserId);
@@ -141,7 +141,7 @@ public class TransactionService(
         logger.LogOperationSuccess("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
     }
 
-    private static Transaction CreateTransactionEntity(CreateTransactionRequest request, Guid securityId)
+    private static Transaction CreateTransactionEntity(Guid userId, CreateTransactionRequest request, Guid securityId)
     {
         var transactionDate = request.Date?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) ?? DateTime.UtcNow;
         var sharePrice = request.TransactionType == TransactionType.Dividend
@@ -158,7 +158,7 @@ public class TransactionService(
             SharePrice = sharePrice,
             Fees = request.Fees,
             Tax = request.Tax,
-            UserId = request.UserId ?? Constants.User.RootUserId
+            UserId = userId
         };
     }
 

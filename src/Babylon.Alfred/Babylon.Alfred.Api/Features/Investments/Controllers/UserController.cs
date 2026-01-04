@@ -1,18 +1,19 @@
-using Babylon.Alfred.Api.Shared;
+using System.Security.Claims;
 using Babylon.Alfred.Api.Shared.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/users")]
 public class UserController(IUserRepository userRepository) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser()
     {
-        // For now, we assume root user. In a real app, we'd get ID from claims.
-        var userId = Constants.User.RootUserId;
+        var userId = GetCurrentUserId();
         var user = await userRepository.GetUserAsync(userId);
 
         if (user == null)
@@ -32,7 +33,7 @@ public class UserController(IUserRepository userRepository) : ControllerBase
     [HttpPut("me")]
     public async Task<IActionResult> UpdateUser([FromBody] UpdateUserRequest request)
     {
-        var userId = Constants.User.RootUserId;
+        var userId = GetCurrentUserId();
         var user = await userRepository.GetUserAsync(userId);
 
         if (user == null)
@@ -48,6 +49,16 @@ public class UserController(IUserRepository userRepository) : ControllerBase
             message = "User updated successfully",
             user.MonthlyInvestmentAmount
         });
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            throw new UnauthorizedAccessException("User ID not found in token.");
+        }
+        return userId;
     }
 }
 

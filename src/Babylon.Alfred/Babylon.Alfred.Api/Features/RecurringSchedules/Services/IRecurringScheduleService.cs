@@ -5,8 +5,8 @@ namespace Babylon.Alfred.Api.Features.RecurringSchedules.Services;
 
 public interface IRecurringScheduleService
 {
-    Task<RecurringScheduleDto> CreateOrUpdateAsync(Guid? userId, CreateRecurringScheduleRequest request);
-    Task<List<RecurringScheduleDto>> GetActiveByUserIdAsync(Guid? userId);
+    Task<RecurringScheduleDto> CreateOrUpdateAsync(Guid userId, CreateRecurringScheduleRequest request);
+    Task<List<RecurringScheduleDto>> GetActiveByUserIdAsync(Guid userId);
     Task DeleteAsync(Guid id);
 }
 

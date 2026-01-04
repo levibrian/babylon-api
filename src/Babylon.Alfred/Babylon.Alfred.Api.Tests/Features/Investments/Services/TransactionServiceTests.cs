@@ -7,6 +7,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.AutoMock;
+using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 
 namespace Babylon.Alfred.Api.Tests.Features.Investments.Services;
 
@@ -61,7 +62,7 @@ public class TransactionServiceTests
             .ReturnsAsync(transaction);
 
         // Act
-        var result = await sut.Create(request);
+        var result = await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         result.Should().NotBeNull();
@@ -81,7 +82,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -99,7 +100,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -117,7 +118,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -134,7 +135,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -151,7 +152,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -168,7 +169,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -185,7 +186,7 @@ public class TransactionServiceTests
             .Create();
 
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -205,8 +206,13 @@ public class TransactionServiceTests
             .Setup(x => x.GetByTickerAsync(request.Ticker))
             .ReturnsAsync((Security?)null);
 
+        // Mock Yahoo search returning empty results to trigger the intended exception
+        autoMocker.GetMock<IYahooMarketDataService>()
+            .Setup(x => x.SearchAsync(request.Ticker))
+            .ReturnsAsync(new List<Babylon.Alfred.Api.Infrastructure.YahooFinance.Models.YahooSearchResult>());
+
         // Act
-        Func<Task> act = async () => await sut.Create(request);
+        Func<Task> act = async () => await sut.Create(Guid.NewGuid(), request);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -215,35 +221,6 @@ public class TransactionServiceTests
         autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Add(It.IsAny<Transaction>()), Times.Never);
     }
 
-    [Fact]
-    public async Task Create_WithNullUserId_ShouldUseRootUserId()
-    {
-        // Arrange
-        var request = fixture.Build<CreateTransactionRequest>()
-            .With(r => r.SharesQuantity, 10m)
-            .With(r => r.SharePrice, 100m)
-            .With(r => r.UserId, (Guid?)null)
-            .Create();
-        var security = fixture.Build<Security>()
-            .With(c => c.Ticker, request.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
-            .Create();
-
-        autoMocker.GetMock<ISecurityRepository>()
-            .Setup(x => x.GetByTickerAsync(request.Ticker))
-            .ReturnsAsync(security);
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.Add(It.IsAny<Transaction>()))
-            .ReturnsAsync((Transaction t) => t);
-
-        // Act
-        var result = await sut.Create(request);
-
-        // Assert
-        autoMocker.GetMock<ITransactionRepository>().Verify(
-            x => x.Add(It.Is<Transaction>(t => t.UserId == Constants.User.RootUserId)),
-            Times.Once);
-    }
 
     [Fact]
     public async Task Create_WithNullDate_ShouldUseCurrentUtcTime()
@@ -268,7 +245,7 @@ public class TransactionServiceTests
             .ReturnsAsync((Transaction t) => t);
 
         // Act
-        await sut.Create(request);
+        await sut.Create(Guid.NewGuid(), request);
         var afterCreate = DateTime.UtcNow;
 
         // Assert
@@ -308,7 +285,7 @@ public class TransactionServiceTests
             .ReturnsAsync((IList<Transaction?> transactions) => transactions);
 
         // Act
-        var result = await sut.CreateBulk(requests);
+        var result = await sut.CreateBulk(Guid.NewGuid(), requests);
 
         // Assert
         result.Should().HaveCount(5);
@@ -325,7 +302,7 @@ public class TransactionServiceTests
         var requests = new List<CreateTransactionRequest>();
 
         // Act
-        var result = await sut.CreateBulk(requests);
+        var result = await sut.CreateBulk(Guid.NewGuid(), requests);
 
         // Assert
         result.Should().BeEmpty();
@@ -375,7 +352,7 @@ public class TransactionServiceTests
             .ReturnsAsync((IList<Transaction?> transactions) => transactions);
 
         // Act
-        var result = await sut.CreateBulk(requests);
+        var result = await sut.CreateBulk(request.UserId!.Value, requests);
 
         // Assert
         var transaction = result.First();
@@ -388,41 +365,6 @@ public class TransactionServiceTests
         transaction.UserId.Should().Be(request.UserId);
     }
 
-    [Fact]
-    public async Task CreateBulk_WithNullUserIds_ShouldUseRootUserId()
-    {
-        // Arrange
-        var requests = fixture.Build<CreateTransactionRequest>()
-            .With(r => r.SharesQuantity, 10m)
-            .With(r => r.SharePrice, 100m)
-            .With(r => r.UserId, (Guid?)null)
-            .CreateMany(3)
-            .ToList();
-
-        // Mock securities for bulk create
-        var securities = requests.Select(r => fixture.Build<Security>()
-            .With(c => c.Ticker, r.Ticker)
-            .With(c => c.Id, Guid.NewGuid())
-            .Create()).ToList();
-        
-        autoMocker.GetMock<ISecurityRepository>()
-            .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync((IEnumerable<string> tickers) =>
-            {
-                return securities.Where(c => tickers.Contains(c.Ticker))
-                    .ToDictionary(c => c.Ticker, c => c);
-            });
-
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.AddBulk(It.IsAny<IList<Transaction?>>()))
-            .ReturnsAsync((IList<Transaction?> transactions) => transactions);
-
-        // Act
-        var result = await sut.CreateBulk(requests);
-
-        // Assert
-        result.Should().AllSatisfy(t => t.UserId.Should().Be(Constants.User.RootUserId));
-    }
 
     [Fact]
     public async Task GetAllByUser_WithUserId_ShouldReturnTransactionsOrderedByUpdatedAtDescending()
@@ -502,23 +444,6 @@ public class TransactionServiceTests
         result[2].Ticker.Should().Be("AAPL");
     }
 
-    [Fact]
-    public async Task GetAllByUser_WithNullUserId_ShouldUseRootUserId()
-    {
-        // Arrange
-        var transactions = fixture.CreateMany<Transaction>(0).ToList();
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetAllByUser(Constants.User.RootUserId))
-            .ReturnsAsync(transactions);
-
-        // Act
-        await sut.GetAllByUser(null);
-
-        // Assert
-        autoMocker.GetMock<ITransactionRepository>().Verify(
-            x => x.GetAllByUser(Constants.User.RootUserId),
-            Times.Once);
-    }
 
     [Fact]
     public async Task GetAllByUser_ShouldMapAllPropertiesCorrectly()

@@ -7,6 +7,9 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Moq.AutoMock;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Http;
 
 namespace Babylon.Alfred.Api.Tests.Features.RecurringSchedules.Controllers;
 
@@ -24,13 +27,31 @@ public class RecurringSchedulesControllerTests
         fixture.Behaviors.Add(new OmitOnRecursionBehavior());
 
         sut = autoMocker.CreateInstance<RecurringSchedulesController>();
+
+        // Setup Mock User
+        var userId = Guid.NewGuid();
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+        
+        // Store common userId for mocks
+        fixture.Inject(userId);
     }
 
     [Fact]
     public async Task CreateOrUpdateRecurringSchedule_WithValidRequest_ShouldReturnOkWithScheduleDto()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var request = fixture.Build<CreateRecurringScheduleRequest>()
             .With(r => r.Ticker, "AAPL")
             .With(r => r.SecurityName, "Apple Inc.")
@@ -52,7 +73,7 @@ public class RecurringSchedulesControllerTests
             .ReturnsAsync(scheduleDto);
 
         // Act
-        var result = await sut.CreateOrUpdateRecurringSchedule(userId, request);
+        var result = await sut.CreateOrUpdateRecurringSchedule(request);
 
         // Assert
         result.Should().BeOfType<OkObjectResult>();
@@ -61,39 +82,12 @@ public class RecurringSchedulesControllerTests
         autoMocker.GetMock<IRecurringScheduleService>().Verify(x => x.CreateOrUpdateAsync(userId, request), Times.Once);
     }
 
-    [Fact]
-    public async Task CreateOrUpdateRecurringSchedule_WithNullUserId_ShouldUseNull()
-    {
-        // Arrange
-        var request = fixture.Build<CreateRecurringScheduleRequest>()
-            .With(r => r.Ticker, "AAPL")
-            .With(r => r.SecurityName, "Apple Inc.")
-            .Create();
-
-        var scheduleDto = new RecurringScheduleDto
-        {
-            Id = Guid.NewGuid(),
-            Ticker = request.Ticker,
-            SecurityName = request.SecurityName
-        };
-
-        autoMocker.GetMock<IRecurringScheduleService>()
-            .Setup(x => x.CreateOrUpdateAsync(null, request))
-            .ReturnsAsync(scheduleDto);
-
-        // Act
-        var result = await sut.CreateOrUpdateRecurringSchedule(null, request);
-
-        // Assert
-        result.Should().BeOfType<OkObjectResult>();
-        autoMocker.GetMock<IRecurringScheduleService>().Verify(x => x.CreateOrUpdateAsync(null, request), Times.Once);
-    }
 
     [Fact]
-    public async Task GetRecurringSchedules_WithValidUserId_ShouldReturnOkWithScheduleList()
+    public async Task GetRecurringSchedules_ShouldReturnOkWithScheduleList()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var schedules = new List<RecurringScheduleDto>
         {
             new()
@@ -119,7 +113,7 @@ public class RecurringSchedulesControllerTests
             .ReturnsAsync(schedules);
 
         // Act
-        var result = await sut.GetRecurringSchedules(userId);
+        var result = await sut.GetRecurringSchedules();
 
         // Assert
         result.Should().BeOfType<OkObjectResult>();
@@ -128,23 +122,6 @@ public class RecurringSchedulesControllerTests
         autoMocker.GetMock<IRecurringScheduleService>().Verify(x => x.GetActiveByUserIdAsync(userId), Times.Once);
     }
 
-    [Fact]
-    public async Task GetRecurringSchedules_WithNullUserId_ShouldUseNull()
-    {
-        // Arrange
-        var schedules = new List<RecurringScheduleDto>();
-
-        autoMocker.GetMock<IRecurringScheduleService>()
-            .Setup(x => x.GetActiveByUserIdAsync(null))
-            .ReturnsAsync(schedules);
-
-        // Act
-        var result = await sut.GetRecurringSchedules(null);
-
-        // Assert
-        result.Should().BeOfType<OkObjectResult>();
-        autoMocker.GetMock<IRecurringScheduleService>().Verify(x => x.GetActiveByUserIdAsync(null), Times.Once);
-    }
 
     [Fact]
     public async Task DeleteRecurringSchedule_WithValidId_ShouldReturnOkWithSuccessMessage()

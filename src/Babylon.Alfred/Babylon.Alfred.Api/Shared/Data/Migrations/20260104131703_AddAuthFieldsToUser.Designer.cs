@@ -3,6 +3,7 @@ using System;
 using Babylon.Alfred.Api.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Babylon.Alfred.Api.Shared.Data.Migrations
 {
     [DbContext(typeof(BabylonDbContext))]
-    partial class BabylonDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104131703_AddAuthFieldsToUser")]
+    partial class AddAuthFieldsToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

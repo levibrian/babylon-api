@@ -7,10 +7,10 @@ namespace Babylon.Alfred.Api.Features.Investments.Services;
 
 public interface ITransactionService
 {
-    Task<Transaction> Create(CreateTransactionRequest request);
-    Task<IList<Transaction>> CreateBulk(List<CreateTransactionRequest> requests);
+    Task<Transaction> Create(Guid userId, CreateTransactionRequest request);
+    Task<IList<Transaction>> CreateBulk(Guid userId, List<CreateTransactionRequest> requests);
     Task<PortfolioTransactionDto> GetById(Guid id);
-    Task<IEnumerable<TransactionDto>> GetAllByUser(Guid? userId);
+    Task<IEnumerable<TransactionDto>> GetAllByUser(Guid userId);
     Task<TransactionDto> Update(Guid userId, Guid transactionId, UpdateTransactionRequest request);
     Task Delete(Guid userId, Guid transactionId);
 }

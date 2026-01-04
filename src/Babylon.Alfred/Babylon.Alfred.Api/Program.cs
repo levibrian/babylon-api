@@ -58,6 +58,34 @@ builder.Services.AddDbContext<BabylonDbContext>(options =>
 // Configure services
 builder.Services.RegisterFeatures();
 
+// Configure JWT Authentication
+var secretKey = builder.Configuration["Authentication:Jwt:SecretKey"];
+if (!string.IsNullOrEmpty(secretKey))
+{
+    var key = System.Text.Encoding.UTF8.GetBytes(secretKey);
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = false; // For dev; true for prod
+        options.SaveToken = true;
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Authentication:Jwt:Issuer"],
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Authentication:Jwt:Audience"],
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+}
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

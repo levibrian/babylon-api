@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Rebalancing;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
@@ -9,25 +11,26 @@ namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 /// Controller for portfolio rebalancing actions and recommendations.
 /// </summary>
 [ApiController]
-[Route("api/v1/portfolios/{userId:guid}/rebalancing")]
+[Authorize]
+[Route("api/v1/portfolios/rebalancing")]
 public class RebalancingController(IRebalancingService rebalancingService) : ControllerBase
 {
     /// <summary>
-    /// Get rebalancing actions for a user's portfolio.
+    /// Get rebalancing actions for the authenticated user's portfolio.
     /// </summary>
     /// <remarks>
     /// Calculates buy/sell actions needed to rebalance the portfolio to target allocations.
     /// Pure rebalancing assumes zero net cash flow (sum of buys ≈ sum of sells).
     /// </remarks>
-    /// <param name="userId">User ID</param>
     /// <returns>Rebalancing actions with buy/sell recommendations</returns>
     [HttpGet("actions")]
     [ProducesResponseType(typeof(RebalancingActionsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<RebalancingActionsDto>> GetRebalancingActions(Guid userId)
+    public async Task<ActionResult<RebalancingActionsDto>> GetRebalancingActions()
     {
         try
         {
+            var userId = GetCurrentUserId();
             var actions = await rebalancingService.GetRebalancingActionsAsync(userId);
             return Ok(actions);
         }
@@ -43,13 +46,12 @@ public class RebalancingController(IRebalancingService rebalancingService) : Con
     }
 
     /// <summary>
-    /// Calculate smart rebalancing recommendations.
+    /// Calculate smart rebalancing recommendations for the authenticated user.
     /// </summary>
     /// <remarks>
     /// Uses proportional gap distribution algorithm to allocate investment amount
     /// across underweight positions based on their gap scores.
     /// </remarks>
-    /// <param name="userId">User ID</param>
     /// <param name="request">Smart rebalancing request with investment amount and constraints</param>
     /// <returns>Smart rebalancing recommendations</returns>
     [HttpPost("recommendations")]
@@ -57,11 +59,11 @@ public class RebalancingController(IRebalancingService rebalancingService) : Con
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SmartRebalancingResponseDto>> CalculateRecommendations(
-        Guid userId,
         [FromBody] SmartRebalancingRequestDto request)
     {
         try
         {
+            var userId = GetCurrentUserId();
             var recommendations = await rebalancingService.GetSmartRecommendationsAsync(userId, request);
             return Ok(recommendations);
         }
@@ -83,6 +85,16 @@ public class RebalancingController(IRebalancingService rebalancingService) : Con
                 Detail = ex.Message
             });
         }
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            throw new UnauthorizedAccessException("User ID not found in token.");
+        }
+        return userId;
     }
 }
 

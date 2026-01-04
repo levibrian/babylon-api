@@ -11,9 +11,9 @@ public class PortfolioService(
     IMarketPriceService marketPriceService,
     IAllocationStrategyService allocationStrategyService) : IPortfolioService
 {
-    public async Task<PortfolioResponse> GetPortfolio(Guid? userId)
+    public async Task<PortfolioResponse> GetPortfolio(Guid userId)
     {
-        var effectiveUserId = userId ?? Constants.User.RootUserId;
+        var effectiveUserId = userId; // No fallback
         // Get Buy transactions to determine which securities have open positions
         var buyTransactions = (await transactionRepository.GetOpenPositionsByUser(effectiveUserId)).ToList();
 

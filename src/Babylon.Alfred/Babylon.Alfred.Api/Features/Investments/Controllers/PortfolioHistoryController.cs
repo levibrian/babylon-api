@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
@@ -8,22 +10,22 @@ namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 /// Controller for portfolio history and performance tracking.
 /// </summary>
 [ApiController]
-[Route("api/v1/portfolios/{userId:guid}/history")]
+[Authorize]
+[Route("api/v1/portfolios/history")]
 public class PortfolioHistoryController(IPortfolioHistoryService historyService) : ControllerBase
 {
     /// <summary>
-    /// Gets historical portfolio snapshots for a user.
+    /// Gets historical portfolio snapshots for the authenticated user.
     /// </summary>
     /// <remarks>
     /// Returns hourly portfolio snapshots including total invested, market value, P&amp;L, and P&amp;L %.
     /// Optionally filter by date/time range. If no dates provided, returns all available history.
     /// 
     /// Example:
-    /// - GET /api/v1/portfolios/{userId}/history
-    /// - GET /api/v1/portfolios/{userId}/history?from=2024-01-01
-    /// - GET /api/v1/portfolios/{userId}/history?from=2024-01-01T09:00:00Z&amp;to=2024-01-01T22:00:00Z
+    /// - GET /api/v1/portfolios/history
+    /// - GET /api/v1/portfolios/history?from=2024-01-01
+    /// - GET /api/v1/portfolios/history?from=2024-01-01T09:00:00Z&amp;to=2024-01-01T22:00:00Z
     /// </remarks>
-    /// <param name="userId">User ID</param>
     /// <param name="from">Optional start timestamp (inclusive)</param>
     /// <param name="to">Optional end timestamp (inclusive)</param>
     /// <returns>Portfolio history with snapshots and summary statistics</returns>
@@ -31,7 +33,6 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
     [ProducesResponseType(typeof(PortfolioHistoryResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PortfolioHistoryResponse>> GetHistory(
-        Guid userId,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
     {
@@ -46,20 +47,21 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
             });
         }
 
+        var userId = GetCurrentUserId();
         var history = await historyService.GetHistoryAsync(userId, from, to);
         return Ok(history);
     }
 
     /// <summary>
-    /// Gets the latest portfolio snapshot for a user.
+    /// Gets the latest portfolio snapshot for the authenticated user.
     /// </summary>
-    /// <param name="userId">User ID</param>
     /// <returns>Latest portfolio snapshot or 404 if none exists</returns>
     [HttpGet("latest")]
     [ProducesResponseType(typeof(PortfolioSnapshotDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PortfolioSnapshotDto>> GetLatest(Guid userId)
+    public async Task<ActionResult<PortfolioSnapshotDto>> GetLatest()
     {
+        var userId = GetCurrentUserId();
         var snapshot = await historyService.GetLatestSnapshotAsync(userId);
         
         if (snapshot == null)
@@ -73,6 +75,16 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
         }
 
         return Ok(snapshot);
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            throw new UnauthorizedAccessException("User ID not found in token.");
+        }
+        return userId;
     }
 }
 

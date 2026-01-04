@@ -6,6 +6,9 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Moq.AutoMock;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Http;
 
 namespace Babylon.Alfred.Api.Tests.Features.Investments.Controllers;
 
@@ -33,13 +36,31 @@ public class PortfoliosControllerTests
         }));
 
         sut = autoMocker.CreateInstance<PortfoliosController>();
+
+        // Setup Mock User
+        var userId = Guid.NewGuid();
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+        
+        // Store common userId for mocks
+        fixture.Inject(userId);
     }
 
     [Fact]
-    public async Task Get_WithUserId_ShouldReturnOkWithPortfolio()
+    public async Task Get_ShouldReturnOkWithPortfolio()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var portfolioResponse = fixture.Create<PortfolioResponse>();
         autoMocker
             .GetMock<IPortfolioService>()
@@ -47,7 +68,7 @@ public class PortfoliosControllerTests
             .ReturnsAsync(portfolioResponse);
 
         // Act
-        var result = await sut.Get(userId);
+        var result = await sut.Get();
 
         // Assert
         var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
@@ -63,7 +84,7 @@ public class PortfoliosControllerTests
     public async Task Get_WhenPortfolioIsEmpty_ShouldReturnOkWithEmptyPortfolio()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var emptyPortfolio = new PortfolioResponse
         {
             Positions = new List<PortfolioPositionDto>(),
@@ -75,7 +96,7 @@ public class PortfoliosControllerTests
             .ReturnsAsync(emptyPortfolio);
 
         // Act
-        var result = await sut.Get(userId);
+        var result = await sut.Get();
 
         // Assert
         var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
@@ -89,7 +110,7 @@ public class PortfoliosControllerTests
     public async Task Get_WithValidUserId_ShouldReturnPortfolioWithMultiplePositions()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var positions = fixture.CreateMany<PortfolioPositionDto>(3).ToList();
         var portfolioResponse = new PortfolioResponse
         {
@@ -102,7 +123,7 @@ public class PortfoliosControllerTests
             .ReturnsAsync(portfolioResponse);
 
         // Act
-        var result = await sut.Get(userId);
+        var result = await sut.Get();
 
         // Assert
         var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;

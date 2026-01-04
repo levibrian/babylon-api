@@ -11,5 +11,9 @@ public static class ServiceCollectionExtensions
         serviceCollection.RegisterTelegram();
         serviceCollection.RegisterInvestmentServices();
         serviceCollection.RegisterRecurringScheduleServices();
+        
+        // Register Authentication
+        serviceCollection.AddScoped<Features.Authentication.Services.IAuthService, Features.Authentication.Services.AuthService>();
+        serviceCollection.AddSingleton<Features.Authentication.Utils.JwtTokenGenerator>();
     }
 }

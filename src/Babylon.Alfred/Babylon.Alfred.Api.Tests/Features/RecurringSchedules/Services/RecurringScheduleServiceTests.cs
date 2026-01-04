@@ -192,53 +192,6 @@ public class RecurringScheduleServiceTests
         autoMocker.GetMock<IRecurringScheduleRepository>().Verify(x => x.AddAsync(It.IsAny<RecurringSchedule>()), Times.Never);
     }
 
-    [Fact]
-    public async Task CreateOrUpdateAsync_WithNullUserId_ShouldUseRootUserId()
-    {
-        // Arrange
-        var request = fixture.Build<CreateRecurringScheduleRequest>()
-            .With(r => r.Ticker, "AAPL")
-            .With(r => r.SecurityName, "Apple Inc.")
-            .Create();
-
-        var security = new Security
-        {
-            Id = Guid.NewGuid(),
-            Ticker = request.Ticker,
-            SecurityName = request.SecurityName,
-            SecurityType = SecurityType.Stock
-        };
-
-        var schedule = new RecurringSchedule
-        {
-            Id = Guid.NewGuid(),
-            UserId = Constants.User.RootUserId,
-            SecurityId = security.Id,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            Security = security
-        };
-
-        autoMocker.GetMock<ISecurityRepository>()
-            .Setup(x => x.GetByTickerAsync(request.Ticker))
-            .ReturnsAsync(security);
-        autoMocker.GetMock<IRecurringScheduleRepository>()
-            .Setup(x => x.GetByUserIdAndSecurityIdAsync(Constants.User.RootUserId, security.Id))
-            .ReturnsAsync((RecurringSchedule?)null);
-        autoMocker.GetMock<IRecurringScheduleRepository>()
-            .Setup(x => x.AddAsync(It.IsAny<RecurringSchedule>()))
-            .ReturnsAsync(schedule);
-
-        // Act
-        var result = await sut.CreateOrUpdateAsync(null, request);
-
-        // Assert
-        result.Should().NotBeNull();
-        autoMocker.GetMock<IRecurringScheduleRepository>().Verify(
-            x => x.GetByUserIdAndSecurityIdAsync(Constants.User.RootUserId, security.Id), Times.Once);
-        autoMocker.GetMock<IRecurringScheduleRepository>().Verify(
-            x => x.AddAsync(It.Is<RecurringSchedule>(s => s.UserId == Constants.User.RootUserId)), Times.Once);
-    }
 
     [Fact]
     public async Task GetActiveByUserIdAsync_WithValidUserId_ShouldReturnActiveSchedules()
@@ -288,24 +241,6 @@ public class RecurringScheduleServiceTests
         autoMocker.GetMock<IRecurringScheduleRepository>().Verify(x => x.GetActiveByUserIdAsync(userId), Times.Once);
     }
 
-    [Fact]
-    public async Task GetActiveByUserIdAsync_WithNullUserId_ShouldUseRootUserId()
-    {
-        // Arrange
-        var schedules = new List<RecurringSchedule>();
-
-        autoMocker.GetMock<IRecurringScheduleRepository>()
-            .Setup(x => x.GetActiveByUserIdAsync(Constants.User.RootUserId))
-            .ReturnsAsync(schedules);
-
-        // Act
-        var result = await sut.GetActiveByUserIdAsync(null);
-
-        // Assert
-        result.Should().BeEmpty();
-        autoMocker.GetMock<IRecurringScheduleRepository>().Verify(
-            x => x.GetActiveByUserIdAsync(Constants.User.RootUserId), Times.Once);
-    }
 
     [Fact]
     public async Task DeleteAsync_WithValidId_ShouldSoftDeleteSchedule()

@@ -7,6 +7,9 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Moq.AutoMock;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Http;
 
 namespace Babylon.Alfred.Api.Tests.Features.Investments.Controllers;
 
@@ -34,15 +37,36 @@ public class TransactionsControllerTests
         }));
 
         sut = autoMocker.CreateInstance<TransactionsController>();
+
+        // Setup Mock User
+        var userId = Guid.NewGuid();
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+        
+        // Store common userId for mocks
+        fixture.Inject(userId);
     }
 
     [Fact]
     public async Task CreateTransaction_WithValidRequest_ShouldReturnOkWithSuccessMessage()
     {
         // Arrange
+        var userId = fixture.Create<Guid>();
         var request = fixture.Create<CreateTransactionRequest>();
         var transaction = fixture.Create<Transaction>();
-        autoMocker.GetMock<ITransactionService>().Setup(x => x.Create(request)).ReturnsAsync(transaction);
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.Create(userId, request))
+            .ReturnsAsync(transaction);
 
         // Act
         var result = await sut.CreateTransaction(request);
@@ -50,16 +74,19 @@ public class TransactionsControllerTests
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(new { message = "Successfully stored the transaction" });
-        autoMocker.GetMock<ITransactionService>().Verify(x => x.Create(request), Times.Once);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.Create(userId, request), Times.Once);
     }
 
     [Fact]
     public async Task CreateTransactionsBulk_WithValidRequests_ShouldReturnOkWithSuccessMessage()
     {
         // Arrange
+        var userId = fixture.Create<Guid>();
         var requests = fixture.CreateMany<CreateTransactionRequest>(5).ToList();
         var transactions = fixture.CreateMany<Transaction>(5).ToList();
-        autoMocker.GetMock<ITransactionService>().Setup(x => x.CreateBulk(requests)).ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.CreateBulk(userId, requests))
+            .ReturnsAsync(transactions);
 
         // Act
         var result = await sut.CreateTransactionsBulk(requests);
@@ -67,16 +94,19 @@ public class TransactionsControllerTests
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(new { message = $"Successfully stored {transactions.Count} transactions" });
-        autoMocker.GetMock<ITransactionService>().Verify(x => x.CreateBulk(requests), Times.Once);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.CreateBulk(userId, requests), Times.Once);
     }
 
     [Fact]
     public async Task CreateTransactionsBulk_WithEmptyList_ShouldReturnOkWithZeroCount()
     {
         // Arrange
+        var userId = fixture.Create<Guid>();
         var requests = new List<CreateTransactionRequest>();
         var transactions = new List<Transaction>();
-        autoMocker.GetMock<ITransactionService>().Setup(x => x.CreateBulk(requests)).ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionService>()
+            .Setup(x => x.CreateBulk(userId, requests))
+            .ReturnsAsync(transactions);
 
         // Act
         var result = await sut.CreateTransactionsBulk(requests);
@@ -84,19 +114,19 @@ public class TransactionsControllerTests
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeEquivalentTo(new { message = "Successfully stored 0 transactions" });
-        autoMocker.GetMock<ITransactionService>().Verify(x => x.CreateBulk(requests), Times.Once);
+        autoMocker.GetMock<ITransactionService>().Verify(x => x.CreateBulk(userId, requests), Times.Once);
     }
 
     [Fact]
-    public async Task GetTransactions_WithUserId_ShouldReturnOkWithTransactions()
+    public async Task GetTransactions_ShouldReturnOkWithTransactions()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var transactions = fixture.CreateMany<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>(3).ToList();
         autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
 
         // Act
-        var result = await sut.GetTransactions(userId);
+        var result = await sut.GetTransactions();
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -104,32 +134,17 @@ public class TransactionsControllerTests
         autoMocker.GetMock<ITransactionService>().Verify(x => x.GetAllByUser(userId), Times.Once);
     }
 
-    [Fact]
-    public async Task GetTransactions_WithNullUserId_ShouldReturnOkWithTransactions()
-    {
-        // Arrange
-        var transactions = fixture.CreateMany<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>(2).ToList();
-        autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(null)).ReturnsAsync(transactions);
-
-        // Act
-        var result = await sut.GetTransactions(null);
-
-        // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeEquivalentTo(transactions);
-        autoMocker.GetMock<ITransactionService>().Verify(x => x.GetAllByUser(null), Times.Once);
-    }
 
     [Fact]
     public async Task GetTransactions_WithNoTransactions_ShouldReturnOkWithEmptyList()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var transactions = new List<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>();
         autoMocker.GetMock<ITransactionService>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
 
         // Act
-        var result = await sut.GetTransactions(userId);
+        var result = await sut.GetTransactions();
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -141,7 +156,7 @@ public class TransactionsControllerTests
     public async Task UpdateTransaction_WithValidRequest_ShouldReturnOkWithTransactionDto()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var transactionId = Guid.NewGuid();
         var updateRequest = fixture.Create<UpdateTransactionRequest>();
         var transactionDto = fixture.Create<Babylon.Alfred.Api.Features.Investments.Models.Responses.TransactionDto>();
@@ -150,7 +165,7 @@ public class TransactionsControllerTests
             .ReturnsAsync(transactionDto);
 
         // Act
-        var result = await sut.UpdateTransaction(userId, transactionId, updateRequest);
+        var result = await sut.UpdateTransaction(transactionId, updateRequest);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -162,7 +177,7 @@ public class TransactionsControllerTests
     public async Task UpdateTransaction_WithTransactionNotFound_ShouldPropagateException()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var transactionId = Guid.NewGuid();
         var updateRequest = fixture.Create<UpdateTransactionRequest>();
         autoMocker.GetMock<ITransactionService>()
@@ -170,7 +185,7 @@ public class TransactionsControllerTests
             .ThrowsAsync(new InvalidOperationException($"Transaction {transactionId} not found for user {userId}"));
 
         // Act
-        var act = async () => await sut.UpdateTransaction(userId, transactionId, updateRequest);
+        var act = async () => await sut.UpdateTransaction(transactionId, updateRequest);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -181,14 +196,14 @@ public class TransactionsControllerTests
     public async Task DeleteTransaction_WithValidTransactionId_ShouldReturnOkWithSuccessMessage()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var transactionId = Guid.NewGuid();
         autoMocker.GetMock<ITransactionService>()
             .Setup(x => x.Delete(userId, transactionId))
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await sut.DeleteTransaction(userId, transactionId);
+        var result = await sut.DeleteTransaction(transactionId);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -200,14 +215,14 @@ public class TransactionsControllerTests
     public async Task DeleteTransaction_WithTransactionNotFound_ShouldPropagateException()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = fixture.Create<Guid>();
         var transactionId = Guid.NewGuid();
         autoMocker.GetMock<ITransactionService>()
             .Setup(x => x.Delete(userId, transactionId))
             .ThrowsAsync(new InvalidOperationException($"Transaction {transactionId} not found for user {userId}"));
 
         // Act
-        var act = async () => await sut.DeleteTransaction(userId, transactionId);
+        var act = async () => await sut.DeleteTransaction(transactionId);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
