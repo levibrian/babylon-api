@@ -8,6 +8,7 @@ namespace Babylon.Alfred.Api.Features.Authentication.Services;
 
 public class AuthService(
     IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     JwtTokenGenerator jwtTokenGenerator,
     IConfiguration configuration,
     ILogger<AuthService> logger) : IAuthService
@@ -54,10 +55,13 @@ public class AuthService(
             }
 
             var token = jwtTokenGenerator.GenerateToken(user);
+            await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
+            var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
 
             return new AuthResponse
             {
                 Token = token,
+                RefreshToken = refreshToken,
                 UserId = user.Id,
                 Username = user.Username,
                 Email = user.Email,
@@ -89,10 +93,13 @@ public class AuthService(
         }
 
         var token = jwtTokenGenerator.GenerateToken(user);
+        await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
+        var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
 
         return new AuthResponse
         {
             Token = token,
+            RefreshToken = refreshToken,
             UserId = user.Id,
             Username = user.Username,
             Email = user.Email,
@@ -129,14 +136,73 @@ public class AuthService(
         await userRepository.CreateUserAsync(user);
 
         var token = jwtTokenGenerator.GenerateToken(user);
+        await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
+        var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
 
         return new AuthResponse
         {
             Token = token,
+            RefreshToken = refreshToken,
             UserId = user.Id,
             Username = user.Username,
             Email = user.Email,
             AuthProvider = user.AuthProvider
         };
+    }
+
+    public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
+    {
+        var storedToken = await refreshTokenRepository.GetByTokenAsync(refreshToken);
+
+        if (storedToken == null || !storedToken.IsActive)
+        {
+            throw new UnauthorizedAccessException("Invalid or expired refresh token");
+        }
+
+        // Revoke current token
+        storedToken.IsRevoked = true;
+        await refreshTokenRepository.UpdateAsync(storedToken);
+
+        // Generate new tokens
+        var user = storedToken.User;
+        var newToken = jwtTokenGenerator.GenerateToken(user);
+        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
+
+        return new AuthResponse
+        {
+            Token = newToken,
+            RefreshToken = newRefreshToken,
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            AuthProvider = user.AuthProvider
+        };
+    }
+
+    public async Task LogoutAsync(string refreshToken)
+    {
+        var storedToken = await refreshTokenRepository.GetByTokenAsync(refreshToken);
+        if (storedToken != null)
+        {
+            storedToken.IsRevoked = true;
+            await refreshTokenRepository.UpdateAsync(storedToken);
+        }
+    }
+
+    private async Task<string> GenerateAndSaveRefreshTokenAsync(Guid userId)
+    {
+        var refreshTokenStr = jwtTokenGenerator.GenerateRefreshToken();
+        var expirationDays = int.Parse(configuration["Authentication:Jwt:RefreshTokenExpirationDays"] ?? "7");
+
+        var refreshToken = new RefreshToken
+        {
+            Token = refreshTokenStr,
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(expirationDays),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await refreshTokenRepository.AddAsync(refreshToken);
+        return refreshTokenStr;
     }
 }

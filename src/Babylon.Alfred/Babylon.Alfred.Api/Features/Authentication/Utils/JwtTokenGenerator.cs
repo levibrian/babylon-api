@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Microsoft.IdentityModel.Tokens;
@@ -8,12 +9,12 @@ namespace Babylon.Alfred.Api.Features.Authentication.Utils;
 
 public class JwtTokenGenerator(IConfiguration configuration)
 {
-    public string GenerateToken(User user)
+    public virtual string GenerateToken(User user)
     {
         var secretKey = configuration["Authentication:Jwt:SecretKey"];
         var issuer = configuration["Authentication:Jwt:Issuer"];
         var audience = configuration["Authentication:Jwt:Audience"];
-        var expirationMinutes = int.Parse(configuration["Authentication:Jwt:ExpirationMinutes"] ?? "1440");
+        var expirationMinutes = int.Parse(configuration["Authentication:Jwt:ExpirationMinutes"] ?? "60");
 
         if (string.IsNullOrEmpty(secretKey))
         {
@@ -39,5 +40,13 @@ public class JwtTokenGenerator(IConfiguration configuration)
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public virtual string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }

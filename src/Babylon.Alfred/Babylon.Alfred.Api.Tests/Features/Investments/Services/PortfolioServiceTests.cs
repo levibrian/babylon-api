@@ -116,7 +116,6 @@ public class PortfolioServiceTests
         result.Positions.First().Ticker.Should().Be("AAPL");
         result.Positions.First().SecurityName.Should().Be("Apple Inc.");
         result.Positions.First().TotalInvested.Should().Be(transaction.TotalAmount);
-        result.Positions.First().Transactions.Should().HaveCount(1);
         result.TotalInvested.Should().Be(transaction.TotalAmount);
     }
 
@@ -176,7 +175,6 @@ public class PortfolioServiceTests
         result.Should().NotBeNull();
         result.Positions.Should().HaveCount(1);
         result.Positions.First().Ticker.Should().Be("AAPL");
-        result.Positions.First().Transactions.Should().HaveCount(2);
         result.Positions.First().TotalInvested.Should().Be(transaction1.TotalAmount + transaction2.TotalAmount);
         result.TotalInvested.Should().Be(transaction1.TotalAmount + transaction2.TotalAmount);
     }
@@ -373,131 +371,6 @@ public class PortfolioServiceTests
         result.Positions[1].TargetAllocationPercentage.Should().BeGreaterThanOrEqualTo(result.Positions[2].TargetAllocationPercentage!.Value);
     }
 
-    [Fact]
-    public async Task GetPortfolio_ShouldOrderTransactionsWithinPositionByDateDescending()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var company = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
-        var oldTransaction = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, company.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 10m)
-            .With(t => t.SharePrice, 150m)
-            .With(t => t.Fees, 5m)
-            .With(t => t.Date, new DateTime(2024, 1, 1))
-            .With(t => t.UserId, userId)
-            .Create();
-        var newTransaction = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, company.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 5m)
-            .With(t => t.SharePrice, 160m)
-            .With(t => t.Fees, 3m)
-            .With(t => t.Date, new DateTime(2025, 1, 1))
-            .With(t => t.UserId, userId)
-            .Create();
-        var middleTransaction = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, company.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 7m)
-            .With(t => t.SharePrice, 155m)
-            .With(t => t.Fees, 4m)
-            .With(t => t.Date, new DateTime(2024, 6, 1))
-            .With(t => t.UserId, userId)
-            .Create();
-        var transactions = new List<Transaction> { oldTransaction, newTransaction, middleTransaction };
-
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetOpenPositionsByUser(userId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetAllByUser(userId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ISecurityRepository>()
-            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
-            {
-                var securityIdList = securityIds.ToList();
-                var result = new List<Security>();
-                if (securityIdList.Contains(company.Id))
-                {
-                    result.Add(company);
-                }
-                return result;
-            });
-
-        // Act
-        var result = await sut.GetPortfolio(userId);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Positions.Should().HaveCount(1);
-        var position = result.Positions.First();
-        position.Transactions.Should().HaveCount(3);
-        position.Transactions.Should().BeInDescendingOrder(t => t.Date);
-        position.Transactions[0].Date.Should().Be(new DateTime(2025, 1, 1));
-        position.Transactions[1].Date.Should().Be(new DateTime(2024, 6, 1));
-        position.Transactions[2].Date.Should().Be(new DateTime(2024, 1, 1));
-    }
-
-    [Fact]
-    public async Task GetPortfolio_ShouldMapAllTransactionPropertiesCorrectly()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var transactionId = Guid.NewGuid();
-        var company = fixture.Build<Security>()
-            .With(c => c.Ticker, "AAPL")
-            .With(c => c.SecurityName, "Apple Inc.")
-            .With(c => c.Id, Guid.NewGuid())
-            .Create();
-        var transaction = new Transaction
-        {
-            Id = transactionId,
-            SecurityId = company.Id,
-            TransactionType = TransactionType.Buy,
-            Date = new DateTime(2025, 1, 15),
-            SharesQuantity = 10m,
-            SharePrice = 150m,
-            Fees = 5m,
-            UserId = userId
-        };
-        var transactions = new List<Transaction> { transaction };
-
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetOpenPositionsByUser(userId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetAllByUser(userId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ISecurityRepository>()
-            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
-            {
-                var securityIdList = securityIds.ToList();
-                var result = new List<Security>();
-                if (securityIdList.Contains(company.Id))
-                {
-                    result.Add(company);
-                }
-                return result;
-            });
-
-        // Act
-        var result = await sut.GetPortfolio(userId);
-
-        // Assert
-        result.Should().NotBeNull();
-        var mappedTransaction = result.Positions.First().Transactions.First();
-        mappedTransaction.Id.Should().Be(transactionId);
-        mappedTransaction.TransactionType.Should().Be(TransactionType.Buy);
-        mappedTransaction.Date.Should().Be(new DateTime(2025, 1, 15));
-        mappedTransaction.SharesQuantity.Should().Be(10m);
-        mappedTransaction.SharePrice.Should().Be(150m);
-        mappedTransaction.Fees.Should().Be(5m);
-        mappedTransaction.TotalAmount.Should().Be(1505m); // 1500 + 5
-    }
 
     [Fact]
     public async Task GetPortfolio_ShouldCalculateTotalInvestedCorrectly()
@@ -554,6 +427,76 @@ public class PortfolioServiceTests
         result.Should().NotBeNull();
         result.TotalInvested.Should().Be(1505m + 14010m); // Total of all transactions
         result.Positions.Sum(p => p.TotalInvested).Should().Be(result.TotalInvested);
+    }
+
+    [Fact]
+    public async Task GetPortfolio_ShouldCalculateRebalancingBasedOnMarketValue()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+
+        // Setup 2 securities: NVDA and AAPL
+        var securityNvda = fixture.Build<Security>().With(s => s.Ticker, "NVDA").With(s => s.Id, Guid.NewGuid()).Create();
+        var securityAapl = fixture.Build<Security>().With(s => s.Ticker, "AAPL").With(s => s.Id, Guid.NewGuid()).Create();
+
+        // NVDA: Invested 500, current value 600 (10 shares @ 50, now @ 60)
+        var transactionNvda = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, securityNvda.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 50m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        // AAPL: Invested 500, current value 400 (10 shares @ 50, now @ 40)
+        var transactionAapl = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, securityAapl.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 50m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var transactions = new List<Transaction> { transactionNvda, transactionAapl };
+
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetOpenPositionsByUser(userId)).ReturnsAsync(transactions);
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>())).ReturnsAsync(new List<Security> { securityNvda, securityAapl });
+
+        // Market Prices: NVDA = 60, AAPL = 40
+        autoMocker.GetMock<IMarketPriceService>().Setup(x => x.GetCurrentPricesAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, decimal> { { "NVDA", 60m }, { "AAPL", 40m } });
+
+        // Target Allocation: 50% each
+        autoMocker.GetMock<IAllocationStrategyService>().Setup(x => x.GetTargetAllocationsAsync(userId))
+            .ReturnsAsync(new List<AllocationStrategyDto>
+            {
+                new() { Ticker = "NVDA", TargetPercentage = 50m },
+                new() { Ticker = "AAPL", TargetPercentage = 50m }
+            });
+
+        // Act
+        var result = await sut.GetPortfolio(userId);
+
+        // Assert
+        // Total Invested = 500 + 500 = 1000
+        // Total Market Value = 600 + 400 = 1000
+
+        // NVDA current allocation = 600/1000 = 60%
+        // AAPL current allocation = 400/1000 = 40%
+        // NVDA target value = 50% of 1000 = 500. Current is 600. Rebalancing = -100 (Sell 100)
+        // AAPL target value = 50% of 1000 = 500. Current is 400. Rebalancing = +100 (Buy 100)
+
+        result.Should().NotBeNull();
+        var nvda = result.Positions.First(p => p.Ticker == "NVDA");
+        var aapl = result.Positions.First(p => p.Ticker == "AAPL");
+
+        nvda.CurrentAllocationPercentage.Should().Be(60m);
+        aapl.CurrentAllocationPercentage.Should().Be(40m);
+        nvda.RebalancingAmount.Should().Be(-100m);
+        aapl.RebalancingAmount.Should().Be(100m);
     }
 }
 

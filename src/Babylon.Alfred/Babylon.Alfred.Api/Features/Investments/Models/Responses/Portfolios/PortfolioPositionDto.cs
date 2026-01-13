@@ -28,8 +28,6 @@ public class PortfolioPositionDto
     public decimal? AllocationDeviation { get; set; } // current - target
     public decimal? RebalancingAmount { get; set; } // € amount (positive = buy, negative = sell)
     public RebalancingStatus RebalancingStatus { get; set; }
-
-    public List<PortfolioTransactionDto> Transactions { get; set; } = [];
 }
 
 public enum RebalancingStatus

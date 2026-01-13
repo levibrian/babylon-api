@@ -51,8 +51,10 @@ public class SecurityService(
         }
 
         // Fetch from Yahoo Finance
-        var quotes = await yahooMarketDataService.GetQuotesAsync(new[] { ticker });
-        if (!quotes.TryGetValue(ticker, out var quote))
+        var results = await yahooMarketDataService.SearchAsync(ticker);
+        var result = results.FirstOrDefault(r => r.Symbol.Equals(ticker, StringComparison.OrdinalIgnoreCase));
+
+        if (result == null)
         {
             throw new InvalidOperationException($"Ticker '{ticker}' not found on Yahoo Finance.");
         }
@@ -61,14 +63,14 @@ public class SecurityService(
         var security = new Security
         {
             Ticker = ticker.ToUpperInvariant(),
-            SecurityName = quote.ShortName ?? ticker,
-            SecurityType = QuoteTypeMapper.ToSecurityType(quote.QuoteType),
-            Currency = quote.Currency,
-            Exchange = quote.Exchange,
-            Sector = quote.Sector,
-            Industry = quote.Industry,
-            MarketCap = quote.MarketCap.HasValue ? (decimal?)quote.MarketCap.Value : null,
-            Geography = GeographyMapper.ToGeography(quote.Exchange, quote.Currency),
+            SecurityName = !string.IsNullOrWhiteSpace(result.LongName) ? result.LongName : ticker,
+            SecurityType = QuoteTypeMapper.ToSecurityType(result.QuoteType),
+            Currency = result.Currency,
+            Exchange = result.Exchange,
+            Sector = result.Sector,
+            Industry = result.Industry,
+            MarketCap = null, // Search API typically doesn't provide MarketCap
+            Geography = GeographyMapper.ToGeography(result.Exchange, result.Currency),
             LastUpdated = DateTime.UtcNow
         };
 

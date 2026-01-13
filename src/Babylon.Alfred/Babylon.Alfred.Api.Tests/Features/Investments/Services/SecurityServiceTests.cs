@@ -3,6 +3,7 @@ using AutoFixture;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Repositories;
 using FluentAssertions;
@@ -180,10 +181,10 @@ public class SecurityServiceTests
 
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.GetByTickerAsync(existingSecurity.Ticker), Times.Once);
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
-            It.Is<Security>(s => 
+            It.Is<Security>(s =>
                 s.Ticker == existingSecurity.Ticker &&
                 s.SecurityName == request.SecurityName &&
-                (!request.SecurityType.HasValue || s.SecurityType == request.SecurityType.Value))), 
+                (!request.SecurityType.HasValue || s.SecurityType == request.SecurityType.Value))),
             Times.Once);
     }
 
@@ -211,7 +212,7 @@ public class SecurityServiceTests
         result.Should().NotBeNull();
         result!.SecurityType.Should().Be(SecurityType.ETF);
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(
-            It.Is<Security>(s => s.SecurityType == SecurityType.ETF)), 
+            It.Is<Security>(s => s.SecurityType == SecurityType.ETF)),
             Times.Once);
     }
 
@@ -284,6 +285,80 @@ public class SecurityServiceTests
         // Assert
         result.Should().BeFalse();
         autoMocker.GetMock<ISecurityRepository>().Verify(x => x.DeleteAsync(ticker), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOrGetByTickerAsync_WhenSecurityExists_ShouldReturnExistingSecurity()
+    {
+        // Arrange
+        var ticker = "AAPL";
+        var existingSecurity = fixture.Build<Security>()
+            .With(s => s.Ticker, ticker)
+            .Create();
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(ticker))
+            .ReturnsAsync(existingSecurity);
+
+        // Act
+        var result = await sut.CreateOrGetByTickerAsync(ticker);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Ticker.Should().Be(ticker);
+        autoMocker.GetMock<IYahooMarketDataService>().Verify(x => x.SearchAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateOrGetByTickerAsync_WhenSecurityDoesNotExist_ShouldFetchFromYahooAndSave()
+    {
+        // Arrange
+        var ticker = "AAPL";
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(ticker))
+            .ReturnsAsync((Security?)null);
+
+        var yahooResults = new List<Babylon.Alfred.Api.Infrastructure.YahooFinance.Models.YahooSearchResult>
+        {
+            new() { Symbol = ticker, ShortName = "Apple Inc.", QuoteType = "EQUITY", Exchange = "NMS", Currency = "USD" }
+        };
+        autoMocker.GetMock<IYahooMarketDataService>()
+            .Setup(x => x.SearchAsync(ticker))
+            .ReturnsAsync(yahooResults);
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.AddOrUpdateAsync(It.IsAny<Security>()))
+            .ReturnsAsync((Security s) => s);
+
+        // Act
+        var result = await sut.CreateOrGetByTickerAsync(ticker);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Ticker.Should().Be(ticker);
+        result.SecurityName.Should().Be("Apple Inc.");
+        autoMocker.GetMock<IYahooMarketDataService>().Verify(x => x.SearchAsync(ticker), Times.Once);
+        autoMocker.GetMock<ISecurityRepository>().Verify(x => x.AddOrUpdateAsync(It.Is<Security>(s => s.Ticker == ticker)), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOrGetByTickerAsync_WhenTickerNotFoundOnYahoo_ShouldThrowException()
+    {
+        // Arrange
+        var ticker = "UNKNOWN";
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(ticker))
+            .ReturnsAsync((Security?)null);
+
+        autoMocker.GetMock<IYahooMarketDataService>()
+            .Setup(x => x.SearchAsync(ticker))
+            .ReturnsAsync(new List<Babylon.Alfred.Api.Infrastructure.YahooFinance.Models.YahooSearchResult>());
+
+        // Act
+        Func<Task> act = async () => await sut.CreateOrGetByTickerAsync(ticker);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Ticker '{ticker}' not found on Yahoo Finance.");
     }
 }
 

@@ -54,4 +54,25 @@ public class AuthController(IAuthService authService, ILogger<AuthController> lo
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)
+    {
+        try
+        {
+            var result = await authService.RefreshTokenAsync(request.RefreshToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    {
+        await authService.LogoutAsync(request.RefreshToken);
+        return Ok();
+    }
 }

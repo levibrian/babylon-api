@@ -45,16 +45,15 @@ public class PortfolioService(
 
         // Calculate portfolio totals
         var totalInvested = orderedPositions.Sum(p => p.TotalInvested);
-        var totalMarketValue = orderedPositions
-            .Where(p => p.CurrentMarketValue.HasValue)
-            .Sum(p => p.CurrentMarketValue!.Value);
+        // Total value is sum of market values where available, falling back to invested amount (cost basis)
+        var totalValue = orderedPositions.Sum(p => p.CurrentMarketValue ?? p.TotalInvested);
 
         decimal? totalUnrealizedPnL = null;
         decimal? totalUnrealizedPnLPercentage = null;
 
-        if (totalMarketValue > 0 && totalInvested > 0)
+        if (totalValue > 0 && totalInvested > 0)
         {
-            totalUnrealizedPnL = Math.Round(totalMarketValue - totalInvested, 2);
+            totalUnrealizedPnL = Math.Round(totalValue - totalInvested, 2);
             totalUnrealizedPnLPercentage = Math.Round((totalUnrealizedPnL.Value / totalInvested) * 100, 2);
         }
 
@@ -62,7 +61,7 @@ public class PortfolioService(
         {
             Positions = orderedPositions,
             TotalInvested = totalInvested,
-            TotalMarketValue = totalMarketValue > 0 ? totalMarketValue : null,
+            TotalMarketValue = totalValue > 0 ? totalValue : null,
             TotalUnrealizedPnL = totalUnrealizedPnL,
             TotalUnrealizedPnLPercentage = totalUnrealizedPnLPercentage
         };
@@ -81,7 +80,7 @@ public class PortfolioService(
         var securities = await securityRepository.GetByIdsAsync(securityIds);
         var securitiesLookup = securities.ToDictionary(s => s.Id, s => s);
 
-        // Get tickers for market price lookup (for display purposes only, not used for rebalancing)
+        // Get tickers for market price lookup
         var tickers = securities.Select(s => s.Ticker).ToList();
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
 
@@ -89,97 +88,84 @@ public class PortfolioService(
         var allocationDtos = await allocationStrategyService.GetTargetAllocationsAsync(userId);
         var targetAllocations = allocationDtos.ToDictionary(a => a.Ticker, a => a.TargetPercentage);
 
-        // Calculate total portfolio value using total invested (cost basis) - only Buy transactions count toward invested amount
-        // Dividends are income, not investment, so they shouldn't be included in total invested
-        var totalPortfolioValue = groupedTransactions.Sum(group =>
-            group.Where(t => t.TransactionType == TransactionType.Buy).Sum(t => t.TotalAmount));
-
-        // Process all positions in memory
-        return groupedTransactions
-            .Select(group => CreatePosition(
-                group,
-                securitiesLookup.GetValueOrDefault(group.Key),
-                marketPrices,
-                targetAllocations,
-                totalPortfolioValue))
-            .ToList();
-    }
-
-    /// <summary>
-    /// Creates a single position DTO from a group of transactions, security information, market prices, and allocation data.
-    /// </summary>
-    private static PortfolioPositionDto CreatePosition(
-        IGrouping<Guid, Transaction> transactionGroup,
-        Security? security,
-        Dictionary<string, decimal> marketPrices,
-        Dictionary<string, decimal> targetAllocations,
-        decimal totalPortfolioValue)
-    {
-        var ticker = security?.Ticker ?? string.Empty;
-        var positionTransactions = MapToTransactionDtos(transactionGroup);
-        var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
-        // Total invested should only include Buy transactions (cost basis), not dividends or sells
-        var totalInvested = transactionGroup.Where(t => t.TransactionType == TransactionType.Buy).Sum(t => t.TotalAmount);
-
-        // Calculate market value for display purposes only
-        var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
-        var currentMarketValue = totalShares * currentPrice;
-
-        // Calculate allocation using total invested (cost basis) instead of market value
-        var currentAllocation = PortfolioCalculator.CalculateCurrentAllocationPercentage(totalInvested, totalPortfolioValue);
-
-        // Get target allocation if set
-        var targetAllocation = targetAllocations.GetValueOrDefault(ticker);
-        var hasTargetAllocation = targetAllocations.ContainsKey(ticker);
-
-        // Calculate deviation and rebalancing amount if target allocation exists
-        // Using total invested (cost basis) for rebalancing calculations
-        decimal? allocationDeviation = null;
-        decimal? rebalancingAmount = null;
-        var rebalancingStatus = RebalancingStatus.Balanced;
-
-        if (hasTargetAllocation)
+        // First pass: calculate metrics and market value for each position
+        var positionData = groupedTransactions.Select(group =>
         {
-            allocationDeviation = currentAllocation - targetAllocation;
-            rebalancingAmount = PortfolioCalculator.CalculateRebalancingAmount(totalInvested, targetAllocation, totalPortfolioValue);
-            rebalancingStatus = PortfolioCalculator.DetermineRebalancingStatus(currentAllocation, targetAllocation);
-        }
+            var security = securitiesLookup.GetValueOrDefault(group.Key);
+            var ticker = security?.Ticker ?? string.Empty;
+            var positionTransactions = MapToTransactionDtos(group);
+            var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
+            var totalInvested = group.Where(t => t.TransactionType == TransactionType.Buy).Sum(t => t.TotalAmount);
+            var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
+            var currentMarketValue = totalShares * currentPrice;
 
-        // Calculate P&L (only if we have market value)
-        decimal? unrealizedPnL = null;
-        decimal? unrealizedPnLPercentage = null;
+            return new
+            {
+                Group = group,
+                Security = security,
+                Ticker = ticker,
+                TotalShares = totalShares,
+                AverageSharePrice = averageSharePrice,
+                TotalInvested = totalInvested,
+                CurrentMarketValue = currentMarketValue
+            };
+        }).ToList();
 
-        if (currentMarketValue > 0 && totalInvested > 0)
+        // Calculate total portfolio values
+        // Use Market Value if available, otherwise fallback to Invested for each position to get the most accurate "real value"
+        var totalPortfolioValue = positionData.Sum(p => p.CurrentMarketValue > 0 ? p.CurrentMarketValue : p.TotalInvested);
+
+        // Second pass: create final DTOs with allocation and rebalancing data
+        return positionData.Select(p =>
         {
-            unrealizedPnL = currentMarketValue - totalInvested;
-            unrealizedPnLPercentage = (unrealizedPnL / totalInvested) * 100;
-        }
+            var targetAllocation = targetAllocations.GetValueOrDefault(p.Ticker, 0m);
 
-        // Return only the last 5 transactions for display (already ordered by date descending)
-        var displayTransactions = positionTransactions.Take(5).ToList();
+            // Use current market value for allocation if it exists, otherwise use total invested (cost basis)
+            var positionBaseValue = p.CurrentMarketValue > 0 ? p.CurrentMarketValue : p.TotalInvested;
 
-        return new PortfolioPositionDto
-        {
-            Ticker = ticker,
-            SecurityName = security?.SecurityName ?? ticker,
-            SecurityType = security?.SecurityType ?? SecurityType.Stock,
-            TotalInvested = totalInvested,
-            TotalShares = totalShares,
-            AverageSharePrice = averageSharePrice,
-            Sector = security?.Sector,
-            Industry = security?.Industry,
-            Geography = security?.Geography,
-            MarketCap = security?.MarketCap,
-            CurrentMarketValue = currentMarketValue > 0 ? currentMarketValue : null,
-            UnrealizedPnL = unrealizedPnL.HasValue ? Math.Round(unrealizedPnL.Value, 2) : null,
-            UnrealizedPnLPercentage = unrealizedPnLPercentage.HasValue ? Math.Round(unrealizedPnLPercentage.Value, 2) : null,
-            CurrentAllocationPercentage = totalPortfolioValue > 0 ? currentAllocation : null,
-            TargetAllocationPercentage = hasTargetAllocation ? targetAllocation : null,
-            AllocationDeviation = allocationDeviation,
-            RebalancingAmount = rebalancingAmount,
-            RebalancingStatus = rebalancingStatus,
-            Transactions = displayTransactions
-        };
+            // Calculate allocation using "real value" (market value) instead of cost basis
+            var currentAllocation = totalPortfolioValue > 0
+                ? PortfolioCalculator.CalculateCurrentAllocationPercentage(positionBaseValue, totalPortfolioValue)
+                : 0m;
+
+            var allocationDeviation = currentAllocation - targetAllocation;
+            var rebalancingAmount = totalPortfolioValue > 0
+                ? PortfolioCalculator.CalculateRebalancingAmount(positionBaseValue, targetAllocation, totalPortfolioValue)
+                : 0m;
+            var rebalancingStatus = PortfolioCalculator.DetermineRebalancingStatus(currentAllocation, targetAllocation);
+
+            // Calculate P&L
+            decimal? unrealizedPnL = null;
+            decimal? unrealizedPnLPercentage = null;
+
+            if (p.CurrentMarketValue > 0 && p.TotalInvested > 0)
+            {
+                unrealizedPnL = p.CurrentMarketValue - p.TotalInvested;
+                unrealizedPnLPercentage = (unrealizedPnL / p.TotalInvested) * 100;
+            }
+
+            return new PortfolioPositionDto
+            {
+                Ticker = p.Ticker,
+                SecurityName = p.Security?.SecurityName ?? p.Ticker,
+                SecurityType = p.Security?.SecurityType ?? SecurityType.Stock,
+                TotalInvested = p.TotalInvested,
+                TotalShares = p.TotalShares,
+                AverageSharePrice = p.AverageSharePrice,
+                Sector = p.Security?.Sector,
+                Industry = p.Security?.Industry,
+                Geography = p.Security?.Geography,
+                MarketCap = p.Security?.MarketCap,
+                CurrentMarketValue = p.CurrentMarketValue > 0 ? p.CurrentMarketValue : null,
+                UnrealizedPnL = unrealizedPnL.HasValue ? Math.Round(unrealizedPnL.Value, 2) : null,
+                UnrealizedPnLPercentage = unrealizedPnLPercentage.HasValue ? Math.Round(unrealizedPnLPercentage.Value, 2) : null,
+                CurrentAllocationPercentage = totalPortfolioValue > 0 ? Math.Round(currentAllocation, 2) : null,
+                TargetAllocationPercentage = targetAllocation,
+                AllocationDeviation = Math.Round(allocationDeviation, 2),
+                RebalancingAmount = Math.Round(rebalancingAmount, 2),
+                RebalancingStatus = rebalancingStatus
+            };
+        }).ToList();
     }
 
     /// <summary>

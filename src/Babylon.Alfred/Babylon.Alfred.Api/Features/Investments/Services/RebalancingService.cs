@@ -18,7 +18,7 @@ public class RebalancingService(IPortfolioService portfolioService) : IRebalanci
     public async Task<RebalancingActionsDto> GetRebalancingActionsAsync(Guid userId)
     {
         var portfolio = await portfolioService.GetPortfolio(userId);
-        var totalPortfolioValue = portfolio.TotalInvested;
+        var totalPortfolioValue = portfolio.TotalMarketValue ?? portfolio.TotalInvested;
 
         if (totalPortfolioValue == 0 || portfolio.Positions.Count == 0)
         {
@@ -38,8 +38,9 @@ public class RebalancingService(IPortfolioService portfolioService) : IRebalanci
         ValidateRequest(request);
 
         var portfolio = await portfolioService.GetPortfolio(userId);
+        var totalPortfolioValue = portfolio.TotalMarketValue ?? portfolio.TotalInvested;
 
-        if (portfolio.TotalInvested == 0 || portfolio.Positions.Count == 0)
+        if (totalPortfolioValue == 0 || portfolio.Positions.Count == 0)
         {
             return SmartRebalancingResponseDto.Empty;
         }
@@ -83,9 +84,6 @@ public class RebalancingService(IPortfolioService portfolioService) : IRebalanci
 
         foreach (var position in positions)
         {
-            if (!position.TargetAllocationPercentage.HasValue)
-                continue;
-
             var action = CreateRebalancingAction(position, totalPortfolioValue);
 
             if (action != null && Math.Abs(action.DifferenceValue) >= NoiseThreshold)
@@ -102,7 +100,7 @@ public class RebalancingService(IPortfolioService portfolioService) : IRebalanci
         decimal totalPortfolioValue)
     {
         var currentAllocation = position.CurrentAllocationPercentage ?? 0;
-        var targetAllocation = position.TargetAllocationPercentage!.Value;
+        var targetAllocation = position.TargetAllocationPercentage ?? 0m;
 
         var diffValue = (targetAllocation - currentAllocation) / 100m * totalPortfolioValue;
 
@@ -142,18 +140,18 @@ public class RebalancingService(IPortfolioService portfolioService) : IRebalanci
         bool onlyBuyUnderweight)
     {
         var query = positions
-            .Where(p => p.TargetAllocationPercentage.HasValue && p.CurrentAllocationPercentage.HasValue);
+            .Where(p => p.CurrentAllocationPercentage.HasValue);
 
         if (onlyBuyUnderweight)
         {
             // Only underweight assets (Target > Current)
-            query = query.Where(p => p.TargetAllocationPercentage!.Value > p.CurrentAllocationPercentage!.Value);
+            query = query.Where(p => (p.TargetAllocationPercentage ?? 0m) > (p.CurrentAllocationPercentage ?? 0m));
         }
 
         return query
             .Select(p => new AssetGap(
                 p,
-                p.TargetAllocationPercentage!.Value - (p.CurrentAllocationPercentage ?? 0)))
+                (p.TargetAllocationPercentage ?? 0m) - (p.CurrentAllocationPercentage ?? 0m)))
             .OrderByDescending(x => x.GapScore)
             .ToList();
     }
@@ -178,7 +176,7 @@ public class RebalancingService(IPortfolioService portfolioService) : IRebalanci
                 Ticker = asset.Position.Ticker,
                 SecurityName = asset.Position.SecurityName,
                 CurrentAllocationPercentage = Math.Round(asset.Position.CurrentAllocationPercentage ?? 0, 2),
-                TargetAllocationPercentage = Math.Round(asset.Position.TargetAllocationPercentage!.Value, 2),
+                TargetAllocationPercentage = Math.Round(asset.Position.TargetAllocationPercentage ?? 0m, 2),
                 GapScore = Math.Round(asset.GapScore, 2),
                 RecommendedBuyAmount = Math.Round(buyAmount, 2)
             };

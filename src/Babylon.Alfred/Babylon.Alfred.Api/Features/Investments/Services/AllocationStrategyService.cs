@@ -56,6 +56,8 @@ public class AllocationStrategyService(
         return strategies.Select(s => new AllocationStrategyDto
         {
             Ticker = s.Security.Ticker,
+            SecurityName = s.Security.SecurityName,
+            SecurityType = s.Security.SecurityType.ToString(),
             TargetPercentage = s.TargetPercentage,
             IsEnabledForWeekly = s.IsEnabledForWeekly,
             IsEnabledForBiWeekly = s.IsEnabledForBiWeekly,

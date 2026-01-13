@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
         // Services
         services.AddScoped<ITransactionService, TransactionService>();

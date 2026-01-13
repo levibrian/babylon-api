@@ -49,30 +49,28 @@ public class RecurringScheduleService(
                 TargetAmount = existingSchedule.TargetAmount
             };
         }
-        else
-        {
-            // Create new
-            var newSchedule = new RecurringSchedule
-            {
-                Id = Guid.NewGuid(),
-                UserId = effectiveUserId,
-                SecurityId = security.Id,
-                Platform = request.Platform,
-                TargetAmount = request.TargetAmount ?? 0,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            await recurringScheduleRepository.AddAsync(newSchedule);
 
-            return new RecurringScheduleDto
-            {
-                Id = newSchedule.Id,
-                Ticker = security.Ticker,
-                SecurityName = security.SecurityName,
-                Platform = newSchedule.Platform,
-                TargetAmount = newSchedule.TargetAmount
-            };
-        }
+        // Create new
+        var newSchedule = new RecurringSchedule
+        {
+            Id = Guid.NewGuid(),
+            UserId = effectiveUserId,
+            SecurityId = security.Id,
+            Platform = request.Platform,
+            TargetAmount = request.TargetAmount ?? 0,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        await recurringScheduleRepository.AddAsync(newSchedule);
+
+        return new RecurringScheduleDto
+        {
+            Id = newSchedule.Id,
+            Ticker = security.Ticker,
+            SecurityName = security.SecurityName,
+            Platform = newSchedule.Platform,
+            TargetAmount = newSchedule.TargetAmount
+        };
     }
 
     public async Task<List<RecurringScheduleDto>> GetActiveByUserIdAsync(Guid userId)
@@ -87,7 +85,7 @@ public class RecurringScheduleService(
              // If Security navigation property is loaded
              var ticker = schedule.Security?.Ticker ?? "UNKNOWN";
              var name = schedule.Security?.SecurityName ?? "Unknown";
-             
+
              dtos.Add(new RecurringScheduleDto
              {
                  Id = schedule.Id,

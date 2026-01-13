@@ -24,10 +24,13 @@ public class YahooSearchResult
 
     [JsonPropertyName("exchange")]
     public string Exchange { get; set; } = string.Empty;
-    
+
+    [JsonPropertyName("currency")]
+    public string? Currency { get; set; }
+
     [JsonPropertyName("sector")]
     public string? Sector { get; set; }
-    
+
     [JsonPropertyName("industry")]
     public string? Industry { get; set; }
 }
