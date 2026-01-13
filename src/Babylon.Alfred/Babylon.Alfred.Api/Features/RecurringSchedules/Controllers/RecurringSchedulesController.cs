@@ -1,5 +1,6 @@
 using Babylon.Alfred.Api.Features.RecurringSchedules.Models.Requests;
 using Babylon.Alfred.Api.Features.RecurringSchedules.Services;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,7 +20,7 @@ public class RecurringSchedulesController(IRecurringScheduleService recurringSch
     [HttpPost]
     public async Task<IActionResult> CreateOrUpdateRecurringSchedule(CreateRecurringScheduleRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var schedule = await recurringScheduleService.CreateOrUpdateAsync(userId, request);
         return Ok(schedule);
     }
@@ -32,7 +33,7 @@ public class RecurringSchedulesController(IRecurringScheduleService recurringSch
     [HttpGet]
     public async Task<IActionResult> GetRecurringSchedules()
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var schedules = await recurringScheduleService.GetActiveByUserIdAsync(userId);
         return Ok(schedules);
     }
@@ -47,20 +48,6 @@ public class RecurringSchedulesController(IRecurringScheduleService recurringSch
     {
         await recurringScheduleService.DeleteAsync(id);
         return Ok(new { message = "Recurring schedule deleted successfully" });
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) 
-                          ?? User.Claims.FirstOrDefault(c => c.Type == "sub"); // Fallback
-
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            return userId;
-        }
-
-        // This should theoretically not happen with [Authorize] unless the token is missing 'sub' claim
-        throw new UnauthorizedAccessException("User ID not found in token");
     }
 }
 

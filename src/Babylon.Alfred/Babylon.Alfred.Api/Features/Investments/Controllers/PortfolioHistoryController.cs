@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +20,7 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
     /// <remarks>
     /// Returns hourly portfolio snapshots including total invested, market value, P&amp;L, and P&amp;L %.
     /// Optionally filter by date/time range. If no dates provided, returns all available history.
-    /// 
+    ///
     /// Example:
     /// - GET /api/v1/portfolios/history
     /// - GET /api/v1/portfolios/history?from=2024-01-01
@@ -47,7 +47,7 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
             });
         }
 
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var history = await historyService.GetHistoryAsync(userId, from, to);
         return Ok(history);
     }
@@ -61,9 +61,9 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortfolioSnapshotDto>> GetLatest()
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var snapshot = await historyService.GetLatestSnapshotAsync(userId);
-        
+
         if (snapshot == null)
         {
             return NotFound(new ProblemDetails
@@ -75,16 +75,6 @@ public class PortfolioHistoryController(IPortfolioHistoryService historyService)
         }
 
         return Ok(snapshot);
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            throw new UnauthorizedAccessException("User ID not found in token.");
-        }
-        return userId;
     }
 }
 

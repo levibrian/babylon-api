@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Babylon.Alfred.Api.Shared.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +13,7 @@ public class UserController(IUserRepository userRepository) : ControllerBase
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser()
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var user = await userRepository.GetUserAsync(userId);
 
         if (user == null)
@@ -33,7 +33,7 @@ public class UserController(IUserRepository userRepository) : ControllerBase
     [HttpPut("me")]
     public async Task<IActionResult> UpdateUser([FromBody] UpdateUserRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var user = await userRepository.GetUserAsync(userId);
 
         if (user == null)
@@ -49,16 +49,6 @@ public class UserController(IUserRepository userRepository) : ControllerBase
             message = "User updated successfully",
             user.MonthlyInvestmentAmount
         });
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            throw new UnauthorizedAccessException("User ID not found in token.");
-        }
-        return userId;
     }
 }
 

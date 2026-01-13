@@ -1,7 +1,7 @@
-using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,7 +29,7 @@ public class AllocationController(IAllocationStrategyService allocationStrategyS
     {
         try
         {
-            var userId = GetCurrentUserId();
+            var userId = User.GetUserId();
             await allocationStrategyService.SetAllocationStrategyAsync(userId, request.Allocations);
             return NoContent();
         }
@@ -61,7 +61,7 @@ public class AllocationController(IAllocationStrategyService allocationStrategyS
     [ProducesResponseType(typeof(AllocationStrategyResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<AllocationStrategyResponse>> GetAllocationStrategy()
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var allocations = await allocationStrategyService.GetTargetAllocationsAsync(userId);
         var totalAllocated = await allocationStrategyService.GetTotalAllocatedPercentageAsync(userId);
 
@@ -70,16 +70,6 @@ public class AllocationController(IAllocationStrategyService allocationStrategyS
             Allocations = allocations,
             TotalAllocated = totalAllocated
         });
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            throw new UnauthorizedAccessException("User ID not found in token.");
-        }
-        return userId;
     }
 }
 

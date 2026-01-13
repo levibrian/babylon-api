@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,18 +22,8 @@ public class PortfoliosController(IPortfolioService portfolioService) : Controll
     [ProducesResponseType(typeof(PortfolioResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<PortfolioResponse>> Get()
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var portfolio = await portfolioService.GetPortfolio(userId);
         return Ok(portfolio);
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            throw new UnauthorizedAccessException("User ID not found in token.");
-        }
-        return userId;
     }
 }

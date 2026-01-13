@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Analytics;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,7 +28,7 @@ public class PortfolioAnalyticsController(IPortfolioAnalyticsService analyticsSe
     {
         try
         {
-            var userId = GetCurrentUserId();
+            var userId = User.GetUserId();
             var metrics = await analyticsService.GetDiversificationMetricsAsync(userId);
             return Ok(metrics);
         }
@@ -59,7 +59,7 @@ public class PortfolioAnalyticsController(IPortfolioAnalyticsService analyticsSe
     {
         try
         {
-            var userId = GetCurrentUserId();
+            var userId = User.GetUserId();
             var metrics = await analyticsService.GetRiskMetricsAsync(userId, period);
             return Ok(metrics);
         }
@@ -81,15 +81,5 @@ public class PortfolioAnalyticsController(IPortfolioAnalyticsService analyticsSe
                 Detail = ex.Message
             });
         }
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            throw new UnauthorizedAccessException("User ID not found in token.");
-        }
-        return userId;
     }
 }

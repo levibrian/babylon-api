@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +14,7 @@ public class TransactionsController(ITransactionService transactionService) : Co
     [HttpPost]
     public async Task<IActionResult> CreateTransaction(CreateTransactionRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         await transactionService.Create(userId, request);
         return Ok(new { message = "Successfully stored the transaction" });
     }
@@ -22,7 +22,7 @@ public class TransactionsController(ITransactionService transactionService) : Co
     [HttpPost("bulk")]
     public async Task<IActionResult> CreateTransactionsBulk(List<CreateTransactionRequest> requests)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var transactions = await transactionService.CreateBulk(userId, requests);
         return Ok(new { message = $"Successfully stored {transactions.Count} transactions" });
     }
@@ -34,7 +34,7 @@ public class TransactionsController(ITransactionService transactionService) : Co
     [HttpGet]
     public async Task<IActionResult> GetTransactions()
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var transactions = await transactionService.GetAllByUser(userId);
         return Ok(transactions);
     }
@@ -48,7 +48,7 @@ public class TransactionsController(ITransactionService transactionService) : Co
     [HttpPut("{transactionId}")]
     public async Task<IActionResult> UpdateTransaction(Guid transactionId, UpdateTransactionRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         var transaction = await transactionService.Update(userId, transactionId, request);
         return Ok(transaction);
     }
@@ -61,18 +61,8 @@ public class TransactionsController(ITransactionService transactionService) : Co
     [HttpDelete("{transactionId}")]
     public async Task<IActionResult> DeleteTransaction(Guid transactionId)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetUserId();
         await transactionService.Delete(userId, transactionId);
         return Ok(new { message = "Transaction deleted successfully" });
-    }
-
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-        {
-            throw new UnauthorizedAccessException("User ID not found in token.");
-        }
-        return userId;
     }
 }
