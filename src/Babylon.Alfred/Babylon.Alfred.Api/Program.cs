@@ -29,19 +29,27 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure CORS
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:3000", "http://localhost:3001", "https://babylonfinance.vercel.app" }; // Default to localhost:3000 for development
+    var allowedOrigins = builder.Configuration
+                             .GetSection("Cors:AllowedOrigins")
+                             .Get<string[]>()
+                         ?? new[]
+                         {
+                             "http://localhost:3000",
+                             "http://localhost:3001",
+                             "https://babylonfinance.vercel.app"
+                         };
 
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
+    builder.Services.AddCors(options =>
     {
-        policy.WithOrigins(allowedOrigins)
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
+        options.AddDefaultPolicy(policy =>
+        {
+            policy
+                .WithOrigins(allowedOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+        });
     });
-});
 
 // Configure Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
