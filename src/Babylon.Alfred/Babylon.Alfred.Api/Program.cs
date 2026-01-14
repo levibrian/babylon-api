@@ -96,11 +96,12 @@ app.UseMiddleware<GlobalErrorHandlerMiddleware>();
 // CORS must be before UseAuthorization and MapControllers
 app.UseCors();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Babylon API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseAuthorization();
 
