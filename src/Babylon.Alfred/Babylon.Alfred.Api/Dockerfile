@@ -1,47 +1,48 @@
-﻿# Use the official .NET 8 runtime as base image
+﻿# ---------- BASE ----------
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 8080
-EXPOSE 443
 
-# Use the official .NET 8 SDK for building
+# ---------- BUILD ----------
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy project file and restore dependencies
-COPY ["Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "Babylon.Alfred.Api/"]
-RUN dotnet restore "Babylon.Alfred.Api/Babylon.Alfred.Api.csproj"
+# Copy csproj (repo-root-relative!)
+COPY src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj \
+     src/Babylon.Alfred/Babylon.Alfred.Api/
 
-# Copy all source code
+RUN dotnet restore \
+    src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj
+
+# Copy all source code (repo root)
 COPY . .
 
-# Build the application
-WORKDIR "/src/Babylon.Alfred.Api"
-RUN dotnet build "Babylon.Alfred.Api.csproj" -c Release -o /app/build
+# Build
+RUN dotnet build \
+    src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj \
+    -c Release -o /app/build
 
-# Publish the application
+# ---------- PUBLISH ----------
 FROM build AS publish
-RUN dotnet publish "Babylon.Alfred.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish \
+    src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj \
+    -c Release -o /app/publish /p:UseAppHost=false
 
-# Create final runtime image
+# ---------- FINAL ----------
 FROM base AS final
 WORKDIR /app
 
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy published application
 COPY --from=publish /app/publish .
 
-# Create a non-root user
 RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
 USER appuser
 
-# Set environment variable for ASP.NET to listen on port 8080
 ENV ASPNETCORE_URLS=http://+:8080
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
+  CMD curl -f http://localhost/health || exit 1
 
 ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
