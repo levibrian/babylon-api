@@ -30,7 +30,7 @@ builder.Services.AddSwaggerGen();
 
 // Configure CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:3000" }; // Default to localhost:3000 for development
+    ?? new[] { "http://localhost:3000", "http://localhost:3001", "https://babylonfinance.vercel.app" }; // Default to localhost:3000 for development
 
 builder.Services.AddCors(options =>
 {
