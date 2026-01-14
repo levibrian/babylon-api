@@ -1,0 +1,5 @@
+app = "babylon-api"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile"
