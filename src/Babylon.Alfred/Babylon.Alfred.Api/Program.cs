@@ -4,6 +4,7 @@ using Babylon.Alfred.Api.Shared.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Converters;
 using Serilog;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,15 +30,17 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure CORS
-    var allowedOrigins = builder.Configuration
-                             .GetSection("Cors:AllowedOrigins")
-                             .Get<string[]>()
-                         ?? new[]
-                         {
-                             "http://localhost:3000",
-                             "http://localhost:3001",
-                             "https://babylonfinance.vercel.app"
-                         };
+    var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+    var defaultOrigins = new[]
+    {
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://babylonfinance.vercel.app"
+    };
+
+    var allowedOrigins = configuredOrigins.Length > 0
+        ? configuredOrigins.Union(defaultOrigins).Distinct().ToArray()
+        : defaultOrigins;
 
     builder.Services.AddCors(options =>
     {
@@ -97,12 +100,12 @@ if (!string.IsNullOrEmpty(secretKey))
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+// CORS must be early in the pipeline to handle preflight requests and add headers to error responses
+app.UseCors();
+
 // Request logging should come first to capture all requests
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalErrorHandlerMiddleware>();
-
-// CORS must be before UseAuthorization and MapControllers
-app.UseCors();
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
