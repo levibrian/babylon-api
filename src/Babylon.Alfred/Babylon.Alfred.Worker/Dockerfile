@@ -1,25 +1,22 @@
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-WORKDIR /app
-
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy csproj files and restore dependencies
-COPY ["Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj", "Babylon.Alfred.Worker/"]
-COPY ["Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "Babylon.Alfred.Api/"]
+# Copy csproj files (repo-root-relative!)
+COPY src/Babylon.Alfred/Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj src/Babylon.Alfred/Babylon.Alfred.Worker/
+COPY src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj src/Babylon.Alfred/Babylon.Alfred.Api/
 
-RUN dotnet restore "Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj"
+# Restore
+RUN dotnet restore src/Babylon.Alfred/Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj
 
-# Copy everything else and build
-COPY . .
-WORKDIR "/src/Babylon.Alfred.Worker"
-RUN dotnet build "Babylon.Alfred.Worker.csproj" -c Release -o /app/build
+# Copy sources
+COPY src/Babylon.Alfred/Babylon.Alfred.Worker/ src/Babylon.Alfred/Babylon.Alfred.Worker/
+COPY src/Babylon.Alfred/Babylon.Alfred.Api/ src/Babylon.Alfred/Babylon.Alfred.Api/
 
-FROM build AS publish
-RUN dotnet publish "Babylon.Alfred.Worker.csproj" -c Release -o /app/publish
+# Publish
+RUN dotnet publish src/Babylon.Alfred/Babylon.Alfred.Worker/Babylon.Alfred.Worker.csproj \
+    -c Release -o /app/publish /p:UseAppHost=false
 
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
-COPY --from=publish /app/publish .
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Babylon.Alfred.Worker.dll"]
-

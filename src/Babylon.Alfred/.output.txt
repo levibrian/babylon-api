@@ -1,0 +1,232 @@
+commit 64493cf2a7cf698dd6dcba111a77aa8e69bb14ff (HEAD -> main, origin/main, origin/HEAD)
+Author: Brian Levi <brianlevi@Brians-MacBook-Air.local>
+Date:   Wed Jan 14 15:44:56 2026 +0100
+    chore: fixed dockerfile to have relative paths
+diff --git a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+index 2937c7f..2197058 100644
+--- a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
++++ b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+@@ -1,47 +1,48 @@
+-﻿# Use the official .NET 8 runtime as base image
++﻿# ---------- BASE ----------
+ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+ WORKDIR /app
+ EXPOSE 8080
+-EXPOSE 443
+
+-# Use the official .NET 8 SDK for building
++# ---------- BUILD ----------
+ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ WORKDIR /src
+
+-# Copy project file and restore dependencies
+-COPY ["Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "Babylon.Alfred.Api/"]
+-RUN dotnet restore "Babylon.Alfred.Api/Babylon.Alfred.Api.csproj"
++# Copy csproj (repo-root-relative!)
++COPY src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj \
++     src/Babylon.Alfred/Babylon.Alfred.Api/
+
+-# Copy all source code
++RUN dotnet restore \
++    src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj
++
++# Copy all source code (repo root)
+ COPY . .
+
+-# Build the application
+-WORKDIR "/src/Babylon.Alfred.Api"
+-RUN dotnet build "Babylon.Alfred.Api.csproj" -c Release -o /app/build
++# Build
++RUN dotnet build \
++    src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj \
++    -c Release -o /app/build
+
+-# Publish the application
++# ---------- PUBLISH ----------
+ FROM build AS publish
+-RUN dotnet publish "Babylon.Alfred.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
++RUN dotnet publish \
++    src/Babylon.Alfred/Babylon.Alfred.Api/Babylon.Alfred.Api.csproj \
++    -c Release -o /app/publish /p:UseAppHost=false
+
+-# Create final runtime image
++# ---------- FINAL ----------
+ FROM base AS final
+ WORKDIR /app
+
+ # Install curl for health checks
+ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+-# Copy published application
+ COPY --from=publish /app/publish .
+
+-# Create a non-root user
+ RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+ USER appuser
+
+-# Set environment variable for ASP.NET to listen on port 8080
+ ENV ASPNETCORE_URLS=http://+:8080
+
+-# Health check
+ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+-    CMD curl -f http://localhost/health || exit 1
++  CMD curl -f http://localhost/health || exit 1
+
+ ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
+commit 12ffb4a63b23d163c6120d7a6b5584cc87566db5
+Author: Brian Levi <brianlevi@Brians-MacBook-Air.local>
+Date:   Tue Dec 9 22:07:35 2025 +0100
+    feat: added new planning, allocation, user and search and save features
+diff --git a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+index 6a9c910..2937c7f 100644
+--- a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
++++ b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+@@ -1,11 +1,11 @@
+ ﻿# Use the official .NET 8 runtime as base image
+-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
++FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+ WORKDIR /app
+ EXPOSE 8080
+ EXPOSE 443
+
+ # Use the official .NET 8 SDK for building
+-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
++FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ WORKDIR /src
+
+ # Copy project file and restore dependencies
+commit 0e2a69db6c1e486c831611bc4dc85a5236e3ed3f
+Author: Brian Levi <bra.levi@gmail.com>
+Date:   Tue Oct 28 10:20:07 2025 +0100
+    feat: added companies table with base setup script
+diff --git a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+index 3679006..6a9c910 100644
+--- a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
++++ b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+@@ -1,7 +1,7 @@
+ ﻿# Use the official .NET 8 runtime as base image
+ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+ WORKDIR /app
+-EXPOSE 80
++EXPOSE 8080
+ EXPOSE 443
+
+ # Use the official .NET 8 SDK for building
+@@ -37,8 +37,11 @@ COPY --from=publish /app/publish .
+ RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+ USER appuser
+
++# Set environment variable for ASP.NET to listen on port 8080
++ENV ASPNETCORE_URLS=http://+:8080
++
+ # Health check
+ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+     CMD curl -f http://localhost/health || exit 1
+
+-ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
+\ No newline at end of file
++ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
+commit d59542798b64bb4c1305430625c28a051dc21ea7
+Author: Brian Levi <brianlevi@Brians-MacBook-Air.local>
+Date:   Sat Sep 27 19:46:33 2025 +0200
+    chore: created base infra resources
+diff --git a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+index 19c34be..3679006 100644
+--- a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
++++ b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+@@ -1,28 +1,44 @@
+-﻿FROM mcr.microsoft.com/dotnet/aspnet:8.0 as base
++﻿# Use the official .NET 8 runtime as base image
++FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+ WORKDIR /app
+-EXPOSE 8080
++EXPOSE 80
++EXPOSE 443
+
++# Use the official .NET 8 SDK for building
+ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ WORKDIR /src
+
++# Copy project file and restore dependencies
+ COPY ["Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "Babylon.Alfred.Api/"]
+-COPY ["Babylon.Alfred.Api.Tests/Babylon.Alfred.Api.Tests.csproj", "Babylon.Alfred.Api.Tests/"]
+-
+ RUN dotnet restore "Babylon.Alfred.Api/Babylon.Alfred.Api.csproj"
+
++# Copy all source code
+ COPY . .
+-WORKDIR "/src/Babylon.Alfred.Api/"
+-RUN dotnet build "Babylon.Alfred.Api.csproj" -c Release -o /app/build
+
+-WORKDIR "/src/Babylon.Alfred.Api.Tests/"
+-RUN dotnet test "Babylon.Alfred.Api.Tests.csproj"
++# Build the application
++WORKDIR "/src/Babylon.Alfred.Api"
++RUN dotnet build "Babylon.Alfred.Api.csproj" -c Release -o /app/build
+
+-WORKDIR "/src/Babylon.Alfred.Api/"
+-FROM build as publish
++# Publish the application
++FROM build AS publish
+ RUN dotnet publish "Babylon.Alfred.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+-FROM base as final
++# Create final runtime image
++FROM base AS final
+ WORKDIR /app
++
++# Install curl for health checks
++RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
++
++# Copy published application
+ COPY --from=publish /app/publish .
+
+-ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
++# Create a non-root user
++RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
++USER appuser
++
++# Health check
++HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
++    CMD curl -f http://localhost/health || exit 1
++
++ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
+\ No newline at end of file
+commit 423153cc8a8546a39b237829a7f44170005c33bc
+Author: Brian Levi <bra.levi@gmail.com>
+Date:   Sun Mar 2 19:38:16 2025 +0100
+    feat: commit alfred api with telegram controller
+diff --git a/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+new file mode 100644
+index 0000000..19c34be
+--- /dev/null
++++ b/src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+@@ -0,0 +1,28 @@
++﻿FROM mcr.microsoft.com/dotnet/aspnet:8.0 as base
++WORKDIR /app
++EXPOSE 8080
++
++FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
++WORKDIR /src
++
++COPY ["Babylon.Alfred.Api/Babylon.Alfred.Api.csproj", "Babylon.Alfred.Api/"]
++COPY ["Babylon.Alfred.Api.Tests/Babylon.Alfred.Api.Tests.csproj", "Babylon.Alfred.Api.Tests/"]
++
++RUN dotnet restore "Babylon.Alfred.Api/Babylon.Alfred.Api.csproj"
++
++COPY . .
++WORKDIR "/src/Babylon.Alfred.Api/"
++RUN dotnet build "Babylon.Alfred.Api.csproj" -c Release -o /app/build
++
++WORKDIR "/src/Babylon.Alfred.Api.Tests/"
++RUN dotnet test "Babylon.Alfred.Api.Tests.csproj"
++
++WORKDIR "/src/Babylon.Alfred.Api/"
++FROM build as publish
++RUN dotnet publish "Babylon.Alfred.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
++
++FROM base as final
++WORKDIR /app
++COPY --from=publish /app/publish .
++
++ENTRYPOINT ["dotnet", "Babylon.Alfred.Api.dll"]
