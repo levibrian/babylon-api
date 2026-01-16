@@ -1,3 +1,4 @@
+using System.Globalization;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
@@ -58,7 +59,7 @@ public class TrendAnalyzer(
                 {
                     Category = InsightCategory.Trend,
                     Title = "Momentum Alert",
-                    Message = $"{position.SecurityName} is rallying. Up {percentageChange:F1}% from your average cost.",
+                    Message = $"{position.SecurityName} is rallying. Up {percentageChange.ToString("F1", CultureInfo.InvariantCulture)}% from your average cost.",
                     RelatedTicker = position.Ticker,
                     Severity = percentageChange > extremeWinnerThreshold ? InsightSeverity.Warning : InsightSeverity.Info,
                     Metadata = new Dictionary<string, object>
@@ -109,7 +110,7 @@ public class TrendAnalyzer(
                 {
                     Category = InsightCategory.Risk,
                     Title = "Drawdown Alert",
-                    Message = $"{position.SecurityName} is in correction. Down {Math.Abs(percentageChange):F1}% from your average cost.",
+                    Message = $"{position.SecurityName} is in correction. Down {Math.Abs(percentageChange).ToString("F1", CultureInfo.InvariantCulture)}% from your average cost.",
                     RelatedTicker = position.Ticker,
                     Severity = percentageChange < extremeLoserThreshold ? InsightSeverity.Critical : InsightSeverity.Warning,
                     Metadata = new Dictionary<string, object>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Shared.Data.Models;
 
@@ -45,7 +46,7 @@ public class RiskAnalyzer : IPortfolioAnalyzer
                 {
                     Category = InsightCategory.Risk,
                     Title = "Concentration Risk",
-                    Message = $"{position.SecurityName} makes up {allocationPercentage:F1}% of your portfolio.",
+                    Message = $"{position.SecurityName} makes up {allocationPercentage.ToString("F1", CultureInfo.InvariantCulture)}% of your portfolio.",
                     RelatedTicker = position.Ticker,
                     Severity = allocationPercentage > 40m ? InsightSeverity.Critical : InsightSeverity.Warning,
                     Metadata = new Dictionary<string, object>

@@ -117,15 +117,11 @@ public class PortfolioSnapshotService(
             var securityId = group.Key;
             var transactions = group.ToList();
 
-            // Calculate total invested (only Buy transactions count)
-            var invested = transactions
-                .Where(t => t.TransactionType == TransactionType.Buy)
-                .Sum(t => t.TotalAmount);
-            totalInvested += invested;
-
-            // Calculate total shares using weighted average cost method
+            // Calculate metrics using weighted average cost method
             var transactionDtos = MapToTransactionDtos(transactions);
-            var (totalShares, _) = PortfolioCalculator.CalculateCostBasis(transactionDtos);
+            var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactionDtos);
+
+            totalInvested += costBasis;
 
             // Skip if no shares (position was fully sold)
             if (totalShares <= 0)
@@ -177,6 +173,7 @@ public class PortfolioSnapshotService(
             Id = t.Id,
             TransactionType = t.TransactionType,
             Date = t.Date,
+            UpdatedAt = t.UpdatedAt,
             SharesQuantity = t.SharesQuantity,
             SharePrice = t.SharePrice,
             Fees = t.Fees,

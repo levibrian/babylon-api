@@ -396,7 +396,7 @@ All endpoints use `/api/v1/` prefix.
 #### `PortfolioCalculator` (Static Class)
 Pure calculation service with no dependencies:
 
-- `CalculatePositionMetrics(List<PortfolioTransactionDto>)` - Returns (totalShares, averageSharePrice)
+- `CalculatePositionMetrics(List<PortfolioTransactionDto>)` - Returns (totalShares, averageSharePrice, costBasis)
 - `CalculateCostBasis(List<PortfolioTransactionDto>)` - Returns (totalShares, costBasis)
 - `CalculateCurrentAllocationPercentage(decimal, decimal)` - Returns allocation %
 - `CalculateRebalancingAmount(decimal, decimal, decimal)` - Returns rebalancing amount (positive = buy, negative = sell)

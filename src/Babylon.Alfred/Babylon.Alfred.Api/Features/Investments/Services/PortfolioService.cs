@@ -94,8 +94,8 @@ public class PortfolioService(
             var security = securitiesLookup.GetValueOrDefault(group.Key);
             var ticker = security?.Ticker ?? string.Empty;
             var positionTransactions = MapToTransactionDtos(group);
-            var (totalShares, averageSharePrice) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
-            var totalInvested = group.Where(t => t.TransactionType == TransactionType.Buy).Sum(t => t.TotalAmount);
+            var (totalShares, averageSharePrice, costBasis) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
+            var totalInvested = costBasis;
             var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
             var currentMarketValue = totalShares * currentPrice;
 
@@ -109,7 +109,9 @@ public class PortfolioService(
                 TotalInvested = totalInvested,
                 CurrentMarketValue = currentMarketValue
             };
-        }).ToList();
+        })
+        .Where(p => p.TotalShares > 0) // Only include positions with open shares
+        .ToList();
 
         // Calculate total portfolio values
         // Use Market Value if available, otherwise fallback to Invested for each position to get the most accurate "real value"
@@ -180,6 +182,7 @@ public class PortfolioService(
                 Id = t.Id,
                 TransactionType = t.TransactionType,
                 Date = t.Date,
+                UpdatedAt = t.UpdatedAt,
                 SharesQuantity = t.SharesQuantity,
                 SharePrice = t.SharePrice,
                 Fees = t.Fees,
@@ -187,6 +190,7 @@ public class PortfolioService(
                 // TotalAmount is computed, so we don't need to set it explicitly
             })
             .OrderByDescending(t => t.Date)
+            .ThenByDescending(t => t.UpdatedAt)
             .ToList();
     }
 

@@ -21,9 +21,11 @@ public class TransactionDto
         {
             return TransactionType switch
             {
+                TransactionType.Buy => (SharesQuantity * SharePrice) + Fees,
+                TransactionType.Sell => (SharesQuantity * SharePrice) - Fees,
                 TransactionType.Dividend => (SharesQuantity * SharePrice) - Tax,  // Gross - Tax = Net Income
                 TransactionType.Split => 0,  // Stock splits don't involve money
-                _ => (SharesQuantity * SharePrice) + Fees  // Principal + Cost = Total Spent (Buy/Sell)
+                _ => (SharesQuantity * SharePrice) + Fees
             };
         }
         private set { } // Allow serialization

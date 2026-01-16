@@ -63,7 +63,9 @@ public class SecurityService(
         var security = new Security
         {
             Ticker = ticker.ToUpperInvariant(),
-            SecurityName = !string.IsNullOrWhiteSpace(result.LongName) ? result.LongName : ticker,
+            SecurityName = !string.IsNullOrWhiteSpace(result.LongName)
+                ? result.LongName
+                : (!string.IsNullOrWhiteSpace(result.ShortName) ? result.ShortName : ticker),
             SecurityType = QuoteTypeMapper.ToSecurityType(result.QuoteType),
             Currency = result.Currency,
             Exchange = result.Exchange,
