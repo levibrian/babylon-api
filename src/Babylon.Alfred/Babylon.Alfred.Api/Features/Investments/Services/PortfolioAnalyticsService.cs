@@ -26,8 +26,8 @@ public class PortfolioAnalyticsService(
     public async Task<DiversificationMetricsDto> GetDiversificationMetricsAsync(Guid userId)
     {
         var portfolio = await portfolioService.GetPortfolio(userId);
-        
-        if (portfolio.Positions.Count == 0)
+
+        if (portfolio.Positions.Count == 0 && portfolio.CashAmount == 0)
         {
             return DiversificationMetricsDto.Empty;
         }
@@ -38,8 +38,14 @@ public class PortfolioAnalyticsService(
             .Where(v => v > 0)
             .ToList();
 
+        // Include cash in diversification metrics as it's a first-class asset
+        if (portfolio.CashAmount > 0)
+        {
+            positionValues.Add(portfolio.CashAmount);
+        }
+
         var totalValue = positionValues.Sum();
-        
+
         if (totalValue == 0)
         {
             return DiversificationMetricsDto.Empty;
@@ -48,13 +54,13 @@ public class PortfolioAnalyticsService(
         var weights = positionValues
             .Select(v => v / totalValue)
             .ToList();
-        
+
         var hhi = weights.Sum(w => w * w);
         var effectiveN = hhi > 0 ? 1m / hhi : 0;
         var score = (1m - hhi) * 100;
-        
+
         var sortedWeights = weights.OrderByDescending(w => w).ToList();
-        
+
         return new DiversificationMetricsDto
         {
             HHI = Math.Round(hhi, 4),
@@ -62,10 +68,10 @@ public class PortfolioAnalyticsService(
             DiversificationScore = Math.Round(score, 2),
             Top3Concentration = Math.Round(sortedWeights.Take(3).Sum() * 100, 2),
             Top5Concentration = Math.Round(sortedWeights.Take(5).Sum() * 100, 2),
-            TotalAssets = portfolio.Positions.Count
+            TotalAssets = portfolio.Positions.Count + (portfolio.CashAmount > 0 ? 1 : 0)
         };
     }
-    
+
     /// <summary>
     /// Calculates risk metrics including volatility, beta, and Sharpe ratio.
     /// </summary>

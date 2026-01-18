@@ -145,6 +145,10 @@ public class PortfolioSnapshotService(
                 totalMarketValue += totalShares * marketPrice.Price;
                 hasMarketPrices = true;
             }
+            else
+            {
+                totalMarketValue += costBasis;
+            }
         }
 
         // Total Market Value includes cash

@@ -49,30 +49,6 @@ public class PortfolioService(
 
         var totalValue = totalAssetsValue + cashAmount;
 
-        // Add cash as a virtual position if it exists
-        if (cashAmount > 0)
-        {
-            var cashAllocation = totalValue > 0 ? (cashAmount / totalValue) * 100 : 0;
-            positions.Add(new PortfolioPositionDto
-            {
-                Ticker = "CASH",
-                SecurityName = "Cash",
-                SecurityType = SecurityType.Cash,
-                TotalInvested = 0, // Cash is not an invested asset in the transaction sense
-                TotalShares = cashAmount,
-                AverageSharePrice = 1,
-                CurrentMarketValue = cashAmount,
-                CurrentAllocationPercentage = Math.Round(cashAllocation, 2),
-                TargetAllocationPercentage = 0, // Manual adjustment if needed
-                AllocationDeviation = 0,
-                RebalancingAmount = 0,
-                RebalancingStatus = RebalancingStatus.Balanced
-            });
-
-            // Re-order to keep cash usually at the bottom or maintain descending order
-            positions = positions.OrderByDescending(p => p.CurrentMarketValue ?? p.TotalInvested).ToList();
-        }
-
         decimal? totalUnrealizedPnL = null;
         decimal? totalUnrealizedPnLPercentage = null;
 

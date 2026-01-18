@@ -62,6 +62,21 @@ public class PortfolioHistorySummary
     public decimal ValueChangePercentage { get; set; }
 
     /// <summary>
+    /// Total unrealized PnL at the end of the period.
+    /// </summary>
+    public decimal NetPnL { get; set; }
+
+    /// <summary>
+    /// Total change in unrealized PnL over the period.
+    /// </summary>
+    public decimal PnLChange { get; set; }
+
+    /// <summary>
+    /// Percentage change in unrealized PnL over the period.
+    /// </summary>
+    public decimal PnLChangePercentage { get; set; }
+
+    /// <summary>
     /// Highest portfolio value during the period.
     /// </summary>
     public decimal HighestValue { get; set; }

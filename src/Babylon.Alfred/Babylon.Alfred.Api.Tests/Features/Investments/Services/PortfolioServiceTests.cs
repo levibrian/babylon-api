@@ -503,7 +503,7 @@ public class PortfolioServiceTests
     }
 
     [Fact]
-    public async Task GetPortfolio_ShouldIncludeCashInTotalMarketValue()
+    public async Task GetPortfolio_ShouldIncludeCashInTotalMarketValueButNotAsPosition()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -520,7 +520,49 @@ public class PortfolioServiceTests
         result.CashAmount.Should().Be(cashAmount);
         result.TotalMarketValue.Should().Be(cashAmount);
         result.TotalInvested.Should().Be(0);
-        result.Positions.Should().Contain(p => p.Ticker == "CASH" && p.CurrentMarketValue == cashAmount);
+        result.Positions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetPortfolio_CashShouldAffectAllocationPercentagesOfOtherPositions()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var cashAmount = 1000m;
+
+        var security = fixture.Build<Security>().With(s => s.Ticker, "AAPL").With(s => s.Id, Guid.NewGuid()).Create();
+        var transaction = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 100m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetOpenPositionsByUser(userId)).ReturnsAsync(new List<Transaction> { transaction });
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(new List<Transaction> { transaction });
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>())).ReturnsAsync(new List<Security> { security });
+        autoMocker.GetMock<ICashBalanceService>().Setup(x => x.GetBalanceAsync(userId)).ReturnsAsync(cashAmount);
+
+        // Market Price for AAPL is 100
+        autoMocker.GetMock<IMarketPriceService>().Setup(x => x.GetCurrentPricesAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, decimal> { { "AAPL", 100m } });
+
+        // Act
+        var result = await sut.GetPortfolio(userId);
+
+        // Assert
+        // Total Assets (AAPL) = 1000
+        // Cash = 1000
+        // Total Market Value = 2000
+        // AAPL Allocation should be 1000/2000 = 50%
+
+        result.Should().NotBeNull();
+        result.TotalMarketValue.Should().Be(2000m);
+        result.Positions.Should().HaveCount(1);
+        result.Positions.First().Ticker.Should().Be("AAPL");
+        result.Positions.First().CurrentAllocationPercentage.Should().Be(50m);
     }
 }
 

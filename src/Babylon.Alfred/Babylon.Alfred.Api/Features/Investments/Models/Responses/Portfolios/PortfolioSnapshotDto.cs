@@ -21,7 +21,7 @@ public class PortfolioSnapshotDto
     public decimal TotalMarketValue { get; set; }
 
     /// <summary>
-    /// Unrealized profit/loss (TotalMarketValue - TotalInvested).
+    /// Unrealized profit/loss (Total Assets Market Value - Total Invested). Excludes Cash Balance.
     /// </summary>
     public decimal UnrealizedPnL { get; set; }
 

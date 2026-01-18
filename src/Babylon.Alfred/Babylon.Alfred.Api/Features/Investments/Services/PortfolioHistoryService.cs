@@ -62,12 +62,20 @@ public class PortfolioHistoryService(IPortfolioSnapshotRepository snapshotReposi
             ? (valueChange / first.TotalMarketValue) * 100
             : 0;
 
+        var pnlChange = last.UnrealizedPnL - first.UnrealizedPnL;
+        var pnlChangePercentage = first.UnrealizedPnLPercentage > 0
+            ? (last.UnrealizedPnLPercentage - first.UnrealizedPnLPercentage)
+            : last.UnrealizedPnLPercentage;
+
         return new PortfolioHistorySummary
         {
             StartingValue = first.TotalMarketValue,
             EndingValue = last.TotalMarketValue,
             ValueChange = Math.Round(valueChange, 2),
             ValueChangePercentage = Math.Round(valueChangePercentage, 2),
+            NetPnL = Math.Round(last.UnrealizedPnL, 2),
+            PnLChange = Math.Round(pnlChange, 2),
+            PnLChangePercentage = Math.Round(pnlChangePercentage, 2),
             HighestValue = highestSnapshot.TotalMarketValue,
             HighestValueTimestamp = highestSnapshot.Timestamp,
             LowestValue = lowestSnapshot.TotalMarketValue,
