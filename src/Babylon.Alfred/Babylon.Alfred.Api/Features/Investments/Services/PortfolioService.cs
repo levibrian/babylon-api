@@ -9,57 +9,83 @@ public class PortfolioService(
     ITransactionRepository transactionRepository,
     ISecurityRepository securityRepository,
     IMarketPriceService marketPriceService,
-    IAllocationStrategyService allocationStrategyService) : IPortfolioService
+    IAllocationStrategyService allocationStrategyService,
+    ICashBalanceService cashBalanceService) : IPortfolioService
 {
     public async Task<PortfolioResponse> GetPortfolio(Guid userId)
     {
         var effectiveUserId = userId; // No fallback
+        var cashAmount = await cashBalanceService.GetBalanceAsync(effectiveUserId);
+
         // Get Buy transactions to determine which securities have open positions
         var buyTransactions = (await transactionRepository.GetOpenPositionsByUser(effectiveUserId)).ToList();
 
-        if (buyTransactions.Count == 0)
+        var positions = new List<PortfolioPositionDto>();
+        decimal totalInvested = 0;
+        decimal totalAssetsValue = 0;
+
+        if (buyTransactions.Count > 0)
         {
-            return new PortfolioResponse
-            {
-                Positions = [],
-                TotalInvested = 0
-            };
+            // Get SecurityIds that have open positions
+            var securityIdsWithPositions = buyTransactions.Select(t => t.SecurityId).Distinct().ToList();
+
+            // Get ALL transactions (Buy, Sell, Dividend) for securities with open positions
+            var allTransactions = (await transactionRepository.GetAllByUser(effectiveUserId))
+                .Where(t => securityIdsWithPositions.Contains(t.SecurityId))
+                .ToList();
+
+            // Group by SecurityId instead of Ticker
+            var groupedTransactions = allTransactions.GroupBy(t => t.SecurityId).ToList();
+            positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId, cashAmount);
+
+            // Order by total invested (descending), so largest positions appear first
+            positions = positions
+                .OrderByDescending(p => p.CurrentMarketValue ?? p.TotalInvested)
+                .ToList();
+
+            totalInvested = positions.Sum(p => p.TotalInvested);
+            totalAssetsValue = positions.Sum(p => p.CurrentMarketValue ?? p.TotalInvested);
         }
 
-        // Get SecurityIds that have open positions
-        var securityIdsWithPositions = buyTransactions.Select(t => t.SecurityId).Distinct().ToList();
+        var totalValue = totalAssetsValue + cashAmount;
 
-        // Get ALL transactions (Buy, Sell, Dividend) for securities with open positions
-        var allTransactions = (await transactionRepository.GetAllByUser(effectiveUserId))
-            .Where(t => securityIdsWithPositions.Contains(t.SecurityId))
-            .ToList();
+        // Add cash as a virtual position if it exists
+        if (cashAmount > 0)
+        {
+            var cashAllocation = totalValue > 0 ? (cashAmount / totalValue) * 100 : 0;
+            positions.Add(new PortfolioPositionDto
+            {
+                Ticker = "CASH",
+                SecurityName = "Cash",
+                SecurityType = SecurityType.Cash,
+                TotalInvested = 0, // Cash is not an invested asset in the transaction sense
+                TotalShares = cashAmount,
+                AverageSharePrice = 1,
+                CurrentMarketValue = cashAmount,
+                CurrentAllocationPercentage = Math.Round(cashAllocation, 2),
+                TargetAllocationPercentage = 0, // Manual adjustment if needed
+                AllocationDeviation = 0,
+                RebalancingAmount = 0,
+                RebalancingStatus = RebalancingStatus.Balanced
+            });
 
-        // Group by SecurityId instead of Ticker
-        var groupedTransactions = allTransactions.GroupBy(t => t.SecurityId).ToList();
-        var positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId);
-
-        // Order by total invested (descending), so largest positions appear first
-        var orderedPositions = positions
-            .OrderByDescending(p => p.CurrentMarketValue ?? p.TotalInvested)
-            .ToList();
-
-        // Calculate portfolio totals
-        var totalInvested = orderedPositions.Sum(p => p.TotalInvested);
-        // Total value is sum of market values where available, falling back to invested amount (cost basis)
-        var totalValue = orderedPositions.Sum(p => p.CurrentMarketValue ?? p.TotalInvested);
+            // Re-order to keep cash usually at the bottom or maintain descending order
+            positions = positions.OrderByDescending(p => p.CurrentMarketValue ?? p.TotalInvested).ToList();
+        }
 
         decimal? totalUnrealizedPnL = null;
         decimal? totalUnrealizedPnLPercentage = null;
 
-        if (totalValue > 0 && totalInvested > 0)
+        if (totalAssetsValue > 0 && totalInvested > 0)
         {
-            totalUnrealizedPnL = Math.Round(totalValue - totalInvested, 2);
+            totalUnrealizedPnL = Math.Round(totalAssetsValue - totalInvested, 2);
             totalUnrealizedPnLPercentage = Math.Round((totalUnrealizedPnL.Value / totalInvested) * 100, 2);
         }
 
         return new PortfolioResponse
         {
-            Positions = orderedPositions,
+            Positions = positions,
+            CashAmount = cashAmount,
             TotalInvested = totalInvested,
             TotalMarketValue = totalValue > 0 ? totalValue : null,
             TotalUnrealizedPnL = totalUnrealizedPnL,
@@ -73,7 +99,8 @@ public class PortfolioService(
     /// </summary>
     private async Task<List<PortfolioPositionDto>> CreatePositionsAsync(
         List<IGrouping<Guid, Transaction>> groupedTransactions,
-        Guid userId)
+        Guid userId,
+        decimal cashAmount)
     {
         // Fetch all securities by SecurityId
         var securityIds = groupedTransactions.Select(g => g.Key).ToList();
@@ -115,7 +142,8 @@ public class PortfolioService(
 
         // Calculate total portfolio values
         // Use Market Value if available, otherwise fallback to Invested for each position to get the most accurate "real value"
-        var totalPortfolioValue = positionData.Sum(p => p.CurrentMarketValue > 0 ? p.CurrentMarketValue : p.TotalInvested);
+        var totalAssetsValue = positionData.Sum(p => p.CurrentMarketValue > 0 ? p.CurrentMarketValue : p.TotalInvested);
+        var totalPortfolioValue = totalAssetsValue + cashAmount;
 
         // Second pass: create final DTOs with allocation and rebalancing data
         return positionData.Select(p =>

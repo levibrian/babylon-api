@@ -14,6 +14,7 @@ public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbCo
     public DbSet<RecurringSchedule> RecurringSchedules { get; set; }
     public DbSet<PortfolioSnapshot> PortfolioSnapshots { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<CashBalance> CashBalances { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,5 +28,6 @@ public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbCo
         modelBuilder.ApplyConfiguration(new RecurringScheduleConfiguration());
         modelBuilder.ApplyConfiguration(new PortfolioSnapshotConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new CashBalanceConfiguration());
     }
 }

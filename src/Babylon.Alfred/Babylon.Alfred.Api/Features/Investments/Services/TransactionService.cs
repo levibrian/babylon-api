@@ -13,6 +13,7 @@ public class TransactionService(
     ITransactionRepository transactionRepository,
     ISecurityRepository securityRepository,
     IYahooMarketDataService yahooMarketDataService,
+    ICashBalanceService cashBalanceService,
     ILogger<TransactionService> logger)
     : ITransactionService
 {
@@ -21,24 +22,24 @@ public class TransactionService(
         logger.LogOperationStart("CreateTransaction", new { Ticker = request.Ticker, UserId = userId });
 
         TransactionValidator.ValidateCreateRequest(request, logger);
-        
+
         // Check if security exists locally
         var security = await securityRepository.GetByTickerAsync(request.Ticker);
-        
+
         if (security == null)
         {
             logger.LogInformation("Security not found locally for ticker {Ticker}. Searching Yahoo Finance...", request.Ticker);
-            
+
             // Search in Yahoo Finance
             var searchResults = await yahooMarketDataService.SearchAsync(request.Ticker);
-            
+
             // Find an exact match or a very close match (case-insensitive)
             var match = searchResults.FirstOrDefault(s => string.Equals(s.Symbol, request.Ticker, StringComparison.OrdinalIgnoreCase));
 
             if (match == null)
             {
-                logger.LogBusinessRuleViolation("CreateTransaction", 
-                    $"Security not found locally and not found in Yahoo Finance for ticker: {request.Ticker}", 
+                logger.LogBusinessRuleViolation("CreateTransaction",
+                    $"Security not found locally and not found in Yahoo Finance for ticker: {request.Ticker}",
                     new { request.Ticker });
                 throw new InvalidOperationException(ErrorMessages.SecurityNotFound);
             }
@@ -63,6 +64,9 @@ public class TransactionService(
         var transaction = CreateTransactionEntity(userId, request, security.Id);
         var result = await transactionRepository.Add(transaction);
 
+        // Update cash balance
+        await cashBalanceService.ProcessTransactionAsync(userId, result.TransactionType, result.TotalAmount);
+
         logger.LogOperationSuccess("CreateTransaction", new { TransactionId = result.Id, Ticker = request.Ticker });
         return result;
     }
@@ -85,6 +89,13 @@ public class TransactionService(
         }
 
         await transactionRepository.AddBulk([.. createdTransactions.Cast<Transaction?>()]);
+
+        // Update cash balance for each transaction
+        foreach (var transaction in createdTransactions)
+        {
+            await cashBalanceService.ProcessTransactionAsync(userId, transaction.TransactionType, transaction.TotalAmount);
+        }
+
         logger.LogOperationSuccess("CreateBulkTransactions", new { createdTransactions.Count });
         return createdTransactions;
     }
@@ -122,6 +133,10 @@ public class TransactionService(
                 string.Format(ErrorMessages.TransactionNotFound, transactionId, userId));
         }
 
+        // Store original values for cash balance reversal
+        var originalType = existingTransaction.TransactionType;
+        var originalAmount = existingTransaction.TotalAmount;
+
         // Determine effective transaction type for validation (use request value if provided, otherwise existing)
         var effectiveTransactionType = request.TransactionType ?? existingTransaction.TransactionType;
         TransactionValidator.ValidateUpdateRequest(request, effectiveTransactionType, logger);
@@ -130,6 +145,10 @@ public class TransactionService(
         existingTransaction.UpdatedAt = DateTime.UtcNow;
         var updatedTransaction = await transactionRepository.Update(existingTransaction);
 
+        // Revert old cash impact and apply new one
+        await cashBalanceService.RevertTransactionAsync(userId, originalType, originalAmount);
+        await cashBalanceService.ProcessTransactionAsync(userId, updatedTransaction.TransactionType, updatedTransaction.TotalAmount);
+
         logger.LogOperationSuccess("UpdateTransaction", new { TransactionId = transactionId, UserId = userId });
         return TransactionMapper.ToDto(updatedTransaction);
     }
@@ -137,7 +156,11 @@ public class TransactionService(
     public async Task Delete(Guid userId, Guid transactionId)
     {
         logger.LogOperationStart("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
-        await transactionRepository.Delete(transactionId, userId);
+        var deletedTransaction = await transactionRepository.Delete(transactionId, userId);
+
+        // Revert cash impact
+        await cashBalanceService.RevertTransactionAsync(userId, deletedTransaction.TransactionType, deletedTransaction.TotalAmount);
+
         logger.LogOperationSuccess("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
     }
 

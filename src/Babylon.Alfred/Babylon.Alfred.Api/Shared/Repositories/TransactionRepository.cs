@@ -114,7 +114,7 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         return transaction;
     }
 
-    public async Task Delete(Guid transactionId, Guid userId)
+    public async Task<Transaction> Delete(Guid transactionId, Guid userId)
     {
         logger.LogInformation("Deleting transaction {TransactionId} for UserId: {UserId}", transactionId, userId);
 
@@ -134,6 +134,7 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
 
         logger.LogDatabaseOperation("Deleted", "Transaction", transactionId);
         logger.LogInformation("Transaction deleted: {TransactionId} for UserId: {UserId}", transactionId, userId);
+        return transaction;
     }
 }
 

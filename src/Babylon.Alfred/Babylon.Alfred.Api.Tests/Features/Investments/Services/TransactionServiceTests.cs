@@ -250,8 +250,8 @@ public class TransactionServiceTests
 
         // Assert
         autoMocker.GetMock<ITransactionRepository>().Verify(
-            x => x.Add(It.Is<Transaction>(t => 
-                t.Date >= beforeCreate && 
+            x => x.Add(It.Is<Transaction>(t =>
+                t.Date >= beforeCreate &&
                 t.Date <= afterCreate)),
             Times.Once);
     }
@@ -271,7 +271,7 @@ public class TransactionServiceTests
             .With(c => c.Ticker, r.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create()).ToList();
-        
+
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync((IEnumerable<string> tickers) =>
@@ -307,7 +307,7 @@ public class TransactionServiceTests
         // Assert
         result.Should().BeEmpty();
         autoMocker.GetMock<ITransactionRepository>().Verify(
-            x => x.AddBulk(It.IsAny<IList<Transaction?>>()), 
+            x => x.AddBulk(It.IsAny<IList<Transaction?>>()),
             Times.Never);
         autoMocker.GetMock<ILogger<TransactionService>>().Verify(
             x => x.Log(
@@ -339,7 +339,7 @@ public class TransactionServiceTests
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create();
-        
+
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickersAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync((IEnumerable<string> tickers) =>
@@ -794,7 +794,7 @@ public class TransactionServiceTests
         result.SharePrice.Should().Be(150m); // Should remain unchanged
         result.Fees.Should().Be(5m); // Should remain unchanged
         autoMocker.GetMock<ITransactionRepository>().Verify(
-            x => x.Update(It.Is<Transaction>(t => 
+            x => x.Update(It.Is<Transaction>(t =>
                 t.SharesQuantity == 20m &&
                 t.SharePrice == 150m &&
                 t.Fees == 5m)),
@@ -807,16 +807,21 @@ public class TransactionServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var transactionId = Guid.NewGuid();
+        var transaction = fixture.Build<Transaction>()
+            .With(t => t.Id, transactionId)
+            .With(t => t.UserId, userId)
+            .Create();
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.Delete(transactionId, userId))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(transaction);
 
         // Act
         await sut.Delete(userId, transactionId);
 
         // Assert
         autoMocker.GetMock<ITransactionRepository>().Verify(x => x.Delete(transactionId, userId), Times.Once);
+        autoMocker.GetMock<ICashBalanceService>().Verify(x => x.RevertTransactionAsync(userId, transaction.TransactionType, transaction.TotalAmount), Times.Once);
     }
 
     [Fact]

@@ -11,6 +11,7 @@ public enum SecurityType
     // ReSharper disable once InconsistentNaming
     REIT = 6,
     Options = 7,
-    Commodity = 8
+    Commodity = 8,
+    Cash = 9
 }
 

@@ -15,6 +15,7 @@ public class PortfolioSnapshotService(
     ITransactionRepository transactionRepository,
     IMarketPriceRepository marketPriceRepository,
     ISecurityRepository securityRepository,
+    ICashBalanceRepository cashBalanceRepository,
     ILogger<PortfolioSnapshotService> logger)
 {
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
@@ -86,10 +87,14 @@ public class PortfolioSnapshotService(
     /// </summary>
     private async Task<PortfolioSnapshot?> CreateSnapshotForUserAsync(Guid userId)
     {
+        // Get cash balance
+        var cashBalance = await cashBalanceRepository.GetByUserIdAsync(userId);
+        var cashAmount = cashBalance?.Amount ?? 0m;
+
         // Get all transactions for the user
         var allTransactions = (await transactionRepository.GetAllByUser(userId)).ToList();
 
-        if (allTransactions.Count == 0)
+        if (allTransactions.Count == 0 && cashAmount == 0)
         {
             return null;
         }
@@ -142,8 +147,11 @@ public class PortfolioSnapshotService(
             }
         }
 
-        // Skip snapshot if we don't have any market prices
-        if (!hasMarketPrices || totalMarketValue == 0)
+        // Total Market Value includes cash
+        var totalPortfolioMarketValue = totalMarketValue + cashAmount;
+
+        // Skip snapshot if we don't have any market value (including cash)
+        if (!hasMarketPrices && cashAmount == 0)
         {
             return null;
         }
@@ -157,7 +165,7 @@ public class PortfolioSnapshotService(
         {
             UserId = userId,
             TotalInvested = Math.Round(totalInvested, 2),
-            TotalMarketValue = Math.Round(totalMarketValue, 2),
+            TotalMarketValue = Math.Round(totalPortfolioMarketValue, 2),
             UnrealizedPnL = Math.Round(unrealizedPnL, 2),
             UnrealizedPnLPercentage = Math.Round(unrealizedPnLPercentage, 4)
         };

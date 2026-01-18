@@ -41,6 +41,9 @@ public class PortfolioServiceTests
         autoMocker.GetMock<IAllocationStrategyService>()
             .Setup(x => x.GetTargetAllocationsAsync(It.IsAny<Guid>()))
             .ReturnsAsync(new List<AllocationStrategyDto>());
+        autoMocker.GetMock<ICashBalanceService>()
+            .Setup(x => x.GetBalanceAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(0m);
     }
 
     [Fact]
@@ -497,6 +500,27 @@ public class PortfolioServiceTests
         aapl.CurrentAllocationPercentage.Should().Be(40m);
         nvda.RebalancingAmount.Should().Be(-100m);
         aapl.RebalancingAmount.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task GetPortfolio_ShouldIncludeCashInTotalMarketValue()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var cashAmount = 5000m;
+
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetOpenPositionsByUser(userId)).ReturnsAsync(new List<Transaction>());
+        autoMocker.GetMock<ICashBalanceService>().Setup(x => x.GetBalanceAsync(userId)).ReturnsAsync(cashAmount);
+
+        // Act
+        var result = await sut.GetPortfolio(userId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.CashAmount.Should().Be(cashAmount);
+        result.TotalMarketValue.Should().Be(cashAmount);
+        result.TotalInvested.Should().Be(0);
+        result.Positions.Should().Contain(p => p.Ticker == "CASH" && p.CurrentMarketValue == cashAmount);
     }
 }
 

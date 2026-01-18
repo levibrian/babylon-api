@@ -11,6 +11,6 @@ public interface ITransactionRepository
     Task<IEnumerable<Transaction>> GetAllByUser(Guid userId);
     Task<Transaction?> GetById(Guid transactionId, Guid userId);
     Task<Transaction> Update(Transaction transaction);
-    Task Delete(Guid transactionId, Guid userId);
+    Task<Transaction> Delete(Guid transactionId, Guid userId);
 }
 

@@ -55,6 +55,7 @@ try
     builder.Services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
     builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
     builder.Services.AddScoped<ISecurityRepository, SecurityRepository>();
+    builder.Services.AddScoped<ICashBalanceRepository, CashBalanceRepository>();
 
     // Register services
     builder.Services.ConfigureYahooClient();
