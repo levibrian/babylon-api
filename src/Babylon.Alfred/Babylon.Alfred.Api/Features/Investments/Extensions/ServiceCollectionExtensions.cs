@@ -1,4 +1,5 @@
 using Babylon.Alfred.Api.Features.Investments.Analyzers;
+using Babylon.Alfred.Api.Features.Investments.Options;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 using Babylon.Alfred.Api.Shared.Repositories;
@@ -9,6 +10,15 @@ public static class ServiceCollectionExtensions
 {
     public static void RegisterInvestmentServices(this IServiceCollection services)
     {
+        // Options
+        services.AddOptions<TimedRebalancingActionsOptions>()
+            .BindConfiguration(TimedRebalancingActionsOptions.SectionName)
+            .ValidateDataAnnotations();
+
+        services.AddOptions<GeminiRebalancingOptions>()
+            .BindConfiguration(GeminiRebalancingOptions.SectionName)
+            .ValidateDataAnnotations();
+
         // Repositories
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ISecurityRepository, SecurityRepository>();
@@ -27,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAllocationStrategyService, AllocationStrategyService>();
         services.AddScoped<IPortfolioAnalyticsService, PortfolioAnalyticsService>();
         services.AddScoped<IRebalancingService, RebalancingService>();
+        services.AddScoped<ITimedRebalancingActionsService, TimedRebalancingActionsService>();
         services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
         services.AddScoped<ICashBalanceService, CashBalanceService>();
 
@@ -42,6 +53,9 @@ public static class ServiceCollectionExtensions
         // External Services
         services.AddHttpClient<IYahooMarketDataService, YahooMarketDataService>();
         services.AddHttpClient<IHistoricalPriceService, HistoricalPriceService>();
+
+        // AI Services (feature-flagged)
+        services.AddHttpClient<IRebalancingOptimizer, GeminiRebalancingOptimizer>();
     }
 }
 

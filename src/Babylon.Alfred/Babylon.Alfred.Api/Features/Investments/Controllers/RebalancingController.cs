@@ -13,7 +13,9 @@ namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/portfolios/rebalancing")]
-public class RebalancingController(IRebalancingService rebalancingService) : ControllerBase
+public class RebalancingController(
+    IRebalancingService rebalancingService,
+    ITimedRebalancingActionsService timedRebalancingActionsService) : ControllerBase
 {
     /// <summary>
     /// Get rebalancing actions for the authenticated user's portfolio.
@@ -75,6 +77,37 @@ public class RebalancingController(IRebalancingService rebalancingService) : Con
                 Title = "Invalid request",
                 Detail = ex.Message
             });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Portfolio not found",
+                Detail = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get timed rebalancing actions: concrete upcoming buy/sell actions, filtered by timing signals (1Y percentile).
+    /// </summary>
+    /// <param name="investmentAmount">Optional additional investment amount to deploy</param>
+    /// <param name="maxActions">Maximum number of actions to return</param>
+    /// <param name="useAi">Whether to use AI optimization (Gemini). Requires Gemini to be enabled in config.</param>
+    [HttpGet("timed-actions")]
+    [ProducesResponseType(typeof(TimedRebalancingActionsResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TimedRebalancingActionsResponseDto>> GetTimedRebalancingActions(
+        [FromQuery] decimal? investmentAmount = null,
+        [FromQuery] int? maxActions = null,
+        [FromQuery] bool useAi = false)
+    {
+        try
+        {
+            var userId = User.GetUserId();
+            var response = await timedRebalancingActionsService.GetTimedActionsAsync(userId, investmentAmount, maxActions, useAi);
+            return Ok(response);
         }
         catch (InvalidOperationException ex)
         {
