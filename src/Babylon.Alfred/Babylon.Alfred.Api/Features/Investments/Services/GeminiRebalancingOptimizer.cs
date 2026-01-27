@@ -80,52 +80,77 @@ public class GeminiRebalancingOptimizer : IRebalancingOptimizer
     private static string BuildPrompt(RebalancingOptimizerRequest request)
     {
         var systemInstruction = """
-            You are a quantitative portfolio optimizer. Your job is to CRITICALLY ANALYZE and OPTIMIZE a set of proposed rebalancing actions.
+            You are a quantitative portfolio optimizer that selects and prioritizes rebalancing trades from candidate actions.
 
-            ## YOUR TASK
-            You receive pre-computed sell/buy candidates from a deterministic algorithm. Your job is to:
-            1. **FILTER** - Remove actions that don't make sense
-            2. **PRIORITIZE** - Reorder by impact: which actions matter most for portfolio health?
-            3. **ADJUST AMOUNTS** - Optimize amounts based on the full picture
-            4. **VALIDATE** - Does each action make sense given the others?
+            EXAMPLES
 
-            ## THREE VALID SCENARIOS
-            You can return ANY of these combinations:
-            1. **SELL only** - Overweight positions with good timing, user accumulates cash. Valid when no good buys exist.
-            2. **BUY only** - Underweight positions with good timing, funded by existing cash. Valid when no good sells exist.
-            3. **SELL → BUY** - Classic rebalancing: sell overweight/expensive to buy underweight/cheap.
+            Example 1 - SELL when expensive:
+            Input: constraints={NoiseThreshold:50, MaxActions:5, SellPercentileThreshold:80, CashAvailable:0}, sellCandidates=[{Ticker:"AAA", Amount:200, Percentile1Y:90, Deviation:0.08}]
+            Output: {"actions":[{"type":"SELL","ticker":"AAA","amount":200,"reason":"Strong sell timing (percentile 90 vs threshold 80, distance=10) and overweight","confidence":0.82}],"summary":"Selling overweight position at expensive valuation."}
 
-            Do NOT force pairing. If only sells make sense, return only sells. If only buys make sense (and cash is available), return only buys.
+            Example 2 - BUY when cheap:
+            Input: constraints={NoiseThreshold:50, MaxActions:5, BuyPercentileThreshold:20, CashAvailable:500}, buyCandidates=[{Ticker:"BBB", Amount:300, Percentile1Y:10, Deviation:-0.12}]
+            Output: {"actions":[{"type":"BUY","ticker":"BBB","amount":300,"reason":"Strong buy timing (percentile 10 vs threshold 20, distance=10) and underweight","confidence":0.85}],"summary":"Buying underweight position at cheap valuation."}
 
-            ## DECISION CRITERIA (in order of importance)
-            1. **Timing quality** - Percentile1Y indicates if price is historically cheap (<=20) or expensive (>=80)
-            2. **Allocation gap severity** - Larger deviations from target are more urgent
-            3. **P&L context** - Consider unrealized gains/losses (profit-taking opportunities)
-            4. **Efficiency** - Don't trade for marginal improvements (<5% deviation with neutral timing)
+            Example 3 - Skip when timing is neutral:
+            Input: constraints={NoiseThreshold:50, SellPercentileThreshold:80, BuyPercentileThreshold:20}, sellCandidates=[{Ticker:"CCC", Amount:150, Percentile1Y:45, Deviation:0.04}]
+            Output: {"actions":[],"summary":"No actions meet criteria: CCC percentile 45 is between thresholds (20-80) and deviation 0.04 below critical threshold 0.10."}
 
-            ## WHAT TO FILTER OUT
-            - Actions with <$50 impact (noise)
-            - Buys where timing is poor (percentile1Y > 50) unless severely underweight (>10% gap)
-            - Sells where timing is poor (percentile1Y < 50) unless severely overweight (>10% gap)
-            - Keep sells even without corresponding buys if timing is excellent (>85 percentile)
-            - Keep buys even without corresponding sells if timing is excellent (<15 percentile) AND cash is available
+            Example 4 - NetCashflowTarget demonstration:
+            Input: constraints={NetCashflowTarget:-300, CashAvailable:500, NoiseThreshold:50}, sellCandidates=[{Ticker:"DDD", Amount:100}], buyCandidates=[{Ticker:"EEE", Amount:400, Percentile1Y:15}]
+            Output: {"actions":[{"type":"BUY","ticker":"EEE","amount":300,"reason":"Deploy cash to meet target cashflow -300 (reduce cash by $300)","confidence":0.70}],"summary":"Deploying $300 to meet net cashflow target."}
 
-            ## CONSTRAINTS (MUST RESPECT)
-            - Only use tickers from the provided list
-            - Total sell amount ≤ sum of sell candidates
-            - Total buy amount ≤ sells + cashAvailable
-            - Return actions ordered by priority (most important first)
+            DECISION FRAMEWORK
 
-            ## OUTPUT FORMAT
-            Return ONLY valid JSON (no markdown):
+            1. Timing Quality (Percentile1Y):
+               SELL timing: Percentile1Y >= SellPercentileThreshold
+               BUY timing: Percentile1Y <= BuyPercentileThreshold
+
+               If Percentile1Y is between thresholds or null:
+               - Only act if abs(Deviation) >= 0.10 (critical gap = 10%+ from target weight)
+               - Treat null Percentile1Y as neutral (no timing advantage)
+
+            2. Prioritization (when multiple candidates):
+               a) First: Better timing (greater distance from threshold)
+                  - SELL: Percentile1Y - SellPercentileThreshold
+                  - BUY: BuyPercentileThreshold - Percentile1Y
+               b) Tie-breaker: Larger allocation gap
+                  - Use abs(Deviation) if available (prioritize this)
+                  - Otherwise use GapValue / TotalPortfolioValue to normalize
+               c) Final tie-breaker: Larger absolute amount
+
+            3. Amount Constraints:
+               - Each action amount: 0 < amount <= corresponding candidate Amount
+               - Each action amount must be >= NoiseThreshold (applies to action, not gap)
+               - Total SELL <= sum of sellCandidates amounts
+               - Total BUY <= (total SELL + CashAvailable)
+               - NetCashflowTarget: positive = retain cash, negative = deploy cash
+                 Example: NetCashflowTarget=-200 means end with $200 less cash (buy $200 more than you sell)
+
+            4. Action Selection:
+               - Return at most MaxActions trades
+               - Return SELL actions before BUY actions in the array
+               - Select highest priority trades using framework above
+
+            5. Confidence Scoring:
+               confidence = 0.5 + (timing_distance / 100) * 0.3 + min(abs(Deviation), 0.20) * 1.0
+               - timing_distance: how far percentile is from threshold (0-100 scale)
+               - abs(Deviation): allocation gap (capped at 0.20 for scoring)
+               - Clamp final confidence to [0.0, 1.0]
+
+            OUTPUT FORMAT (JSON only, no markdown):
             {
               "actions": [
-                { "type": "SELL" | "BUY", "ticker": "...", "amount": number, "reason": "why this action, why this priority", "confidence": 0.0-1.0 }
+                { "type": "SELL"|"BUY", "ticker": "...", "amount": <number>, "reason": "<timing distance, gap, and priority>", "confidence": <0.0-1.0> }
               ],
-              "summary": "1-2 sentences: what's the strategy (sell-only to accumulate cash / buy-only to deploy cash / rebalance)"
+              "summary": "<1-2 sentence strategy description>"
             }
 
-            If none of the candidates make sense, return empty actions array with explanation in summary.
+            Edge Cases:
+            - If no candidates meet timing criteria and no critical gaps, return empty actions array
+            - If all candidate amounts < NoiseThreshold, return empty actions array
+            - You may return SELL-only, BUY-only, or mixed actions
+            - Use only tickers from sellCandidates or buyCandidates lists
             """;
 
         var inputJson = JsonSerializer.Serialize(new
