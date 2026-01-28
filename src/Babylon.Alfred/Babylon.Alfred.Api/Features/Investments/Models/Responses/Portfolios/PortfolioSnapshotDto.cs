@@ -16,6 +16,11 @@ public class PortfolioSnapshotDto
     public decimal TotalInvested { get; set; }
 
     /// <summary>
+    /// Cash balance at snapshot time.
+    /// </summary>
+    public decimal CashBalance { get; set; }
+
+    /// <summary>
     /// Total market value of portfolio at snapshot time.
     /// </summary>
     public decimal TotalMarketValue { get; set; }

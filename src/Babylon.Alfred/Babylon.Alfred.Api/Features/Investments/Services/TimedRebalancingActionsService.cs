@@ -496,6 +496,7 @@ public class TimedRebalancingActionsService(
         var amount = Math.Abs(candidate.SignedAmount);
         var deviation = (p.CurrentAllocationPercentage ?? 0) - (p.TargetAllocationPercentage ?? 0);
 
+        // TODO: Improve reason, maybe consider introducing gemini at this point? Improvement opportunity.∫
         var reason = actionType == RebalancingActionType.Sell
             ? $"Overweight vs target and {(hasTiming ? $"expensive vs 1Y history (pctl={percentile:F0})" : "timing unavailable")}."
             : $"Underweight vs target and {(hasTiming ? $"cheap vs 1Y history (pctl={percentile:F0})" : "timing unavailable")}.";

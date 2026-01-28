@@ -169,7 +169,8 @@ public class PortfolioSnapshotService(
         {
             UserId = userId,
             TotalInvested = Math.Round(totalInvested, 2),
-            TotalMarketValue = Math.Round(totalPortfolioMarketValue, 2),
+            CashBalance = Math.Round(cashAmount, 2),
+            TotalMarketValue = Math.Round(totalMarketValue, 2),
             UnrealizedPnL = Math.Round(unrealizedPnL, 2),
             UnrealizedPnLPercentage = Math.Round(unrealizedPnLPercentage, 4)
         };
