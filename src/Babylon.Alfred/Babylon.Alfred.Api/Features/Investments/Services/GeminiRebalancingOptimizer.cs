@@ -183,7 +183,7 @@ public class GeminiRebalancingOptimizer : IRebalancingOptimizer
             generationConfig = new
             {
                 temperature = _options.Temperature,
-                maxOutputTokens = 2048,
+                maxOutputTokens = 8192,
                 responseMimeType = "application/json"
             }
         };
