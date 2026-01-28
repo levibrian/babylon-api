@@ -39,6 +39,22 @@ public class SecurityRepository(BabylonDbContext context, ILogger<SecurityReposi
             .ToListAsync();
     }
 
+    public async Task<Security?> GetByIsinAsync(string isin)
+    {
+        return await context.Securities
+            .Where(c => c.Isin == isin)
+            .OrderBy(c => c.Ticker)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<List<Security>> GetAllByIsinAsync(string isin)
+    {
+        return await context.Securities
+            .Where(c => c.Isin == isin)
+            .OrderBy(c => c.Ticker)
+            .ToListAsync();
+    }
+
     public async Task<Security> AddOrUpdateAsync(Security security)
     {
         // Find by Ticker (since Ticker has unique index)
@@ -48,6 +64,7 @@ public class SecurityRepository(BabylonDbContext context, ILogger<SecurityReposi
         {
             existing.SecurityName = security.SecurityName;
             existing.SecurityType = security.SecurityType;
+            existing.Isin = security.Isin;
             existing.LastUpdated = DateTime.UtcNow;
             context.Securities.Update(existing);
         }

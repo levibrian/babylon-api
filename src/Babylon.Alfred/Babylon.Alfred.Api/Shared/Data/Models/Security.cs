@@ -4,6 +4,7 @@ public class Security
 {
     public Guid Id { get; set; }
     public string Ticker { get; set; } = string.Empty;
+    public string? Isin { get; set; }
     public string SecurityName { get; set; } = string.Empty;
     public SecurityType SecurityType { get; set; } = SecurityType.Stock;
     public string? Currency { get; set; }

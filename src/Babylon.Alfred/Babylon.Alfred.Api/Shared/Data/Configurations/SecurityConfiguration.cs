@@ -11,6 +11,7 @@ public class SecurityConfiguration : IEntityTypeConfiguration<Security>
         entity.HasKey(e => e.Id);
         entity.Property(e => e.Id).ValueGeneratedOnAdd();
         entity.Property(e => e.Ticker).IsRequired().HasMaxLength(50);
+        entity.Property(e => e.Isin).HasMaxLength(12);
         entity.Property(e => e.SecurityName).IsRequired().HasMaxLength(100);
         entity.Property(e => e.SecurityType)
             .IsRequired()
@@ -26,6 +27,9 @@ public class SecurityConfiguration : IEntityTypeConfiguration<Security>
         // Unique index on Ticker (can have multiple tickers per company in future)
         entity.HasIndex(e => e.Ticker)
             .IsUnique();
+
+        // Non-unique index on ISIN (one ISIN can map to multiple tickers)
+        entity.HasIndex(e => e.Isin);
 
         entity.ToTable("securities");
     }

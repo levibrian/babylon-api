@@ -33,4 +33,12 @@ public class YahooSearchResult
 
     [JsonPropertyName("industry")]
     public string? Industry { get; set; }
+
+    /// <summary>
+    /// ISIN (International Securities Identification Number).
+    /// Note: Yahoo Finance search API does not provide this field.
+    /// Will be null unless populated from another source.
+    /// </summary>
+    [JsonPropertyName("isin")]
+    public string? Isin { get; set; }
 }

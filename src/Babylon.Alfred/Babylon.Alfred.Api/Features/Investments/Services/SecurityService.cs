@@ -63,6 +63,7 @@ public class SecurityService(
         var security = new Security
         {
             Ticker = ticker.ToUpperInvariant(),
+            Isin = result.Isin, // Will be null from Yahoo search API
             SecurityName = !string.IsNullOrWhiteSpace(result.LongName)
                 ? result.LongName
                 : (!string.IsNullOrWhiteSpace(result.ShortName) ? result.ShortName : ticker),
