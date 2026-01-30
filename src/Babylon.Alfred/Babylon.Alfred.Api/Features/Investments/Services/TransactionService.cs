@@ -62,6 +62,35 @@ public class TransactionService(
         }
 
         var transaction = CreateTransactionEntity(userId, request, security.Id);
+
+        // Calculate Realized PnL for Sell transactions
+        if (transaction.TransactionType == TransactionType.Sell)
+        {
+            var existingTransactions = await transactionRepository.GetAllByUser(userId);
+            var securityTransactions = existingTransactions
+                .Where(t => t.SecurityId == security.Id)
+                .ToList();
+            
+            var portfolioTransactions = securityTransactions.Select(t => new PortfolioTransactionDto
+            {
+                Id = t.Id,
+                TransactionType = t.TransactionType,
+                Date = t.Date,
+                UpdatedAt = t.UpdatedAt,
+                SharesQuantity = t.SharesQuantity,
+                SharePrice = t.SharePrice,
+                Fees = t.Fees,
+                Tax = t.Tax
+            }).ToList();
+            var (_, averageSharePrice, _) = PortfolioCalculator.CalculatePositionMetrics(portfolioTransactions);
+
+            if (averageSharePrice > 0)
+            {
+                transaction.RealizedPnL = (transaction.SharePrice - averageSharePrice) * transaction.SharesQuantity;
+                transaction.RealizedPnLPct = ((transaction.SharePrice - averageSharePrice) / averageSharePrice) * 100;
+            }
+        }
+
         var result = await transactionRepository.Add(transaction);
 
         // Update cash balance

@@ -842,5 +842,231 @@ public class TransactionServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage($"Transaction {transactionId} not found for user {userId}");
     }
+    [Fact]
+    public async Task Create_WhenSellTransaction_ShouldCalculateRealizedPnL()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Ticker, "AAPL")
+            .With(r => r.TransactionType, TransactionType.Sell)
+            .With(r => r.SharesQuantity, 5m)
+            .With(r => r.SharePrice, 180m)
+            .With(r => r.Fees, 5m)
+            .With(r => r.Date, new DateOnly(2025, 2, 1))
+            .Create();
+            
+        var security = fixture.Build<Security>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+
+        // Setup existing transactions to establish average price
+        // Buy 10 @ 100 = 1000 cost basis
+        // Buy 10 @ 200 = 2000 cost basis
+        // Total = 20 shares, 3000 cost basis -> Average Price = 150
+        var existingTransactions = new List<Transaction>
+        {
+            fixture.Build<Transaction>()
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.SharesQuantity, 10m)
+                .With(t => t.SharePrice, 100m)
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 1, 1))
+                .With(t => t.UpdatedAt, new DateTime(2025, 1, 1)) // Ensure order
+                .Create(),
+            fixture.Build<Transaction>()
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.SharesQuantity, 10m)
+                .With(t => t.SharePrice, 200m) // Avg price now 150
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 1, 2))
+                .With(t => t.UpdatedAt, new DateTime(2025, 1, 2)) // Ensure order
+                .Create()
+        };
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(request.Ticker))
+            .ReturnsAsync(security);
+            
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(existingTransactions);
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Add(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Create(userId, request);
+
+        // Assert
+        // Avg Price = 150. Sell Price = 180.
+        // PnL = (180 - 150) * 5 = 150
+        // PnL % = (30 / 150) * 100 = 20%
+        result.RealizedPnL.Should().Be(150m);
+        result.RealizedPnLPct.Should().Be(20m);
+        
+        autoMocker.GetMock<ITransactionRepository>().Verify(
+            x => x.Add(It.Is<Transaction>(t => 
+                t.RealizedPnL == 150m && 
+                t.RealizedPnLPct == 20m)), 
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Create_WhenSellTransactionWithNoHistory_ShouldNotCalculatePnL()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Ticker, "AAPL")
+            .With(r => r.TransactionType, TransactionType.Sell)
+            .With(r => r.SharesQuantity, 5m)
+            .Create();
+            
+        var security = fixture.Build<Security>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(request.Ticker))
+            .ReturnsAsync(security);
+            
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction>()); // Empty history
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Add(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Create(userId, request);
+
+        // Assert
+        result.RealizedPnL.Should().BeNull();
+        result.RealizedPnLPct.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Create_WhenBuyTransaction_ShouldNotCalculatePnL()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Ticker, "AAPL")
+            .With(r => r.TransactionType, TransactionType.Buy)
+            .Create();
+            
+        var security = fixture.Build<Security>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(request.Ticker))
+            .ReturnsAsync(security);
+            
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction>());
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Add(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Create(userId, request);
+
+        // Assert
+        result.RealizedPnL.Should().BeNull();
+        result.RealizedPnLPct.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Create_WhenMixedBuySellSequence_ShouldCalculateCorrectPnL()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Ticker, "AAPL")
+            .With(r => r.TransactionType, TransactionType.Sell)
+            .With(r => r.SharesQuantity, 5m)
+            .With(r => r.SharePrice, 200m) 
+            .With(r => r.Fees, 0m)
+            .With(r => r.Date, new DateOnly(2025, 3, 1))
+            .Create();
+            
+        var security = fixture.Build<Security>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+
+        // Sequence:
+        // 1. Buy 10 @ 100. Cost 1000. Shares 10. Avg 100.
+        // 2. Sell 5 @ 120. (Remains: Shares 5, Cost 500, Avg 100).
+        // 3. Buy 5 @ 200. (Total: Shares 10, Cost 500 + 1000 = 1500. Avg 150).
+        // New Transaction: Sell 5 @ 200.
+        // Expected PnL: (200 - 150) * 5 = 250.
+        // Expected PnL%: ((200 - 150) / 150) * 100 = 33.3333...
+
+        var existingTransactions = new List<Transaction>
+        {
+            fixture.Build<Transaction>()
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.SharesQuantity, 10m)
+                .With(t => t.SharePrice, 100m)
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 1, 1))
+                .With(t => t.UpdatedAt, new DateTime(2025, 1, 1))
+                .Create(),
+            fixture.Build<Transaction>()
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Sell) // Previous sell
+                .With(t => t.SharesQuantity, 5m)
+                .With(t => t.SharePrice, 120m)
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 1, 2))
+                .With(t => t.UpdatedAt, new DateTime(2025, 1, 2))
+                .Create(),
+            fixture.Build<Transaction>()
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.SharesQuantity, 5m)
+                .With(t => t.SharePrice, 200m)
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 2, 1))
+                .With(t => t.UpdatedAt, new DateTime(2025, 2, 1))
+                .Create()
+        };
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(request.Ticker))
+            .ReturnsAsync(security);
+            
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(existingTransactions);
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Add(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Create(userId, request);
+
+        // Assert
+        result.RealizedPnL.Should().Be(250m);
+        // Using Approximately for floating point (decimal) precision if needed, though exact matching 33.3333 might fail if not rounded.
+        // The implementation does result.RealizedPnLPct = ...
+        // 50 / 150 = 0.33333333... * 100 = 33.333333...
+        // Let's assert broadly or use precision.
+        result.RealizedPnLPct.Should().BeApproximately(33.3333m, 0.0001m);
+    }
 }
 

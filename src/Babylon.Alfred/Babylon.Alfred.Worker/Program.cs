@@ -67,6 +67,10 @@ try
     builder.Services.AddScoped<PriceFetchingJob>();
     builder.Services.AddScoped<PortfolioSnapshotJob>();
 
+    // Register Background Services
+    builder.Services.AddHostedService<RealizedGainsBackfillService>();
+
+
     // Configure Quartz scheduled jobs (cron expressions defined in job classes)
     Log.Information("=== Job Configuration ===");
     Log.Information("PriceFetchingJob Schedule: {CronExpression}", PriceFetchingJob.Cron);

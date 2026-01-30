@@ -20,6 +20,9 @@ public class Transaction
     // Navigation properties
     public User? User { get; set; } = null!;
     public Security Security { get; set; } = null!;
+    
+    public decimal? RealizedPnL { get; set; }
+    public decimal? RealizedPnLPct { get; set; }
 
 
     [NotMapped]

@@ -16,6 +16,8 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         entity.Property(e => e.SharePrice).HasPrecision(18, 4);
         entity.Property(e => e.Fees).HasPrecision(18, 4);
         entity.Property(e => e.Tax).HasPrecision(18, 4);
+        entity.Property(e => e.RealizedPnL).HasPrecision(18, 4);
+        entity.Property(e => e.RealizedPnLPct).HasPrecision(18, 4);
         entity.Property(e => e.UserId);
 
         entity.ToTable("transactions");
