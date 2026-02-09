@@ -74,7 +74,7 @@ public class RealizedGainsBackfillService : BackgroundService
 
         foreach (var securityGroup in transactionsBySecurity)
         {
-            var securityTransactions = securityGroup.OrderBy(t => t.Date).ThenBy(t => t.UpdatedAt).ToList();
+            var securityTransactions = securityGroup.ToList();
             
             // Convert to DTO for calculator
             var portfolioTransactions = securityTransactions.Select(t => new PortfolioTransactionDto
@@ -83,96 +83,29 @@ public class RealizedGainsBackfillService : BackgroundService
                 TransactionType = t.TransactionType,
                 Date = t.Date,
                 UpdatedAt = t.UpdatedAt,
+                CreatedAt = t.CreatedAt,
                 SharesQuantity = t.SharesQuantity,
                 SharePrice = t.SharePrice,
                 Fees = t.Fees,
                 Tax = t.Tax
             }).ToList();
 
-            // We need to replay history and capture state at each step
-            // PortfolioCalculator.CalculatePositionMetrics gives final state. 
-            // We need intermediate state.
-            // So we must replicate the logic of PortfolioCalculator manually here 
-            // OR iterate incrementally.
-            
-            decimal currentShares = 0;
-            decimal currentCostBasis = 0;
+            var recalculatedResults = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(portfolioTransactions);
 
-            for (int i = 0; i < securityTransactions.Count; i++)
+            foreach (var transaction in securityTransactions)
             {
-                var txn = securityTransactions[i];
-                var dto = portfolioTransactions[i];
-
-                if (txn.TransactionType == TransactionType.Sell)
+                if (!recalculatedResults.TryGetValue(transaction.Id, out var values))
                 {
-                    // Check if it needs backfill or if we should blindly recalculate?
-                    // User said "fix ... where ... are null".
-                    // But for consistency, if we are replaying, we might as well verify? 
-                    // Let's only update matches condition.
-                    
-                    if (txn.RealizedPnL == null)
-                    {
-                        var averageSharePrice = currentShares > 0 ? currentCostBasis / currentShares : 0;
-                        
-                        if (averageSharePrice > 0)
-                        {
-                            var realizedPnL = (txn.SharePrice - averageSharePrice) * txn.SharesQuantity;
-                            var realizedPnLPct = ((txn.SharePrice - averageSharePrice) / averageSharePrice) * 100;
-
-                            txn.RealizedPnL = realizedPnL;
-                            txn.RealizedPnLPct = realizedPnLPct;
-                            
-                            // We need to update this transaction in the DB.
-                            // Since we loaded `userTransactions` from Repo, are they tracked? 
-                            // `GetAllByUser` usually returns AsNoTracking for read performance in typical repos, 
-                            // but let's assume valid tracking or we explicitly update.
-                            // I'll call repo.Update() for safety.
-                            
-                            await repo.Update(txn);
-                            updatesCount++;
-                        }
-                    }
+                    continue;
                 }
 
-                // Update running Cost Basis for NEXT validation
-                // We can reuse the static helper methods from PortfolioCalculator if they are public
-                // CalculateCostBasis takes a list... 
-                // Let's reuse the per-transaction logic if exposed, otherwise logic match:
-                
-                // Logic from PortfolioCalculator.cs (viewed previously):
-                /*
-                 TransactionType.Buy => ProcessBuyTransaction...
-                 TransactionType.Sell => ProcessSellTransaction...
-                */
-                
-                // Since the helper methods in PortfolioCalculator are likely private (Need to verify),
-                // I will implement the simple accumulation logic here matching the Calculator.
-                
-                if (txn.TransactionType == TransactionType.Buy)
+                if (transaction.RealizedPnL != values.RealizedPnL ||
+                    transaction.RealizedPnLPct != values.RealizedPnLPct)
                 {
-                     currentShares += txn.SharesQuantity;
-                     currentCostBasis += (txn.SharesQuantity * txn.SharePrice) + txn.Fees;
-                }
-                else if (txn.TransactionType == TransactionType.Sell)
-                {
-                    if (currentShares > 0)
-                    {
-                        var avgCost = currentCostBasis / currentShares;
-                        var sharesToSell = Math.Min(txn.SharesQuantity, currentShares);
-                        var costToRemove = sharesToSell * avgCost;
-                        
-                        currentShares -= sharesToSell;
-                        currentCostBasis -= costToRemove;
-                    }
-                    if (currentShares == 0) currentCostBasis = 0;
-                }
-                else if (txn.TransactionType == TransactionType.Split)
-                {
-                     // Split logic: newShares = currentShares * quantity. Cost basis same.
-                     if (currentShares > 0 && txn.SharesQuantity > 0)
-                     {
-                         currentShares *= txn.SharesQuantity;
-                     }
+                    transaction.RealizedPnL = values.RealizedPnL;
+                    transaction.RealizedPnLPct = values.RealizedPnLPct;
+                    await repo.Update(transaction);
+                    updatesCount++;
                 }
             }
         }

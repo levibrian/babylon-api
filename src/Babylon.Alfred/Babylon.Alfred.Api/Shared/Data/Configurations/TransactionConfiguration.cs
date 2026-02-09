@@ -12,6 +12,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         entity.Property(e => e.SecurityId).IsRequired();
         entity.Property(e => e.TransactionType).IsRequired();
         entity.Property(e => e.Date).IsRequired();
+        entity.Property(e => e.CreatedAt).IsRequired();
         entity.Property(e => e.SharesQuantity).HasPrecision(18, 8);
         entity.Property(e => e.SharePrice).HasPrecision(18, 4);
         entity.Property(e => e.Fees).HasPrecision(18, 4);

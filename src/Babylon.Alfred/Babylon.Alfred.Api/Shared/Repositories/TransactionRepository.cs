@@ -51,7 +51,8 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
 
         var openTransactions = await context.Transactions
             .Where(t => t.UserId == userId && t.TransactionType == TransactionType.Buy)
-            .OrderByDescending(t => t.UpdatedAt)
+            .OrderByDescending(t => t.Date)
+            .ThenByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         logger.LogDatabaseOperation("RetrievedOpenPositions", "Transaction", null, openTransactions.Count);
@@ -67,7 +68,7 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
             .Include(t => t.Security)
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.Date)
-            .ThenByDescending(t => t.UpdatedAt)
+            .ThenByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         logger.LogDatabaseOperation("RetrievedAllByUser", "Transaction", null, transactions.Count);

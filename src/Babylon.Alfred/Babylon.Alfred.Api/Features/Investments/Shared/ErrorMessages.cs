@@ -13,5 +13,6 @@ public static class ErrorMessages
     public const string SecurityNotFound = "Security provided not found in our internal database.";
     public const string TransactionNotFound = "Transaction {0} not found for user {1}";
     public const string SecuritiesNotFoundForTickers = "Securities not found for tickers: {0}";
+    public const string InsufficientSharesToSell = "Cannot sell more shares than currently held.";
 }
 

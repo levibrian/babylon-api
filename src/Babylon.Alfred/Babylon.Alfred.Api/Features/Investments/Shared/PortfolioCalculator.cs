@@ -43,13 +43,10 @@ public static class PortfolioCalculator
         decimal costBasis = 0;
 
         // CRITICAL: Order by date ascending to process transactions chronologically.
-        // For transactions on the same day, we MUST prioritize corporate actions (Splits)
-        // before trades (Buy/Sell) to ensure post-split trades are not incorrectly split.
-        // Secondary sort by TransactionType priority and finally by UpdatedAt.
+        // For transactions on the same day, use CreatedAt to preserve user entry order.
         var orderedTransactions = transactions
             .OrderBy(t => t.Date)
-            .ThenBy(t => GetTransactionPriority(t.TransactionType))
-            .ThenBy(t => t.UpdatedAt)
+            .ThenBy(t => t.CreatedAt)
             .ToList();
 
         foreach (var transaction in orderedTransactions)
@@ -73,19 +70,6 @@ public static class PortfolioCalculator
 
         return (totalShares, costBasis);
     }
-
-    /// <summary>
-    /// Returns a sorting priority for transaction types to ensure logical ordering on the same day.
-    /// Splits come first, then Buys (to ensure liquidity for Sells), then Sells, then others.
-    /// </summary>
-    private static int GetTransactionPriority(TransactionType type) => type switch
-    {
-        TransactionType.Split => 0,
-        TransactionType.Buy => 1,
-        TransactionType.Sell => 2,
-        TransactionType.Dividend => 3,
-        _ => 4
-    };
 
     /// <summary>
     /// Processes a buy transaction by adding shares and cost (including fees) to the position.

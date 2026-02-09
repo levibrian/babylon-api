@@ -187,6 +187,7 @@ public class PortfolioSnapshotService(
             TransactionType = t.TransactionType,
             Date = t.Date,
             UpdatedAt = t.UpdatedAt,
+            CreatedAt = t.CreatedAt,
             SharesQuantity = t.SharesQuantity,
             SharePrice = t.SharePrice,
             Fees = t.Fees,

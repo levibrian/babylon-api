@@ -63,35 +63,18 @@ public class TransactionService(
 
         var transaction = CreateTransactionEntity(userId, request, security.Id);
 
-        // Calculate Realized PnL for Sell transactions
-        if (transaction.TransactionType == TransactionType.Sell)
-        {
-            var existingTransactions = await transactionRepository.GetAllByUser(userId);
-            var securityTransactions = existingTransactions
-                .Where(t => t.SecurityId == security.Id)
-                .ToList();
-            
-            var portfolioTransactions = securityTransactions.Select(t => new PortfolioTransactionDto
-            {
-                Id = t.Id,
-                TransactionType = t.TransactionType,
-                Date = t.Date,
-                UpdatedAt = t.UpdatedAt,
-                SharesQuantity = t.SharesQuantity,
-                SharePrice = t.SharePrice,
-                Fees = t.Fees,
-                Tax = t.Tax
-            }).ToList();
-            var (_, averageSharePrice, _) = PortfolioCalculator.CalculatePositionMetrics(portfolioTransactions);
-
-            if (averageSharePrice > 0)
-            {
-                transaction.RealizedPnL = (transaction.SharePrice - averageSharePrice) * transaction.SharesQuantity;
-                transaction.RealizedPnLPct = ((transaction.SharePrice - averageSharePrice) / averageSharePrice) * 100;
-            }
-        }
+        await EnsureNoOversellAsync(userId, transaction);
 
         var result = await transactionRepository.Add(transaction);
+
+        if (ShouldRecalculateRealizedPnL(result.TransactionType))
+        {
+            var recalculatedResults = await RecalculateRealizedPnLForSecuritiesAsync(
+                userId,
+                [result.SecurityId],
+                [result]);
+            ApplyRealizedPnLResults([result], recalculatedResults);
+        }
 
         // Update cash balance
         await cashBalanceService.ProcessTransactionAsync(userId, result.TransactionType, result.TotalAmount);
@@ -117,7 +100,32 @@ public class TransactionService(
             return new List<Transaction>();
         }
 
+        var baseTimeOfDay = DateTime.UtcNow.TimeOfDay;
+        for (var index = 0; index < createdTransactions.Count; index++)
+        {
+            var transaction = createdTransactions[index];
+            var createdAt = transaction.Date.Date.Add(baseTimeOfDay).AddTicks(index);
+            transaction.CreatedAt = createdAt;
+        }
+
+        await EnsureNoOversellForBulkAsync(userId, createdTransactions);
+
         await transactionRepository.AddBulk([.. createdTransactions.Cast<Transaction?>()]);
+
+        var securitiesToRecalculate = createdTransactions
+            .Where(t => ShouldRecalculateRealizedPnL(t.TransactionType))
+            .Select(t => t.SecurityId)
+            .Distinct()
+            .ToList();
+
+        if (securitiesToRecalculate.Count > 0)
+        {
+            var recalculatedResults = await RecalculateRealizedPnLForSecuritiesAsync(
+                userId,
+                securitiesToRecalculate,
+                createdTransactions);
+            ApplyRealizedPnLResults(createdTransactions, recalculatedResults);
+        }
 
         // Update cash balance for each transaction
         foreach (var transaction in createdTransactions)
@@ -162,17 +170,48 @@ public class TransactionService(
                 string.Format(ErrorMessages.TransactionNotFound, transactionId, userId));
         }
 
-        // Store original values for cash balance reversal
+        // Store original values for cash balance reversal and PnL recalculation
         var originalType = existingTransaction.TransactionType;
         var originalAmount = existingTransaction.TotalAmount;
+        var originalSecurityId = existingTransaction.SecurityId;
 
         // Determine effective transaction type for validation (use request value if provided, otherwise existing)
         var effectiveTransactionType = request.TransactionType ?? existingTransaction.TransactionType;
         TransactionValidator.ValidateUpdateRequest(request, effectiveTransactionType, logger);
         await UpdateTransactionPropertiesAsync(existingTransaction, request, securityRepository, logger);
 
+        if (request.Date.HasValue)
+        {
+            var timeOfDay = existingTransaction.CreatedAt.TimeOfDay;
+            existingTransaction.CreatedAt = existingTransaction.Date.Date.Add(timeOfDay);
+        }
+
+        await EnsureNoOversellAsync(userId, existingTransaction, existingTransaction.Id);
         existingTransaction.UpdatedAt = DateTime.UtcNow;
         var updatedTransaction = await transactionRepository.Update(existingTransaction);
+
+        if (ShouldRecalculateRealizedPnL(originalType) || ShouldRecalculateRealizedPnL(updatedTransaction.TransactionType))
+        {
+            var securitiesToRecalculate = new HashSet<Guid>();
+            if (ShouldRecalculateRealizedPnL(originalType))
+            {
+                securitiesToRecalculate.Add(originalSecurityId);
+            }
+
+            if (ShouldRecalculateRealizedPnL(updatedTransaction.TransactionType))
+            {
+                securitiesToRecalculate.Add(updatedTransaction.SecurityId);
+            }
+
+            if (securitiesToRecalculate.Count > 0)
+            {
+                var recalculatedResults = await RecalculateRealizedPnLForSecuritiesAsync(
+                    userId,
+                    securitiesToRecalculate.ToList(),
+                    [updatedTransaction]);
+                ApplyRealizedPnLResults([updatedTransaction], recalculatedResults);
+            }
+        }
 
         // Revert old cash impact and apply new one
         await cashBalanceService.RevertTransactionAsync(userId, originalType, originalAmount);
@@ -187,6 +226,11 @@ public class TransactionService(
         logger.LogOperationStart("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
         var deletedTransaction = await transactionRepository.Delete(transactionId, userId);
 
+        if (ShouldRecalculateRealizedPnL(deletedTransaction.TransactionType))
+        {
+            await RecalculateRealizedPnLForSecuritiesAsync(userId, [deletedTransaction.SecurityId], []);
+        }
+
         // Revert cash impact
         await cashBalanceService.RevertTransactionAsync(userId, deletedTransaction.TransactionType, deletedTransaction.TotalAmount);
 
@@ -200,11 +244,14 @@ public class TransactionService(
             ? DividendCalculator.CalculateSharePriceForDividend(request)
             : request.SharePrice;
 
+        var createdAt = transactionDate.Date.Add(DateTime.UtcNow.TimeOfDay);
         return new Transaction
         {
+            Id = Guid.NewGuid(),
             SecurityId = securityId,
             TransactionType = request.TransactionType,
             Date = transactionDate,
+            CreatedAt = createdAt,
             UpdatedAt = DateTime.UtcNow,
             SharesQuantity = request.SharesQuantity,
             SharePrice = sharePrice,
@@ -212,6 +259,197 @@ public class TransactionService(
             Tax = request.Tax,
             UserId = userId
         };
+    }
+
+    private static bool ShouldRecalculateRealizedPnL(TransactionType transactionType)
+    {
+        return transactionType is TransactionType.Buy or TransactionType.Sell or TransactionType.Split;
+    }
+
+    private static PortfolioTransactionDto ToPortfolioTransactionDto(Transaction transaction)
+    {
+        return new PortfolioTransactionDto
+        {
+            Id = transaction.Id,
+            TransactionType = transaction.TransactionType,
+            Date = transaction.Date,
+            UpdatedAt = transaction.UpdatedAt,
+            CreatedAt = transaction.CreatedAt,
+            SharesQuantity = transaction.SharesQuantity,
+            SharePrice = transaction.SharePrice,
+            Fees = transaction.Fees,
+            Tax = transaction.Tax
+        };
+    }
+
+    private static void ApplyRealizedPnLResults(
+        IEnumerable<Transaction> transactions,
+        IReadOnlyDictionary<Guid, (decimal? RealizedPnL, decimal? RealizedPnLPct)> recalculatedResults)
+    {
+        foreach (var transaction in transactions)
+        {
+            if (recalculatedResults.TryGetValue(transaction.Id, out var values))
+            {
+                transaction.RealizedPnL = values.RealizedPnL;
+                transaction.RealizedPnLPct = values.RealizedPnLPct;
+            }
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, (decimal? RealizedPnL, decimal? RealizedPnLPct)>>
+        RecalculateRealizedPnLForSecuritiesAsync(
+            Guid userId,
+            IReadOnlyCollection<Guid> securityIds,
+            IEnumerable<Transaction>? overrideTransactions)
+    {
+        if (securityIds.Count == 0)
+        {
+            return new Dictionary<Guid, (decimal? RealizedPnL, decimal? RealizedPnLPct)>();
+        }
+
+        var allTransactions = (await transactionRepository.GetAllByUser(userId))?.ToList()
+            ?? new List<Transaction>();
+        var transactionsById = allTransactions.ToDictionary(t => t.Id, t => t);
+
+        if (overrideTransactions != null)
+        {
+            foreach (var transaction in overrideTransactions)
+            {
+                transactionsById[transaction.Id] = transaction;
+            }
+        }
+
+        var recalculatedResults = new Dictionary<Guid, (decimal? RealizedPnL, decimal? RealizedPnLPct)>();
+
+        foreach (var securityId in securityIds.Distinct())
+        {
+            var transactionsForSecurity = transactionsById.Values
+                .Where(t => t.SecurityId == securityId)
+                .ToList();
+
+            if (transactionsForSecurity.Count == 0)
+            {
+                continue;
+            }
+
+            var portfolioTransactions = transactionsForSecurity
+                .Select(ToPortfolioTransactionDto)
+                .ToList();
+
+            var results = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(portfolioTransactions);
+
+            foreach (var transaction in transactionsForSecurity)
+            {
+                if (!results.TryGetValue(transaction.Id, out var values))
+                {
+                    continue;
+                }
+
+                recalculatedResults[transaction.Id] = values;
+
+                if (transaction.RealizedPnL != values.RealizedPnL ||
+                    transaction.RealizedPnLPct != values.RealizedPnLPct)
+                {
+                    transaction.RealizedPnL = values.RealizedPnL;
+                    transaction.RealizedPnLPct = values.RealizedPnLPct;
+                    await transactionRepository.Update(transaction);
+                }
+            }
+        }
+
+        return recalculatedResults;
+    }
+
+    private async Task EnsureNoOversellAsync(Guid userId, Transaction transaction, Guid? excludeTransactionId = null)
+    {
+        if (transaction.TransactionType != TransactionType.Sell)
+        {
+            return;
+        }
+
+        var allTransactions = (await transactionRepository.GetAllByUser(userId))?.ToList()
+            ?? new List<Transaction>();
+        var transactionsById = allTransactions.ToDictionary(t => t.Id, t => t);
+
+        if (excludeTransactionId.HasValue)
+        {
+            transactionsById.Remove(excludeTransactionId.Value);
+        }
+
+        transactionsById[transaction.Id] = transaction;
+
+        var securityTransactions = transactionsById.Values
+            .Where(t => t.SecurityId == transaction.SecurityId)
+            .ToList();
+
+        var sharesBeforeById = RealizedPnLCalculator.CalculateAvailableSharesBeforeTransaction(
+            securityTransactions.Select(ToPortfolioTransactionDto));
+
+        if (!sharesBeforeById.TryGetValue(transaction.Id, out var availableShares) ||
+            availableShares < transaction.SharesQuantity)
+        {
+            logger.LogBusinessRuleViolation(
+                "TransactionService",
+                ErrorMessages.InsufficientSharesToSell,
+                new
+                {
+                    UserId = userId,
+                    SecurityId = transaction.SecurityId,
+                    AvailableShares = availableShares,
+                    RequestedShares = transaction.SharesQuantity
+                });
+            throw new InvalidOperationException(ErrorMessages.InsufficientSharesToSell);
+        }
+    }
+
+    private async Task EnsureNoOversellForBulkAsync(Guid userId, IReadOnlyCollection<Transaction> createdTransactions)
+    {
+        var sellTransactions = createdTransactions
+            .Where(t => t.TransactionType == TransactionType.Sell)
+            .ToList();
+
+        if (sellTransactions.Count == 0)
+        {
+            return;
+        }
+
+        var allTransactions = (await transactionRepository.GetAllByUser(userId))?.ToList()
+            ?? new List<Transaction>();
+        var transactionsById = allTransactions.ToDictionary(t => t.Id, t => t);
+
+        foreach (var transaction in createdTransactions)
+        {
+            transactionsById[transaction.Id] = transaction;
+        }
+
+        foreach (var securityId in sellTransactions.Select(t => t.SecurityId).Distinct())
+        {
+            var securityTransactions = transactionsById.Values
+                .Where(t => t.SecurityId == securityId)
+                .ToList();
+
+            var sharesBeforeById = RealizedPnLCalculator.CalculateAvailableSharesBeforeTransaction(
+                securityTransactions.Select(ToPortfolioTransactionDto));
+
+            foreach (var sellTransaction in sellTransactions.Where(t => t.SecurityId == securityId))
+            {
+                if (!sharesBeforeById.TryGetValue(sellTransaction.Id, out var availableShares) ||
+                    availableShares < sellTransaction.SharesQuantity)
+                {
+                    logger.LogBusinessRuleViolation(
+                        "TransactionService",
+                        ErrorMessages.InsufficientSharesToSell,
+                        new
+                        {
+                            UserId = userId,
+                            SecurityId = securityId,
+                            AvailableShares = availableShares,
+                            RequestedShares = sellTransaction.SharesQuantity
+                        });
+                    throw new InvalidOperationException(ErrorMessages.InsufficientSharesToSell);
+                }
+            }
+        }
     }
 
     private static async Task UpdateTransactionPropertiesAsync(

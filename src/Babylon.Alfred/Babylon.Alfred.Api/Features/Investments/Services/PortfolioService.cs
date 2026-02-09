@@ -187,6 +187,7 @@ public class PortfolioService(
                 TransactionType = t.TransactionType,
                 Date = t.Date,
                 UpdatedAt = t.UpdatedAt,
+                CreatedAt = t.CreatedAt,
                 SharesQuantity = t.SharesQuantity,
                 SharePrice = t.SharePrice,
                 Fees = t.Fees,
@@ -194,7 +195,7 @@ public class PortfolioService(
                 // TotalAmount is computed, so we don't need to set it explicitly
             })
             .OrderByDescending(t => t.Date)
-            .ThenByDescending(t => t.UpdatedAt)
+            .ThenByDescending(t => t.CreatedAt)
             .ToList();
     }
 

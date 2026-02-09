@@ -62,6 +62,7 @@ public class TransactionRepositoryTests : IDisposable
             SecurityId = security.Id,
             TransactionType = TransactionType.Buy,
             Date = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             SharesQuantity = 10m,
             SharePrice = 150m,
             Fees = 5m,
@@ -97,6 +98,7 @@ public class TransactionRepositoryTests : IDisposable
             SecurityId = security.Id,
             TransactionType = TransactionType.Sell,
             Date = date,
+            UpdatedAt = date,
             SharesQuantity = 5m,
             SharePrice = 2800m,
             Fees = 10m,
@@ -144,6 +146,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = 10m,
                 SharePrice = 150m,
                 Fees = 5m,
@@ -155,6 +158,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = 5m,
                 SharePrice = 2800m,
                 Fees = 10m,
@@ -166,6 +170,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security3.Id,
                 TransactionType = TransactionType.Sell,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = 20m,
                 SharePrice = 300m,
                 Fees = 8m,
@@ -198,6 +203,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security1.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = 10m,
                 SharePrice = 150m,
                 Fees = 5m,
@@ -209,6 +215,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = security2.Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = 5m,
                 SharePrice = 2800m,
                 Fees = 10m,
@@ -259,6 +266,7 @@ public class TransactionRepositoryTests : IDisposable
                 SecurityId = securities[i - 1].Id,
                 TransactionType = TransactionType.Buy,
                 Date = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 SharesQuantity = i,
                 SharePrice = 100m + i,
                 Fees = i * 0.1m,
@@ -410,7 +418,7 @@ public class TransactionRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetOpenPositionsByUser_ShouldReturnTransactionsOrderedByUpdatedAtDescending()
+    public async Task GetOpenPositionsByUser_ShouldReturnTransactionsOrderedByDateDescending()
     {
         // Arrange
         var security1 = await CreateSecurityAsync("OLD");
@@ -467,11 +475,11 @@ public class TransactionRepositoryTests : IDisposable
 
         // Assert
         result.Should().HaveCount(3);
-        result.Should().BeInDescendingOrder(t => t.UpdatedAt);
+        result.Should().BeInDescendingOrder(t => t.Date);
         var resultWithSecurities = await context.Transactions
             .Include(t => t.Security)
             .Where(t => result.Select(r => r.Id).Contains(t.Id))
-            .OrderByDescending(t => t.UpdatedAt)
+            .OrderByDescending(t => t.Date)
             .ToListAsync();
         resultWithSecurities[0].Security.Ticker.Should().Be("NEW");
         resultWithSecurities[1].Security.Ticker.Should().Be("MIDDLE");
@@ -630,7 +638,7 @@ public class TransactionRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllByUser_WithUserId_ShouldReturnAllTransactionsForUserOrderedByUpdatedAtDescending()
+    public async Task GetAllByUser_WithUserId_ShouldReturnAllTransactionsForUserOrderedByDateDescending()
     {
         // Arrange
         var security1 = await CreateSecurityAsync("AAPL", "Apple Inc.");
@@ -703,10 +711,10 @@ public class TransactionRepositoryTests : IDisposable
         // Assert
         result.Should().HaveCount(3);
         result.Should().AllSatisfy(t => t.UserId.Should().Be(userId));
-        result.Should().BeInDescendingOrder(t => t.UpdatedAt);
-        result[0].UpdatedAt.Should().Be(newDate);
-        result[1].UpdatedAt.Should().Be(middleDate);
-        result[2].UpdatedAt.Should().Be(oldDate);
+        result.Should().BeInDescendingOrder(t => t.Date);
+        result[0].Date.Should().Be(newDate);
+        result[1].Date.Should().Be(middleDate);
+        result[2].Date.Should().Be(oldDate);
     }
 
     [Fact]
