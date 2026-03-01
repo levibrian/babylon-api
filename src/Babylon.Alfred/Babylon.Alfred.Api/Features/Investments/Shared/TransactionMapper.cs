@@ -24,7 +24,9 @@ public static class TransactionMapper
             SharePrice = transaction.SharePrice,
             Fees = transaction.Fees,
             Tax = transaction.Tax,
-            TransactionType = transaction.TransactionType
+            TransactionType = transaction.TransactionType,
+            RealizedPnL = transaction.RealizedPnL,
+            RealizedPnLPct = transaction.RealizedPnLPct
         };
     }
 

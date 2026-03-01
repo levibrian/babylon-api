@@ -14,6 +14,8 @@ public class TransactionDto
     public decimal Fees { get; set; }
     public decimal Tax { get; set; }
     public TransactionType TransactionType { get; set; }
+    public decimal? RealizedPnL { get; set; }
+    public decimal? RealizedPnLPct { get; set; }
 
     public decimal TotalAmount
     {
@@ -21,8 +23,8 @@ public class TransactionDto
         {
             return TransactionType switch
             {
-                TransactionType.Buy => (SharesQuantity * SharePrice) + Fees,
-                TransactionType.Sell => (SharesQuantity * SharePrice) - Fees,
+                TransactionType.Buy => (SharesQuantity * SharePrice) + Fees + Tax,
+                TransactionType.Sell => (SharesQuantity * SharePrice) - Fees - Tax,
                 TransactionType.Dividend => (SharesQuantity * SharePrice) - Tax,  // Gross - Tax = Net Income
                 TransactionType.Split => 0,  // Stock splits don't involve money
                 _ => (SharesQuantity * SharePrice) + Fees

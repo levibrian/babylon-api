@@ -21,7 +21,7 @@ public class Transaction
     // Navigation properties
     public User? User { get; set; } = null!;
     public Security Security { get; set; } = null!;
-    
+
     public decimal? RealizedPnL { get; set; }
     public decimal? RealizedPnLPct { get; set; }
 
@@ -32,8 +32,8 @@ public class Transaction
     [NotMapped]
     public decimal TotalAmount => TransactionType switch
     {
-        TransactionType.Buy => Amount + Fees,
-        TransactionType.Sell => Amount - Fees,
+        TransactionType.Buy => Amount + Fees + Tax,
+        TransactionType.Sell => Amount - Fees - Tax,
         TransactionType.Dividend => (SharesQuantity * SharePrice) - Tax,  // Gross - Tax = Net Income
         TransactionType.Split => 0,  // Stock splits don't involve money
         _ => Amount + Fees

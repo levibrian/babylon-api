@@ -28,8 +28,8 @@ public class RealizedGainsBackfillService : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var transactionRepository = scope.ServiceProvider.GetRequiredService<ITransactionRepository>();
-        
-        try 
+
+        try
         {
             await BackfillForAllUsers(transactionRepository, stoppingToken);
         }
@@ -45,7 +45,7 @@ public class RealizedGainsBackfillService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<Babylon.Alfred.Api.Shared.Data.BabylonDbContext>();
-        
+
         var userIds = await dbContext.Transactions
             .Select(t => t.UserId)
             .Distinct()
@@ -75,7 +75,7 @@ public class RealizedGainsBackfillService : BackgroundService
         foreach (var securityGroup in transactionsBySecurity)
         {
             var securityTransactions = securityGroup.ToList();
-            
+
             // Convert to DTO for calculator
             var portfolioTransactions = securityTransactions.Select(t => new PortfolioTransactionDto
             {
@@ -87,7 +87,9 @@ public class RealizedGainsBackfillService : BackgroundService
                 SharesQuantity = t.SharesQuantity,
                 SharePrice = t.SharePrice,
                 Fees = t.Fees,
-                Tax = t.Tax
+                Tax = t.Tax,
+                RealizedPnL = t.RealizedPnL,
+                RealizedPnLPct = t.RealizedPnLPct
             }).ToList();
 
             var recalculatedResults = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(portfolioTransactions);

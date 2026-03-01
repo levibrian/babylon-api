@@ -244,5 +244,58 @@ public class PortfolioCalculatorSplitTests
         var averageSharePrice = costBasis / totalShares;
         averageSharePrice.Should().BeApproximately(33.35m, 0.01m);
     }
+
+    [Fact]
+    public void CalculateCostBasis_WithSplitAndSell_ShouldCalculatePnLCorrectly()
+    {
+        // Arrange
+        var transactions = new List<PortfolioTransactionDto>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2024, 1, 1),
+                SharesQuantity = 100m,
+                SharePrice = 100m,
+                Fees = 0m,
+                CreatedAt = new DateTime(2024, 1, 1)
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Split,
+                Date = new DateTime(2024, 2, 1),
+                SharesQuantity = 2.0m, // 2-for-1
+                SharePrice = 0m,
+                Fees = 0m,
+                CreatedAt = new DateTime(2024, 2, 1)
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Sell,
+                Date = new DateTime(2024, 3, 1),
+                SharesQuantity = 100m, // Sell half of split shares
+                SharePrice = 60m,
+                Fees = 10m,
+                CreatedAt = new DateTime(2024, 3, 1)
+            }
+        };
+
+        // Act
+        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+
+        // Assert
+        // After split: 200 shares, 10,000 cost basis -> avg cost 50
+        // Sell 100 shares at 60:
+        // PnL = (100 * 60) - 10 - (100 * 50) = 6000 - 10 - 5000 = 990
+        var sellTransaction = transactions[2];
+        sellTransaction.RealizedPnL.Should().Be(990m);
+        sellTransaction.RealizedPnLPct.Should().Be(19.8m); // 990 / 5000 * 100
+
+        totalShares.Should().Be(100m);
+        costBasis.Should().Be(5000m);
+    }
 }
 

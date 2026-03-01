@@ -4,7 +4,6 @@ using Babylon.Alfred.Api.Shared.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Converters;
 using Serilog;
-using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 

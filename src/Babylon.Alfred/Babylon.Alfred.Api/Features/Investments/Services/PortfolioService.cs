@@ -191,7 +191,9 @@ public class PortfolioService(
                 SharesQuantity = t.SharesQuantity,
                 SharePrice = t.SharePrice,
                 Fees = t.Fees,
-                Tax = t.Tax
+                Tax = t.Tax,
+                RealizedPnL = t.RealizedPnL,
+                RealizedPnLPct = t.RealizedPnLPct
                 // TotalAmount is computed, so we don't need to set it explicitly
             })
             .OrderByDescending(t => t.Date)

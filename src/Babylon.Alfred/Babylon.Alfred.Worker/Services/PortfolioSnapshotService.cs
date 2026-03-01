@@ -191,7 +191,9 @@ public class PortfolioSnapshotService(
             SharesQuantity = t.SharesQuantity,
             SharePrice = t.SharePrice,
             Fees = t.Fees,
-            Tax = t.Tax
+            Tax = t.Tax,
+            RealizedPnL = t.RealizedPnL,
+            RealizedPnLPct = t.RealizedPnLPct
         }).ToList();
     }
 }

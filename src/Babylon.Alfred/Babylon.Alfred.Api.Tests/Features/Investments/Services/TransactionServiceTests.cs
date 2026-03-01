@@ -1,5 +1,7 @@
 using AutoFixture;
 using Babylon.Alfred.Api.Features.Investments.Models.Requests;
+using Babylon.Alfred.Api.Features.Investments.Models.Responses;
+using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Features.Investments.Shared;
 using Babylon.Alfred.Api.Shared.Data.Models;
@@ -35,6 +37,13 @@ public class TransactionServiceTests
             return new DateOnly(year, month, day);
         }));
 
+        // Force Tax to be 0 for all objects that have it
+        fixture.Customize<Transaction>(c => c.With(t => t.Tax, 0m));
+        fixture.Customize<PortfolioTransactionDto>(c => c.With(t => t.Tax, 0m));
+        fixture.Customize<TransactionDto>(c => c.With(t => t.Tax, 0m));
+        fixture.Customize<CreateTransactionRequest>(c => c.With(t => t.Tax, 0m));
+        fixture.Customize<UpdateTransactionRequest>(c => c.With(t => t.Tax, (decimal?)null));
+
         sut = autoMocker.CreateInstance<TransactionService>();
     }
 
@@ -43,6 +52,7 @@ public class TransactionServiceTests
     {
         // Arrange
         var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Tax, 0m)
             .With(r => r.SharesQuantity, 10m)
             .With(r => r.SharePrice, 100m)
             .With(r => r.Fees, 5m)
@@ -470,6 +480,7 @@ public class TransactionServiceTests
             .With(t => t.SharesQuantity, 15m)
             .With(t => t.SharePrice, 350m)
             .With(t => t.Fees, 7.5m)
+            .With(t => t.Tax, 0m)
             .With(t => t.UserId, userId)
             .Create();
 
@@ -823,7 +834,16 @@ public class TransactionServiceTests
         var transaction = fixture.Build<Transaction>()
             .With(t => t.Id, transactionId)
             .With(t => t.UserId, userId)
+            .With(t => t.TransactionType, TransactionType.Buy)
             .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync(transaction);
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction> { transaction });
 
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.Delete(transactionId, userId))
@@ -845,8 +865,8 @@ public class TransactionServiceTests
         var transactionId = Guid.NewGuid();
 
         autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.Delete(transactionId, userId))
-            .ThrowsAsync(new InvalidOperationException($"Transaction {transactionId} not found for user {userId}"));
+            .Setup(x => x.GetById(transactionId, userId))
+            .ReturnsAsync((Transaction?)null);
 
         // Act
         var act = async () => await sut.Delete(userId, transactionId);
@@ -861,6 +881,7 @@ public class TransactionServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Tax, 0m)
             .With(r => r.Ticker, "AAPL")
             .With(r => r.TransactionType, TransactionType.Sell)
             .With(r => r.SharesQuantity, 5m)
@@ -868,7 +889,7 @@ public class TransactionServiceTests
             .With(r => r.Fees, 5m)
             .With(r => r.Date, new DateOnly(2025, 2, 1))
             .Create();
-            
+
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
@@ -881,6 +902,7 @@ public class TransactionServiceTests
         var existingTransactions = new List<Transaction>
         {
             fixture.Build<Transaction>()
+                .With(t => t.Tax, 0m)
                 .With(t => t.SecurityId, security.Id)
                 .With(t => t.TransactionType, TransactionType.Buy)
                 .With(t => t.SharesQuantity, 10m)
@@ -891,6 +913,7 @@ public class TransactionServiceTests
                 .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
                 .Create(),
             fixture.Build<Transaction>()
+                .With(t => t.Tax, 0m)
                 .With(t => t.SecurityId, security.Id)
                 .With(t => t.TransactionType, TransactionType.Buy)
                 .With(t => t.SharesQuantity, 10m)
@@ -905,7 +928,7 @@ public class TransactionServiceTests
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
             .ReturnsAsync(security);
-            
+
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(existingTransactions);
@@ -921,16 +944,17 @@ public class TransactionServiceTests
         var result = await sut.Create(userId, request);
 
         // Assert
-        // Avg Price = 150. Sell Price = 180.
-        // PnL = (180 * 5 - 5) - (150 * 5) = 145
-        // PnL % = (145 / 750) * 100 = 19.3333...
-        result.RealizedPnL.Should().Be(145m);
-        result.RealizedPnLPct.Should().BeApproximately(19.3333m, 0.0001m);
-        
+        // FIFO: 5 shares from first buy (10 @ 100). Cost = 500.
+        // Net Proceeds = (180 * 5 - 5) = 895.
+        // PnL = 895 - 500 = 395.
+        // PnL % = (395 / 500) * 100 = 79%
+        result.RealizedPnL.Should().Be(395m);
+        result.RealizedPnLPct.Should().Be(79m);
+
         autoMocker.GetMock<ITransactionRepository>().Verify(
-            x => x.Update(It.Is<Transaction>(t => 
-                t.RealizedPnL == 145m && 
-                t.RealizedPnLPct != null)), 
+            x => x.Update(It.Is<Transaction>(t =>
+                t.RealizedPnL == 395m &&
+                t.RealizedPnLPct == 79m)),
             Times.Once);
     }
 
@@ -944,7 +968,7 @@ public class TransactionServiceTests
             .With(r => r.TransactionType, TransactionType.Sell)
             .With(r => r.SharesQuantity, 5m)
             .Create();
-            
+
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
@@ -953,7 +977,7 @@ public class TransactionServiceTests
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
             .ReturnsAsync(security);
-            
+
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(new List<Transaction>()); // Empty history
@@ -1034,7 +1058,7 @@ public class TransactionServiceTests
             .With(r => r.Ticker, "AAPL")
             .With(r => r.TransactionType, TransactionType.Buy)
             .Create();
-            
+
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
@@ -1043,7 +1067,7 @@ public class TransactionServiceTests
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
             .ReturnsAsync(security);
-            
+
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(new List<Transaction>());
@@ -1069,23 +1093,25 @@ public class TransactionServiceTests
             .With(r => r.Ticker, "AAPL")
             .With(r => r.TransactionType, TransactionType.Sell)
             .With(r => r.SharesQuantity, 5m)
-            .With(r => r.SharePrice, 200m) 
+            .With(r => r.SharePrice, 200m)
             .With(r => r.Fees, 0m)
+            .With(r => r.Tax, 0m)
             .With(r => r.Date, new DateOnly(2025, 3, 1))
             .Create();
-            
+
         var security = fixture.Build<Security>()
             .With(c => c.Ticker, request.Ticker)
             .With(c => c.Id, Guid.NewGuid())
             .Create();
 
         // Sequence:
-        // 1. Buy 10 @ 100. Cost 1000. Shares 10. Avg 100.
-        // 2. Sell 5 @ 120. (Remains: Shares 5, Cost 500, Avg 100).
-        // 3. Buy 5 @ 200. (Total: Shares 10, Cost 500 + 1000 = 1500. Avg 150).
+        // 1. Buy 10 @ 100. Cost 1000. Shares 10.
+        // 2. Sell 5 @ 120. (Remains: Lot 1 with 5 shares @ 100).
+        // 3. Buy 5 @ 200. (Total: Lot 1 with 5 @ 100, Lot 2 with 5 @ 200).
         // New Transaction: Sell 5 @ 200.
-        // Expected PnL: (200 - 150) * 5 = 250.
-        // Expected PnL%: ((200 - 150) / 150) * 100 = 33.3333...
+        // FIFO: Consumes Lot 1 (5 @ 100). Cost 500.
+        // Expected PnL: (200 * 5) - 500 = 500.
+        // Expected PnL%: (500 / 500) * 100 = 100%.
 
         var existingTransactions = new List<Transaction>
         {
@@ -1095,6 +1121,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 10m)
                 .With(t => t.SharePrice, 100m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 1, 1))
                 .With(t => t.UpdatedAt, new DateTime(2025, 1, 1))
                 .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
@@ -1105,6 +1132,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 5m)
                 .With(t => t.SharePrice, 120m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 1, 2))
                 .With(t => t.UpdatedAt, new DateTime(2025, 1, 2))
                 .With(t => t.CreatedAt, new DateTime(2025, 1, 2))
@@ -1115,6 +1143,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 5m)
                 .With(t => t.SharePrice, 200m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 2, 1))
                 .With(t => t.UpdatedAt, new DateTime(2025, 2, 1))
                 .With(t => t.CreatedAt, new DateTime(2025, 2, 1))
@@ -1124,7 +1153,7 @@ public class TransactionServiceTests
         autoMocker.GetMock<ISecurityRepository>()
             .Setup(x => x.GetByTickerAsync(request.Ticker))
             .ReturnsAsync(security);
-            
+
         autoMocker.GetMock<ITransactionRepository>()
             .Setup(x => x.GetAllByUser(userId))
             .ReturnsAsync(existingTransactions);
@@ -1137,12 +1166,8 @@ public class TransactionServiceTests
         var result = await sut.Create(userId, request);
 
         // Assert
-        result.RealizedPnL.Should().Be(250m);
-        // Using Approximately for floating point (decimal) precision if needed, though exact matching 33.3333 might fail if not rounded.
-        // The implementation does result.RealizedPnLPct = ...
-        // 50 / 150 = 0.33333333... * 100 = 33.333333...
-        // Let's assert broadly or use precision.
-        result.RealizedPnLPct.Should().BeApproximately(33.3333m, 0.0001m);
+        result.RealizedPnL.Should().Be(500m);
+        result.RealizedPnLPct.Should().Be(100m);
     }
 
     [Fact]
@@ -1156,6 +1181,7 @@ public class TransactionServiceTests
             .With(r => r.SharesQuantity, 2m)
             .With(r => r.SharePrice, 150m)
             .With(r => r.Fees, 0m)
+            .With(r => r.Tax, 0m)
             .With(r => r.Date, new DateOnly(2025, 2, 1))
             .Create();
 
@@ -1172,6 +1198,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 10m)
                 .With(t => t.SharePrice, 100m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 1, 1))
                 .With(t => t.UpdatedAt, new DateTime(2025, 1, 1))
                 .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
@@ -1182,6 +1209,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 10m)
                 .With(t => t.SharePrice, 300m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 3, 1))
                 .With(t => t.UpdatedAt, new DateTime(2025, 3, 1))
                 .With(t => t.CreatedAt, new DateTime(2025, 3, 1))
@@ -1222,6 +1250,7 @@ public class TransactionServiceTests
             .With(r => r.SharesQuantity, 10m)
             .With(r => r.SharePrice, 60m)
             .With(r => r.Fees, 0m)
+            .With(r => r.Tax, 0m)
             .With(r => r.Date, new DateOnly(2025, 3, 1))
             .Create();
 
@@ -1238,6 +1267,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 10m)
                 .With(t => t.SharePrice, 100m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 1, 1))
                 .With(t => t.UpdatedAt, new DateTime(2025, 1, 1))
                 .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
@@ -1248,6 +1278,7 @@ public class TransactionServiceTests
                 .With(t => t.SharesQuantity, 2m)
                 .With(t => t.SharePrice, 0m)
                 .With(t => t.Fees, 0m)
+                .With(t => t.Tax, 0m)
                 .With(t => t.Date, new DateTime(2025, 2, 1))
                 .With(t => t.UpdatedAt, new DateTime(2025, 2, 1))
                 .With(t => t.CreatedAt, new DateTime(2025, 2, 1))
@@ -1288,6 +1319,7 @@ public class TransactionServiceTests
             .With(r => r.SharesQuantity, 10m)
             .With(r => r.SharePrice, 100m)
             .With(r => r.Fees, 0m)
+            .With(r => r.Tax, 0m)
             .With(r => r.Date, new DateOnly(2025, 1, 1))
             .Create();
         var sellRequest = fixture.Build<CreateTransactionRequest>()
@@ -1296,6 +1328,7 @@ public class TransactionServiceTests
             .With(r => r.SharesQuantity, 5m)
             .With(r => r.SharePrice, 150m)
             .With(r => r.Fees, 0m)
+            .With(r => r.Tax, 0m)
             .With(r => r.Date, new DateOnly(2025, 2, 1))
             .Create();
         var security = fixture.Build<Security>()
@@ -1346,6 +1379,7 @@ public class TransactionServiceTests
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
             .With(t => t.RealizedPnL, (decimal?)null)
             .With(t => t.RealizedPnLPct, (decimal?)null)
             .With(t => t.Date, new DateTime(2025, 2, 1))
@@ -1361,6 +1395,7 @@ public class TransactionServiceTests
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 100m)
             .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
             .With(t => t.RealizedPnL, (decimal?)null)
             .With(t => t.RealizedPnLPct, (decimal?)null)
             .With(t => t.Date, new DateTime(2025, 1, 1))
@@ -1525,6 +1560,115 @@ public class TransactionServiceTests
             .WithMessage(ErrorMessages.InsufficientSharesToSell);
         autoMocker.GetMock<ITransactionRepository>().Verify(
             x => x.Update(It.IsAny<Transaction>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Update_WhenHistoricalBuyQuantityReduced_ShouldThrowIfFutureSellOversells()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var buyId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .With(s => s.Id, Guid.NewGuid())
+            .Create();
+
+        var existingBuy = fixture.Build<Transaction>()
+            .With(t => t.Id, buyId)
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.Date, new DateTime(2025, 1, 1))
+            .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
+            .Create();
+
+        var existingSell = fixture.Build<Transaction>()
+            .With(t => t.Id, Guid.NewGuid())
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .With(t => t.TransactionType, TransactionType.Sell)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.Date, new DateTime(2025, 1, 2))
+            .With(t => t.CreatedAt, new DateTime(2025, 1, 2))
+            .Create();
+
+        var updateRequest = fixture.Build<UpdateTransactionRequest>()
+            .With(r => r.SharesQuantity, 5m) // Reduce from 10 to 5
+            .With(r => r.Ticker, (string?)null)
+            .With(r => r.TransactionType, (TransactionType?)null)
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(buyId, userId))
+            .ReturnsAsync(existingBuy);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Update(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction> { existingBuy, existingSell });
+
+        // Act
+        var act = async () => await sut.Update(userId, buyId, updateRequest);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(ErrorMessages.InsufficientSharesToSell);
+    }
+
+    [Fact]
+    public async Task Delete_WhenHistoricalBuyDeleted_ShouldThrowIfFutureSellOversells()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var buyId = Guid.NewGuid();
+        var security = fixture.Build<Security>()
+            .With(s => s.Ticker, "AAPL")
+            .With(s => s.Id, Guid.NewGuid())
+            .Create();
+
+        var existingBuy = fixture.Build<Transaction>()
+            .With(t => t.Id, buyId)
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.Date, new DateTime(2025, 1, 1))
+            .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
+            .Create();
+
+        var existingSell = fixture.Build<Transaction>()
+            .With(t => t.Id, Guid.NewGuid())
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.Security, security)
+            .With(t => t.UserId, userId)
+            .With(t => t.TransactionType, TransactionType.Sell)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.Date, new DateTime(2025, 1, 2))
+            .With(t => t.CreatedAt, new DateTime(2025, 1, 2))
+            .Create();
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetById(buyId, userId))
+            .ReturnsAsync(existingBuy);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(new List<Transaction> { existingBuy, existingSell });
+
+        // Act
+        var act = async () => await sut.Delete(userId, buyId);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(ErrorMessages.InsufficientSharesToSell);
+
+        autoMocker.GetMock<ITransactionRepository>().Verify(
+            x => x.Delete(buyId, userId),
             Times.Never);
     }
 }

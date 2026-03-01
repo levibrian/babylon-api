@@ -32,6 +32,10 @@ public class PortfolioServiceTests
             return new DateOnly(year, month, day);
         }));
 
+        // Force Tax to be 0 for all objects that have it
+        fixture.Customize<Transaction>(c => c.With(t => t.Tax, 0m));
+        fixture.Customize<CreateTransactionRequest>(c => c.With(t => t.Tax, 0m));
+
         sut = autoMocker.CreateInstance<PortfolioService>();
 
         // Setup default mocks for services that are always needed
@@ -388,6 +392,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m) // TotalAmount = 1505
+            .With(t => t.Tax, 0m)
             .With(t => t.UserId, userId)
             .Create();
         var transaction2 = fixture.Build<Transaction>()
@@ -396,6 +401,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m) // TotalAmount = 14010
+            .With(t => t.Tax, 0m)
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transaction1, transaction2 };

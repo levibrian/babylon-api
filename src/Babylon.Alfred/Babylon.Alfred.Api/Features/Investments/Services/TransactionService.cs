@@ -63,7 +63,7 @@ public class TransactionService(
 
         var transaction = CreateTransactionEntity(userId, request, security.Id);
 
-        await EnsureNoOversellAsync(userId, transaction);
+        await ValidateInventoryAsync(userId, [transaction.SecurityId], [transaction]);
 
         var result = await transactionRepository.Add(transaction);
 
@@ -108,7 +108,8 @@ public class TransactionService(
             transaction.CreatedAt = createdAt;
         }
 
-        await EnsureNoOversellForBulkAsync(userId, createdTransactions);
+        var securityIdsToValidate = createdTransactions.Select(t => t.SecurityId).Distinct();
+        await ValidateInventoryAsync(userId, securityIdsToValidate, createdTransactions);
 
         await transactionRepository.AddBulk([.. createdTransactions.Cast<Transaction?>()]);
 
@@ -186,7 +187,9 @@ public class TransactionService(
             existingTransaction.CreatedAt = existingTransaction.Date.Date.Add(timeOfDay);
         }
 
-        await EnsureNoOversellAsync(userId, existingTransaction, existingTransaction.Id);
+        var securityIdsToValidate = new HashSet<Guid> { originalSecurityId, existingTransaction.SecurityId };
+        await ValidateInventoryAsync(userId, securityIdsToValidate, [existingTransaction], [existingTransaction.Id]);
+
         existingTransaction.UpdatedAt = DateTime.UtcNow;
         var updatedTransaction = await transactionRepository.Update(existingTransaction);
 
@@ -224,6 +227,20 @@ public class TransactionService(
     public async Task Delete(Guid userId, Guid transactionId)
     {
         logger.LogOperationStart("DeleteTransaction", new { TransactionId = transactionId, UserId = userId });
+
+        var existingTransaction = await transactionRepository.GetById(transactionId, userId);
+        if (existingTransaction == null)
+        {
+            logger.LogBusinessRuleViolation("DeleteTransaction",
+                string.Format(ErrorMessages.TransactionNotFound, transactionId, userId),
+                new { TransactionId = transactionId, UserId = userId });
+            throw new InvalidOperationException(
+                string.Format(ErrorMessages.TransactionNotFound, transactionId, userId));
+        }
+
+        // Validate that deleting this transaction doesn't cause overselling in the future
+        await ValidateInventoryAsync(userId, [existingTransaction.SecurityId], [], [transactionId]);
+
         var deletedTransaction = await transactionRepository.Delete(transactionId, userId);
 
         if (ShouldRecalculateRealizedPnL(deletedTransaction.TransactionType))
@@ -278,7 +295,9 @@ public class TransactionService(
             SharesQuantity = transaction.SharesQuantity,
             SharePrice = transaction.SharePrice,
             Fees = transaction.Fees,
-            Tax = transaction.Tax
+            Tax = transaction.Tax,
+            RealizedPnL = transaction.RealizedPnL,
+            RealizedPnLPct = transaction.RealizedPnLPct
         };
     }
 
@@ -360,69 +379,34 @@ public class TransactionService(
         return recalculatedResults;
     }
 
-    private async Task EnsureNoOversellAsync(Guid userId, Transaction transaction, Guid? excludeTransactionId = null)
+    private async Task ValidateInventoryAsync(
+        Guid userId,
+        IEnumerable<Guid> securityIdsToValidate,
+        IEnumerable<Transaction>? overrideTransactions = null,
+        IEnumerable<Guid>? excludeIds = null)
     {
-        if (transaction.TransactionType != TransactionType.Sell)
-        {
-            return;
-        }
-
         var allTransactions = (await transactionRepository.GetAllByUser(userId))?.ToList()
             ?? new List<Transaction>();
+
         var transactionsById = allTransactions.ToDictionary(t => t.Id, t => t);
 
-        if (excludeTransactionId.HasValue)
+        if (excludeIds != null)
         {
-            transactionsById.Remove(excludeTransactionId.Value);
+            foreach (var id in excludeIds)
+            {
+                transactionsById.Remove(id);
+            }
         }
 
-        transactionsById[transaction.Id] = transaction;
-
-        var securityTransactions = transactionsById.Values
-            .Where(t => t.SecurityId == transaction.SecurityId)
-            .ToList();
-
-        var sharesBeforeById = RealizedPnLCalculator.CalculateAvailableSharesBeforeTransaction(
-            securityTransactions.Select(ToPortfolioTransactionDto));
-
-        if (!sharesBeforeById.TryGetValue(transaction.Id, out var availableShares) ||
-            availableShares < transaction.SharesQuantity)
+        if (overrideTransactions != null)
         {
-            logger.LogBusinessRuleViolation(
-                "TransactionService",
-                ErrorMessages.InsufficientSharesToSell,
-                new
-                {
-                    UserId = userId,
-                    SecurityId = transaction.SecurityId,
-                    AvailableShares = availableShares,
-                    RequestedShares = transaction.SharesQuantity
-                });
-            throw new InvalidOperationException(ErrorMessages.InsufficientSharesToSell);
-        }
-    }
-
-    private async Task EnsureNoOversellForBulkAsync(Guid userId, IReadOnlyCollection<Transaction> createdTransactions)
-    {
-        var sellTransactions = createdTransactions
-            .Where(t => t.TransactionType == TransactionType.Sell)
-            .ToList();
-
-        if (sellTransactions.Count == 0)
-        {
-            return;
+            foreach (var transaction in overrideTransactions)
+            {
+                transactionsById[transaction.Id] = transaction;
+            }
         }
 
-        var allTransactions = (await transactionRepository.GetAllByUser(userId))?.ToList()
-            ?? new List<Transaction>();
-        var transactionsById = allTransactions.ToDictionary(t => t.Id, t => t);
-
-        foreach (var transaction in createdTransactions)
-        {
-            transactionsById[transaction.Id] = transaction;
-        }
-
-        foreach (var securityId in sellTransactions.Select(t => t.SecurityId).Distinct())
+        foreach (var securityId in securityIdsToValidate.Distinct())
         {
             var securityTransactions = transactionsById.Values
                 .Where(t => t.SecurityId == securityId)
@@ -431,10 +415,10 @@ public class TransactionService(
             var sharesBeforeById = RealizedPnLCalculator.CalculateAvailableSharesBeforeTransaction(
                 securityTransactions.Select(ToPortfolioTransactionDto));
 
-            foreach (var sellTransaction in sellTransactions.Where(t => t.SecurityId == securityId))
+            foreach (var trans in securityTransactions.Where(t => t.TransactionType == TransactionType.Sell))
             {
-                if (!sharesBeforeById.TryGetValue(sellTransaction.Id, out var availableShares) ||
-                    availableShares < sellTransaction.SharesQuantity)
+                if (!sharesBeforeById.TryGetValue(trans.Id, out var availableShares) ||
+                    availableShares < trans.SharesQuantity)
                 {
                     logger.LogBusinessRuleViolation(
                         "TransactionService",
@@ -444,7 +428,8 @@ public class TransactionService(
                             UserId = userId,
                             SecurityId = securityId,
                             AvailableShares = availableShares,
-                            RequestedShares = sellTransaction.SharesQuantity
+                            RequestedShares = trans.SharesQuantity,
+                            TransactionId = trans.Id
                         });
                     throw new InvalidOperationException(ErrorMessages.InsufficientSharesToSell);
                 }
