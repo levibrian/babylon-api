@@ -1,0 +1,14 @@
+app = "babylon-worker"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "src/Babylon.Alfred/Babylon.Alfred.Worker/Dockerfile"
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  DOTNET_ENVIRONMENT = "Production"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
