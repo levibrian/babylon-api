@@ -18,6 +18,7 @@ public static class RealizedPnLCalculator
     {
         var orderedTransactions = transactions
             .OrderBy(t => t.Date)
+            .ThenBy(t => GetTransactionTypeSortOrder(t.TransactionType))
             .ThenBy(t => t.CreatedAt)
             .ToList();
 
@@ -56,6 +57,7 @@ public static class RealizedPnLCalculator
     {
         var orderedTransactions = transactions
             .OrderBy(t => t.Date)
+            .ThenBy(t => GetTransactionTypeSortOrder(t.TransactionType))
             .ThenBy(t => t.CreatedAt)
             .ToList();
 
@@ -168,4 +170,13 @@ public static class RealizedPnLCalculator
             }
         }
     }
+
+    private static int GetTransactionTypeSortOrder(TransactionType type) => type switch
+    {
+        TransactionType.Split => 0,
+        TransactionType.Dividend => 1,
+        TransactionType.Buy => 2,
+        TransactionType.Sell => 3,
+        _ => 4
+    };
 }

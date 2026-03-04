@@ -246,6 +246,123 @@ public class PortfolioCalculatorSplitTests
     }
 
     [Fact]
+    public void CalculateCostBasis_WithSameDaySplitAndBuy_ShouldNotMultiplyPostSplitBuy()
+    {
+        // Arrange: Split and post-split buy on the same date.
+        // The buy was entered into the system BEFORE the split (earlier CreatedAt).
+        // The split should NOT multiply the same-day buy (splits take effect at market open).
+        var splitDate = new DateTime(2024, 6, 7, 0, 0, 0, DateTimeKind.Utc);
+
+        var transactions = new List<PortfolioTransactionDto>
+        {
+            // Pre-split buy on an earlier date
+            new()
+            {
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2024, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2024, 5, 1, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 10m,
+                SharePrice = 30m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // Post-split buy on the SAME DATE as the split, entered BEFORE the split in the system
+            new()
+            {
+                TransactionType = TransactionType.Buy,
+                Date = splitDate,
+                CreatedAt = new DateTime(2024, 6, 7, 14, 0, 0, DateTimeKind.Utc), // entered first
+                SharesQuantity = 10m,
+                SharePrice = 10m, // post-split price
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 3-for-1 split, entered AFTER the buy in the system
+            new()
+            {
+                TransactionType = TransactionType.Split,
+                Date = splitDate,
+                CreatedAt = new DateTime(2024, 6, 7, 16, 0, 0, DateTimeKind.Utc), // entered second
+                SharesQuantity = 3m,
+                SharePrice = 0m,
+                Fees = 0m,
+                Tax = 0m
+            }
+        };
+
+        // Act
+        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+
+        // Assert
+        // Pre-split: 10 shares × 3 = 30 shares (from May 1 buy, correctly multiplied)
+        // Post-split same-day buy: 10 shares (NOT multiplied - entered on split date at post-split price)
+        // Total: 30 + 10 = 40 shares
+        totalShares.Should().Be(40m);
+
+        // Cost basis: (10 × 30) + (10 × 10) = 300 + 100 = 400
+        costBasis.Should().Be(400m);
+    }
+
+    [Fact]
+    public void CalculateCostBasis_WithSameDaySplitAndSell_ShouldSellPostSplitShares()
+    {
+        // Arrange: A sell on the same day as a split should sell post-split shares
+        var splitDate = new DateTime(2024, 6, 7, 0, 0, 0, DateTimeKind.Utc);
+
+        var transactions = new List<PortfolioTransactionDto>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2024, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2024, 5, 1, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 100m,
+                SharePrice = 30m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 2-for-1 split
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Split,
+                Date = splitDate,
+                CreatedAt = new DateTime(2024, 6, 7, 14, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 2m,
+                SharePrice = 0m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // Sell on the same day as the split - should sell post-split shares
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Sell,
+                Date = splitDate,
+                CreatedAt = new DateTime(2024, 6, 7, 10, 0, 0, DateTimeKind.Utc), // entered before split
+                SharesQuantity = 50m,
+                SharePrice = 15m, // post-split price
+                Fees = 0m,
+                Tax = 0m
+            }
+        };
+
+        // Act
+        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+
+        // Assert
+        // After split: 100 × 2 = 200 shares
+        // After sell: 200 - 50 = 150 shares
+        totalShares.Should().Be(150m);
+
+        // Cost basis of 200 shares = 3000. Average = 15 per share.
+        // Sell 50 shares: cost consumed = 50 × 15 = 750
+        // Remaining cost basis = 3000 - 750 = 2250
+        costBasis.Should().Be(2250m);
+    }
+
+    [Fact]
     public void CalculateCostBasis_WithSplitAndSell_ShouldCalculatePnLCorrectly()
     {
         // Arrange
