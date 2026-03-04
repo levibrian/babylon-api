@@ -45,9 +45,12 @@ public static class PortfolioCalculator
     public static (decimal totalShares, decimal costBasis) CalculateCostBasis(List<PortfolioTransactionDto> transactions)
     {
         // CRITICAL: Order by date ascending to process transactions chronologically.
-        // For transactions on the same day, use CreatedAt to preserve user entry order.
+        // For transactions on the same day, process splits first (they take effect at market open),
+        // then buys (post-split), then sells (at post-split quantities).
+        // CreatedAt is used as final tiebreaker within the same type and date.
         var orderedTransactions = transactions
             .OrderBy(t => t.Date)
+            .ThenBy(t => GetTransactionTypeSortOrder(t.TransactionType))
             .ThenBy(t => t.CreatedAt)
             .ToList();
 
@@ -145,6 +148,20 @@ public static class PortfolioCalculator
             : null;
     }
 
+
+    /// <summary>
+    /// Returns a sort order for transaction types within the same date.
+    /// Splits process first (take effect at market open), then dividends,
+    /// then buys (at post-split prices), then sells (post-split quantities).
+    /// </summary>
+    private static int GetTransactionTypeSortOrder(TransactionType type) => type switch
+    {
+        TransactionType.Split => 0,
+        TransactionType.Dividend => 1,
+        TransactionType.Buy => 2,
+        TransactionType.Sell => 3,
+        _ => 4
+    };
 
     /// <summary>
     /// Calculates the current allocation percentage for a position.
