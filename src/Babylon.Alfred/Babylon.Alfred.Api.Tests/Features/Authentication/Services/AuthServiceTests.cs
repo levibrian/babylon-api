@@ -153,13 +153,14 @@ public class AuthServiceTests
         // Arrange
         var user = fixture.Build<User>()
             .With(u => u.Username, "testuser")
+            .With(u => u.Email, "test@example.com")
             .With(u => u.Password, BCrypt.Net.BCrypt.HashPassword("password"))
             .Without(u => u.Transactions)
             .Without(u => u.RefreshTokens)
             .Create();
 
         autoMocker.GetMock<IUserRepository>()
-            .Setup(x => x.GetUserByUsernameAsync("testuser"))
+            .Setup(x => x.GetUserByEmailOrUsernameAsync("testuser"))
             .ReturnsAsync(user);
 
         autoMocker.GetMock<JwtTokenGenerator>()

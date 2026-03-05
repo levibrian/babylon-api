@@ -43,7 +43,16 @@ public class AccountLinkingService(
             return; // Already linked
         }
 
-        UpdateAuthProvider(user);
+        // Add Google to AuthProvider if not present
+        if (!string.IsNullOrEmpty(user.AuthProvider) && !user.AuthProvider.Contains("Google"))
+        {
+            user.AuthProvider = $"{user.AuthProvider},Google";
+        }
+        else if (string.IsNullOrEmpty(user.AuthProvider))
+        {
+            user.AuthProvider = "Google";
+        }
+
         await userRepository.UpdateUserAsync(user);
 
         logger.LogInformation(
