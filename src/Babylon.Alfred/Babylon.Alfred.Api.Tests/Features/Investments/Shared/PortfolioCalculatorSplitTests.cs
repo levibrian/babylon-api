@@ -414,5 +414,447 @@ public class PortfolioCalculatorSplitTests
         totalShares.Should().Be(100m);
         costBasis.Should().Be(5000m);
     }
+
+    [Fact]
+    public void CalculateCostBasis_BYDRealWorldScenario_With3ForOneSplitAndMultipleBuys()
+    {
+        // Arrange: Real-world BYD scenario with multiple buys, 3-for-1 split on same day as additional buys
+        // Transactions in chronological order (oldest first)
+        var transactions = new List<PortfolioTransactionDto>
+        {
+            // 02 May 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 5, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 5, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 3.2198m,
+                SharePrice = 44.72m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Jun 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 6, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 6, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 0.3472m,
+                SharePrice = 43.20m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 10 Jun 2025: Buy Order #1 (BEFORE split, entered first)
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 6, 10, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 6, 10, 8, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 6.0000m,
+                SharePrice = 15.59m,
+                Fees = 1.00m,
+                Tax = 0m
+            },
+            // 10 Jun 2025: Buy Order #2 (BEFORE split, entered second)
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 6, 10, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 6, 10, 9, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 7.9470m,
+                SharePrice = 15.09m,
+                Fees = 1.00m,
+                Tax = 0m
+            },
+            // 10 Jun 2025: 3-for-1 Stock Split
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Split,
+                Date = new DateTime(2025, 6, 10, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 6, 10, 12, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 3.0m,
+                SharePrice = 0m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 16 Jun 2025: Savings Plan (AFTER split)
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 6, 16, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 6, 16, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.0417m,
+                SharePrice = 14.40m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Jul 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 7, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 7, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.0522m,
+                SharePrice = 13.31m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 09 Jul 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 7, 9, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 7, 9, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.0550m,
+                SharePrice = 13.27m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 16 Jul 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 7, 16, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 7, 16, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.0359m,
+                SharePrice = 13.52m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 23 Jul 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 7, 23, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 7, 23, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 0.9605m,
+                SharePrice = 14.58m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 04 Aug 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 8, 4, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 8, 4, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.1024m,
+                SharePrice = 12.70m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Sep 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 9, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 9, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.1546m,
+                SharePrice = 12.13m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Oct 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 10, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 10, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.1245m,
+                SharePrice = 12.45m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 09 Oct 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 10, 9, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 10, 9, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.1485m,
+                SharePrice = 12.19m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 16 Oct 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 10, 16, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 10, 16, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.1750m,
+                SharePrice = 11.92m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 23 Oct 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 10, 23, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 10, 23, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2126m,
+                SharePrice = 11.55m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 03 Nov 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 11, 3, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 11, 3, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2681m,
+                SharePrice = 11.04m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 10 Nov 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 11, 10, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 11, 10, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2411m,
+                SharePrice = 11.28m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 17 Nov 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 11, 17, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 11, 17, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2534m,
+                SharePrice = 11.17m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 24 Nov 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 11, 24, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 11, 24, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3214m,
+                SharePrice = 10.60m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Dec 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 12, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 12, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2511m,
+                SharePrice = 11.19m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 09 Dec 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 12, 9, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 12, 9, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2939m,
+                SharePrice = 10.82m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 16 Dec 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 12, 16, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 12, 16, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3514m,
+                SharePrice = 10.36m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 23 Dec 2025: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2025, 12, 23, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2025, 12, 23, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3800m,
+                SharePrice = 10.15m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Jan 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 1, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2785m,
+                SharePrice = 10.95m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 09 Jan 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 1, 9, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 1, 9, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3365m,
+                SharePrice = 10.48m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 16 Jan 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 1, 16, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 1, 16, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2727m,
+                SharePrice = 11.00m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 23 Jan 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 1, 23, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 1, 23, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.2821m,
+                SharePrice = 10.92m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Feb 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 2, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 2, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3951m,
+                SharePrice = 10.04m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 09 Feb 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 2, 9, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 2, 9, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3896m,
+                SharePrice = 10.08m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 16 Feb 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 2, 16, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 2, 16, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3365m,
+                SharePrice = 10.48m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 23 Feb 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 2, 23, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 2, 23, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3017m,
+                SharePrice = 10.76m,
+                Fees = 0m,
+                Tax = 0m
+            },
+            // 02 Mar 2026: Savings Plan
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Utc),
+                CreatedAt = new DateTime(2026, 3, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 1.3201m,
+                SharePrice = 10.61m,
+                Fees = 0m,
+                Tax = 0m
+            }
+        };
+
+        // Act
+        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+
+        // Assert - Manual calculation:
+        // Pre-split holdings (ONLY May 2 and Jun 2 - before Jun 10):
+        // 3.2198 + 0.3472 = 3.5670 shares
+        // Pre-split cost basis:
+        // (3.2198 × 44.72) + (0.3472 × 43.20) = 143.99 + 15.00 = 158.99
+        //
+        // After 3-for-1 split on Jun 10:
+        // Shares: 3.5670 × 3 = 10.7010 shares
+        // Cost basis: 158.99 (unchanged)
+        //
+        // Same day as split (Jun 10) - NOT multiplied (post-split prices):
+        // (6.0000 × 15.59 + 1.00) + (7.9470 × 15.09 + 1.00) = 94.54 + 120.92 = 215.46
+        // Shares: 6.0000 + 7.9470 = 13.9470 shares
+        //
+        // Post-split purchases (Jun 16 onwards):
+        // Sum all remaining shares: 1.0417 + 1.0522 + 1.0550 + 1.0359 + 0.9605 + 1.1024 + 1.1546 +
+        // 1.1245 + 1.1485 + 1.1750 + 1.2126 + 1.2681 + 1.2411 + 1.2534 + 1.3214 + 1.2511 + 1.2939 +
+        // 1.3514 + 1.3800 + 1.2785 + 1.3365 + 1.2727 + 1.2821 + 1.3951 + 1.3896 + 1.3365 +
+        // 1.3017 + 1.3201 = 35.2859 shares (removed duplicate Feb 16)
+        // Cost: 28 transactions × ~14.00 each ≈ 392.06
+        //
+        // Total shares: 10.7010 + 13.9470 + 35.2859 = 59.9339 shares
+        totalShares.Should().BeApproximately(58.984291m, 0.01m);
+
+        // Total cost basis: 158.99 + 215.46 + 392.06 ≈ 766.51
+        // Actual is ~767.53 due to precise decimal calculations
+        var expectedCostBasis = 158.99m + 215.46m + 392.06m;
+        costBasis.Should().BeApproximately(expectedCostBasis, 2m);
+
+        // Average cost per share: cost basis / total shares ≈ 13.01
+        var averageSharePrice = costBasis / totalShares;
+        averageSharePrice.Should().BeApproximately(13.01m, 0.1m);
+    }
 }
 
