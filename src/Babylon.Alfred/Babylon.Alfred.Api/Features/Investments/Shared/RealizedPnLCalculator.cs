@@ -73,7 +73,7 @@ public static class RealizedPnLCalculator
                     lots.Add(new BuyLot
                     {
                         Quantity = transaction.SharesQuantity,
-                        TotalCost = (transaction.SharesQuantity * transaction.SharePrice) + transaction.Fees + transaction.Tax
+                        TotalCost = (transaction.SharesQuantity * transaction.SharePrice) + transaction.Fees
                     });
                     break;
                 case TransactionType.Sell:
@@ -138,7 +138,7 @@ public static class RealizedPnLCalculator
         }
 
         var grossProceeds = transaction.SharePrice * sharesToSell;
-        var netProceeds = grossProceeds - transaction.Fees - transaction.Tax;
+        var netProceeds = grossProceeds - transaction.Fees;
         var realizedPnL = netProceeds - costBasisConsumed;
 
         if (costBasisConsumed <= 0)

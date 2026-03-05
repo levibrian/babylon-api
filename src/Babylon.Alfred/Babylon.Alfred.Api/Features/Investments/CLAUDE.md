@@ -17,7 +17,16 @@ The Investments feature is the core of Babylon Alfred. It enables users to track
 - On creation: `UpdatedAt` is set to the transaction `Date`. On update: `UpdatedAt` is set to `DateTime.UtcNow`.
 - Bulk insert supported for CSV/batch imports.
 - Sell validation: cannot sell more shares than currently held (FIFO-aware).
-- Realized P&L is calculated on sell transactions: `(Proceeds - Fees - Tax) - CostBasisConsumed`.
+- Realized P&L is calculated on sell transactions: `(Proceeds - Fees) - CostBasisConsumed`. Tax is NOT deducted from proceeds.
+- **Tax field** is stored on all transaction types but is only applied in Dividend income calculations. It is ignored for Buy and Sell financial computations.
+
+### `Transaction.TotalAmount` (computed, not persisted)
+| Type | Formula | Tax used? |
+|------|---------|-----------|
+| Buy | `(Shares × Price) + Fees` | NO |
+| Sell | `(Shares × Price) - Fees` | NO |
+| Dividend | `(Shares × Price) - Tax` | YES — reduces gross to net income |
+| Split | `0` | NO |
 
 ### Securities
 - Securities are investment instruments identified by unique ticker.
@@ -126,10 +135,19 @@ Features/Investments/
 ## FIFO Cost Basis Algorithm
 
 1. Maintain a queue of "lots" (buy transactions, ordered by date).
-2. **Buy**: Add a new lot with shares and cost (including fees).
-3. **Sell**: Consume lots from the front of the queue. Calculate realized P&L as `(SaleProceeds - Fees - Tax) - ConsumedCostBasis`.
-4. **Split**: Multiply shares in all existing lots by the split ratio. Price is zero.
-5. **Dividend**: Does not affect cost basis. Recorded separately for income tracking.
+2. **Buy**: Add a new lot. `TotalCost = (Shares × Price) + Fees`. Tax is NOT included in cost basis.
+3. **Sell**: Consume lots from the front of the queue. `NetProceeds = (Shares × Price) - Fees`. Tax is NOT deducted. Realized P&L = `NetProceeds - ConsumedCostBasis`.
+4. **Split**: Multiply shares in all existing lots by the split ratio. Price is zero. No money changes hands.
+5. **Dividend**: Does not affect cost basis. Net income = `GrossAmount - Tax`. Tax IS applied here only.
+
+## DO NOT Rules
+
+- **DO NOT** include `Tax` in Buy lot `TotalCost`. Formula: `(Shares × Price) + Fees` only.
+- **DO NOT** deduct `Tax` from Sell `NetProceeds`. Formula: `(Shares × Price) - Fees` only.
+- **DO NOT** apply `Tax` to Buy or Sell `TotalAmount`. Tax is exclusively a Dividend concern.
+- **DO NOT** add a new transaction type without updating: FIFO algorithm, `TotalAmount` switch, Tax applicability table, and this CLAUDE.md.
+- **DO NOT** add `Fees` to Dividend cost basis or treat Dividend as a purchase.
+- **DO NOT** recalculate `RealizedPnL` on the `Transaction` entity directly from the service layer — use `RealizedPnLCalculator` or `PortfolioCalculator` (calculators own this logic).
 
 ## Testing
 

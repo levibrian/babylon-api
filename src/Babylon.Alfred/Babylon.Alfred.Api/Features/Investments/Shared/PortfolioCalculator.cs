@@ -64,7 +64,7 @@ public static class PortfolioCalculator
                     lots.Add(new BuyLot
                     {
                         Quantity = transaction.SharesQuantity,
-                        TotalCost = (transaction.SharesQuantity * transaction.SharePrice) + transaction.Fees + transaction.Tax
+                        TotalCost = (transaction.SharesQuantity * transaction.SharePrice) + transaction.Fees
                     });
                     break;
                 case TransactionType.Sell:
@@ -141,7 +141,7 @@ public static class PortfolioCalculator
 
         // Realized P/L = Net Proceeds - Cost Basis
         // Net Proceeds = (Shares * Price) - Fees - Tax
-        var netProceeds = (sharesToSell * transaction.SharePrice) - transaction.Fees - transaction.Tax;
+        var netProceeds = (sharesToSell * transaction.SharePrice) - transaction.Fees;
         transaction.RealizedPnL = netProceeds - costBasisConsumed;
         transaction.RealizedPnLPct = costBasisConsumed > 0
             ? (transaction.RealizedPnL / costBasisConsumed) * 100

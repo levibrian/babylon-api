@@ -135,14 +135,14 @@ public class PortfolioCalculatorTests
         totalShares.Should().Be(0m);
         costBasis.Should().Be(0m);
 
-        // Buy Cost = 1000 + 5 + 2 = 1007
-        // Sell Net Proceeds = 1200 - 5 - 3 = 1192
-        // Realized PnL = 1192 - 1007 = 185
-        // PnL % = 185 / 1007 * 100 = 18.3714...%
+        // Buy Cost = (10 * 100) + 5 = 1005. Tax of 2 is excluded from cost basis.
+        // Sell Net Proceeds = (10 * 120) - 5 = 1195. Tax of 3 is excluded.
+        // Realized PnL = 1195 - 1005 = 190
+        // PnL % = 190 / 1005 * 100 = 18.9055...%
 
         var sellTransaction = transactions[1];
-        sellTransaction.RealizedPnL.Should().Be(185m);
-        sellTransaction.RealizedPnLPct.Should().BeApproximately(18.3714m, 0.0001m);
+        sellTransaction.RealizedPnL.Should().Be(190m);
+        sellTransaction.RealizedPnLPct.Should().BeApproximately(18.9055m, 0.0001m);
     }
 
     [Fact]
@@ -220,6 +220,72 @@ public class PortfolioCalculatorTests
         sellTransaction.RealizedPnL.Should().Be(995m); // (10 * 100) - 5
         sellTransaction.RealizedPnLPct.Should().BeNull();
     }
+    [Fact]
+    public void CalculateCostBasis_BuyTransactionWithTax_ShouldNotIncludeTaxInCostBasis()
+    {
+        // Arrange
+        var transactions = new List<PortfolioTransactionDto>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 10m,
+                SharePrice = 100m,
+                Fees = 5m,
+                Tax = 20m  // Tax must NOT be included in Buy cost basis
+            }
+        };
+
+        // Act
+        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+
+        // Assert
+        // Cost basis = (10 * 100) + 5 = 1005. Tax of 20 is excluded.
+        totalShares.Should().Be(10m);
+        costBasis.Should().Be(1005m);
+    }
+
+    [Fact]
+    public void CalculateCostBasis_SellTransactionWithTax_ShouldNotDeductTaxFromProceeds()
+    {
+        // Arrange
+        var transactions = new List<PortfolioTransactionDto>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Buy,
+                Date = new DateTime(2024, 1, 1, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 10m,
+                SharePrice = 100m,
+                Fees = 5m
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TransactionType = TransactionType.Sell,
+                Date = new DateTime(2024, 1, 2, 10, 0, 0, DateTimeKind.Utc),
+                SharesQuantity = 10m,
+                SharePrice = 120m,
+                Fees = 5m,
+                Tax = 10m  // Tax must NOT be deducted from Sell proceeds
+            }
+        };
+
+        // Act
+        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+
+        // Assert
+        // Buy cost basis = (10 * 100) + 5 = 1005
+        // Sell proceeds = (10 * 120) - 5 = 1195. Tax of 10 is excluded.
+        // Realized PnL = 1195 - 1005 = 190
+        totalShares.Should().Be(0m);
+        costBasis.Should().Be(0m);
+        transactions[1].RealizedPnL.Should().Be(190m);
+    }
+
     [Theory]
     [InlineData(100, 1000, 10)]
     [InlineData(0, 1000, 0)]
