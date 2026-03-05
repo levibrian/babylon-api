@@ -91,6 +91,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
+            .With(t => t.Tax, 0m)  // Tax is not included in Buy cost basis
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transaction };
@@ -142,6 +143,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
+            .With(t => t.Tax, 0m)  // Tax is not included in Buy cost basis
             .With(t => t.Date, new DateTime(2025, 1, 1))
             .With(t => t.UserId, userId)
             .Create();
@@ -151,6 +153,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 160m)
             .With(t => t.Fees, 3m)
+            .With(t => t.Tax, 0m)  // Tax is not included in Buy cost basis
             .With(t => t.Date, new DateTime(2025, 2, 1))
             .With(t => t.UserId, userId)
             .Create();
@@ -207,6 +210,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 10m)
             .With(t => t.SharePrice, 150m)
             .With(t => t.Fees, 5m)
+            .With(t => t.Tax, 0m)  // Tax is not included in Buy cost basis
             .With(t => t.UserId, userId)
             .Create();
         var transactionGoogle = fixture.Build<Transaction>()
@@ -215,6 +219,7 @@ public class PortfolioServiceTests
             .With(t => t.SharesQuantity, 5m)
             .With(t => t.SharePrice, 2800m)
             .With(t => t.Fees, 10m)
+            .With(t => t.Tax, 0m)  // Tax is not included in Buy cost basis
             .With(t => t.UserId, userId)
             .Create();
         var transactions = new List<Transaction> { transactionApple, transactionGoogle };
