@@ -108,10 +108,19 @@ All API responses use a standard envelope:
 ## Key Business Rules
 
 - **FIFO Cost Basis**: Sell transactions consume the oldest buy lots first. Splits multiply shares across all lots. Dividends do not affect cost basis.
-- **Realized P&L**: Calculated on sell transactions as `(Proceeds - Fees - Tax) - CostBasisConsumed`.
+- **Buy Cost Basis**: `(Shares × Price) + Fees`. Tax is NOT included.
+- **Realized P&L**: Calculated on sell transactions as `(Proceeds - Fees) - CostBasisConsumed`. Tax is NOT deducted from sell proceeds.
+- **Tax**: Applies ONLY to Dividend transactions — `NetDividendIncome = GrossAmount - Tax`. DO NOT use Tax in Buy cost basis or Sell proceeds calculations.
 - **Rebalancing Threshold**: Positions within +/-0.5% of target are considered balanced.
 - **Transaction Ordering**: Always by `UpdatedAt DESC`.
 - **Root User ID**: `a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d` (legacy, being phased out with multi-user auth).
+
+## DO NOT Rules
+
+- **DO NOT** include `Tax` in `TotalCost` for Buy lots: formula is `(Shares × Price) + Fees`.
+- **DO NOT** deduct `Tax` from Sell net proceeds: formula is `(Shares × Price) - Fees`.
+- **DO NOT** use `Tax` in `Transaction.TotalAmount` for Buy or Sell types; only `Dividend.TotalAmount` deducts Tax.
+- **DO NOT** add new transaction types without updating the FIFO algorithm, `TotalAmount`, and Tax applicability rules.
 
 ## Code Conventions
 
