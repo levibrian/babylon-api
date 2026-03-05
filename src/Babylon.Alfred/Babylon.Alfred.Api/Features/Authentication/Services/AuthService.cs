@@ -9,6 +9,7 @@ namespace Babylon.Alfred.Api.Features.Authentication.Services;
 public class AuthService(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
+    IAccountLinkingService accountLinkingService,
     JwtTokenGenerator jwtTokenGenerator,
     IConfiguration configuration,
     ILogger<AuthService> logger) : IAuthService
@@ -25,48 +26,12 @@ public class AuthService(
 
             var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
 
-            var user = await userRepository.GetUserByEmailAsync(payload.Email);
+            // Get or create user, automatically linking to existing account by email
+            var user = await accountLinkingService.GetOrCreateGoogleUserAsync(
+                payload.Email,
+                payload.Subject);
 
-            if (user == null)
-            {
-                logger.LogInformation("Creating new user from Google login: {Email}", payload.Email);
-
-                // Create new user
-                user = new User
-                {
-                    Email = payload.Email,
-                    Username = payload.Email, // Default username to email
-                    AuthProvider = "Google",
-                    CreatedAt = DateTime.UtcNow,
-                    MonthlyInvestmentAmount = 0 // Default
-                };
-
-                await userRepository.CreateUserAsync(user);
-            }
-            else if (user.AuthProvider == "Local" && string.IsNullOrEmpty(user.Password))
-            {
-                 // Edge case: Determine if we should link accounts or just log them in.
-                 // For now, if they exist, we just log them in, maybe updating AuthProvider if null
-                 if (string.IsNullOrEmpty(user.AuthProvider))
-                 {
-                     user.AuthProvider = "Google";
-                     await userRepository.UpdateUserAsync(user);
-                 }
-            }
-
-            var token = jwtTokenGenerator.GenerateToken(user);
-            await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
-            var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
-
-            return new AuthResponse
-            {
-                Token = token,
-                RefreshToken = refreshToken,
-                UserId = user.Id,
-                Username = user.Username,
-                Email = user.Email,
-                AuthProvider = user.AuthProvider
-            };
+            return await GenerateAuthResponseAsync(user);
         }
         catch (InvalidJwtException ex)
         {
@@ -75,59 +40,59 @@ public class AuthService(
         }
     }
 
-    public async Task<AuthResponse> LoginAsync(string username, string password)
+    public async Task<AuthResponse> LoginAsync(string emailOrUsername, string password)
     {
-        var user = await userRepository.GetUserByUsernameAsync(username);
+        var user = await userRepository.GetUserByEmailOrUsernameAsync(emailOrUsername);
 
-        if (user == null || user.AuthProvider == "Google" || string.IsNullOrEmpty(user.Password))
-        {
-            // Don't verify password for Google users or if user not found (security best practice: timing attacks avoidance generic message usually, but here simple logic)
-            // If AuthProvider is Google, they shouldn't use password login unless we support multiple auth methods per user (hybrid).
-            // For this implementation, we assume separation.
-            throw new UnauthorizedAccessException("Invalid credentials");
-        }
-
-        if (!BCrypt.Net.BCrypt.Verify(password, user.Password))
+        if (user == null || !user.HasLocalAuth)
         {
             throw new UnauthorizedAccessException("Invalid credentials");
         }
 
-        var token = jwtTokenGenerator.GenerateToken(user);
-        await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
-        var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
-
-        return new AuthResponse
+        if (!BCrypt.Net.BCrypt.Verify(password, user.Password!))
         {
-            Token = token,
-            RefreshToken = refreshToken,
-            UserId = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            AuthProvider = user.AuthProvider
-        };
+            throw new UnauthorizedAccessException("Invalid credentials");
+        }
+
+        return await GenerateAuthResponseAsync(user);
     }
 
     public async Task<AuthResponse> RegisterAsync(string username, string email, string password)
     {
-        var existingUserEmail = await userRepository.GetUserByEmailAsync(email);
-        if (existingUserEmail != null)
+        var existingUserByEmail = await userRepository.GetUserByEmailAsync(email);
+
+        // If user exists with Google-only auth, link local auth
+        if (existingUserByEmail != null)
         {
-            throw new InvalidOperationException("User with this email already exists");
+            if (existingUserByEmail.HasLocalAuth)
+            {
+                throw new InvalidOperationException("User with this email already exists");
+            }
+
+            // Link local auth to existing Google account
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+            await accountLinkingService.LinkLocalToAccountAsync(existingUserByEmail, passwordHash);
+
+            logger.LogInformation(
+                "Linked local auth to existing Google account: {Email}",
+                email);
+
+            return await GenerateAuthResponseAsync(existingUserByEmail);
         }
 
-        var existingUserUsername = await userRepository.GetUserByUsernameAsync(username);
-        if (existingUserUsername != null)
+        var existingUserByUsername = await userRepository.GetUserByUsernameAsync(username);
+        if (existingUserByUsername != null)
         {
             throw new InvalidOperationException("Username is already taken");
         }
 
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
         var user = new User
         {
             Username = username,
             Email = email,
-            Password = passwordHash,
+            Password = newPasswordHash,
             AuthProvider = "Local",
             CreatedAt = DateTime.UtcNow,
             MonthlyInvestmentAmount = 0
@@ -135,19 +100,7 @@ public class AuthService(
 
         await userRepository.CreateUserAsync(user);
 
-        var token = jwtTokenGenerator.GenerateToken(user);
-        await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
-        var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
-
-        return new AuthResponse
-        {
-            Token = token,
-            RefreshToken = refreshToken,
-            UserId = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            AuthProvider = user.AuthProvider
-        };
+        return await GenerateAuthResponseAsync(user);
     }
 
     public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
@@ -159,24 +112,11 @@ public class AuthService(
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }
 
-        // Revoke current token
+        // Revoke current token (single-use)
         storedToken.IsRevoked = true;
         await refreshTokenRepository.UpdateAsync(storedToken);
 
-        // Generate new tokens
-        var user = storedToken.User;
-        var newToken = jwtTokenGenerator.GenerateToken(user);
-        var newRefreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
-
-        return new AuthResponse
-        {
-            Token = newToken,
-            RefreshToken = newRefreshToken,
-            UserId = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            AuthProvider = user.AuthProvider
-        };
+        return await GenerateAuthResponseAsync(storedToken.User);
     }
 
     public async Task LogoutAsync(string refreshToken)
@@ -187,6 +127,23 @@ public class AuthService(
             storedToken.IsRevoked = true;
             await refreshTokenRepository.UpdateAsync(storedToken);
         }
+    }
+
+    private async Task<AuthResponse> GenerateAuthResponseAsync(User user)
+    {
+        var token = jwtTokenGenerator.GenerateToken(user);
+        await refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
+        var refreshToken = await GenerateAndSaveRefreshTokenAsync(user.Id);
+
+        return new AuthResponse
+        {
+            Token = token,
+            RefreshToken = refreshToken,
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            AuthProvider = user.AuthProvider
+        };
     }
 
     private async Task<string> GenerateAndSaveRefreshTokenAsync(Guid userId)

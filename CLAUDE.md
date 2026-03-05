@@ -131,6 +131,22 @@ All API responses use a standard envelope:
 
 ## Testing Contract (TDD)
 
+### 🚨 MANDATORY TDD WORKFLOW 🚨
+
+**YOU MUST ALWAYS FOLLOW TEST-DRIVEN DEVELOPMENT. NO EXCEPTIONS.**
+
+When implementing ANY new feature, modifying ANY service method, or fixing ANY bug:
+
+1. **STOP** - Do NOT write production code first
+2. **READ** - Review business rules in feature CLAUDE.md
+3. **WRITE TESTS FIRST** - Write failing tests for all scenarios
+4. **RUN** - Verify tests fail (Red)
+5. **IMPLEMENT** - Write minimum code to pass tests (Green)
+6. **REFACTOR** - Clean up while keeping tests green
+7. **DOCUMENT** - Update CLAUDE.md with new invariants
+
+**If you catch yourself writing production code before tests, STOP IMMEDIATELY and write the tests first.**
+
 ### Framework & Libraries
 - xUnit with `[Fact]` and `[Theory]`/`[InlineData]`
 - Moq + AutoMocker (`autoMocker.CreateInstance<T>()`)
@@ -147,25 +163,81 @@ All API responses use a standard envelope:
 - **Always mock**: Repositories (`I*Repository`), external HTTP services, `IConfiguration`
 - **Never mock**: Calculators, validators, mappers (pure functions — test directly)
 
-### Coverage Expectations
+### Coverage Expectations (MUST COVER ALL)
 - Every service method: happy path + primary failure path
 - Every business rule invariant (documented in feature CLAUDE.md): at least one test
 - Every threshold boundary (e.g., >20%, >0.5%): tested at, below, and above
 - Analyzers: all boundaries verified
 - Calculators: FIFO lots, splits, dividends, partial sells — dedicated test cases
+- **New/Modified code**: 100% of new business logic paths tested BEFORE implementation
 
-### TDD Workflow
-1. Read business rule invariants in feature CLAUDE.md
-2. Write test → Red
-3. Implement minimum code → Green
-4. Refactor
-5. Update CLAUDE.md if new invariant discovered
+### Mandatory TDD Scenarios
+
+For **EVERY** feature implementation, you MUST write tests for:
+
+1. **Happy Path**: Expected successful execution
+2. **Edge Cases**: Boundary conditions, empty inputs, null values
+3. **Error Cases**: All possible exceptions and validation failures
+4. **State Changes**: Before/after assertions for mutations
+5. **Integration Points**: All external dependencies mocked and verified
+
+### TDD Workflow (STRICT)
+
+```
+┌─────────────────────────────────────┐
+│  1. Identify Business Requirements  │
+│     (Read feature CLAUDE.md)        │
+└──────────────┬──────────────────────┘
+               ▼
+┌─────────────────────────────────────┐
+│  2. Write Test Class & Test Cases   │
+│     (Cover ALL scenarios)           │
+└──────────────┬──────────────────────┘
+               ▼
+┌─────────────────────────────────────┐
+│  3. Run Tests → MUST FAIL (Red)     │
+│     (Verify tests are valid)        │
+└──────────────┬──────────────────────┘
+               ▼
+┌─────────────────────────────────────┐
+│  4. Implement Production Code       │
+│     (Minimum to pass tests)         │
+└──────────────┬──────────────────────┘
+               ▼
+┌─────────────────────────────────────┐
+│  5. Run Tests → MUST PASS (Green)   │
+└──────────────┬──────────────────────┘
+               ▼
+┌─────────────────────────────────────┐
+│  6. Refactor (Keep tests green)     │
+└──────────────┬──────────────────────┘
+               ▼
+┌─────────────────────────────────────┐
+│  7. Update CLAUDE.md Documentation  │
+└─────────────────────────────────────┘
+```
 
 ### Testing Details
 - **Controller tests**: Mock `ControllerContext` with `ClaimsPrincipal` for auth scenarios
 - **GUID generation**: Use `Guid.NewGuid()`, never `fixture.Create<Guid>()`
 - **Test project**: `Babylon.Alfred.Api.Tests` mirrors API folder structure
 - **Full testing contract**: See `Babylon.Alfred.Api.Tests/Claude.MD`
+
+### TDD Violations
+
+**NEVER do these:**
+- ❌ Write production code before writing tests
+- ❌ Skip edge cases or error scenarios
+- ❌ Write tests after implementation (that's not TDD)
+- ❌ Modify production code without corresponding test changes
+- ❌ Commit code with failing tests
+
+**ALWAYS do these:**
+- ✅ Write tests first for every new method
+- ✅ Cover all business rule invariants
+- ✅ Test error paths and exceptions
+- ✅ Run tests before committing
+- ✅ Keep tests green during refactoring
 
 ## Deployment
 
@@ -208,6 +280,18 @@ This guide helps AI agents select the minimal set of CLAUDE.md files needed for 
 **Load**: Root + `Infrastructure/CLAUDE.md` + consuming feature CLAUDE.md
 
 ## Global Rules
+
+### 🚨 RULE #0: TEST-DRIVEN DEVELOPMENT IS MANDATORY 🚨
+
+**BEFORE ANY CODE CHANGE:**
+- ✋ Write the test FIRST
+- 🔴 Verify it FAILS (Red)
+- ✅ Implement to make it PASS (Green)
+- ♻️ Refactor while keeping it GREEN
+
+**This is not optional. This is not a suggestion. This is a requirement.**
+
+If an AI agent or developer writes production code without writing tests first, they have violated the project's core development methodology.
 
 ### ✅ DOs
 - One controller per aggregate (thin, delegate all logic to services)

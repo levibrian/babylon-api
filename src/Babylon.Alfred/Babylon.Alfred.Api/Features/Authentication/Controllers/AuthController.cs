@@ -1,78 +1,46 @@
 using Babylon.Alfred.Api.Features.Authentication.Models;
 using Babylon.Alfred.Api.Features.Authentication.Services;
+using Babylon.Alfred.Api.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Authentication.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public class AuthController(IAuthService authService, ILogger<AuthController> logger) : ControllerBase
+public class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost("google")]
-    public async Task<ActionResult<AuthResponse>> GoogleLogin([FromBody] GoogleLoginRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> GoogleLogin([FromBody] GoogleLoginRequest request)
     {
-        try
-        {
-            var result = await authService.GoogleLoginAsync(request.IdToken);
-            return Ok(result);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error during Google login");
-            return StatusCode(500, new { message = "An error occurred during authentication" });
-        }
+        var result = await authService.GoogleLoginAsync(request.IdToken);
+        return Ok(new ApiResponse<AuthResponse> { Success = true, Data = result });
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Login([FromBody] LoginRequest request)
     {
-        try
-        {
-            var result = await authService.LoginAsync(request.Username, request.Password);
-            return Ok(result);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Unauthorized(new { message = "Invalid credentials" });
-        }
+        var result = await authService.LoginAsync(request.EmailOrUsername, request.Password);
+        return Ok(new ApiResponse<AuthResponse> { Success = true, Data = result });
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Register([FromBody] RegisterRequest request)
     {
-        try
-        {
-            var result = await authService.RegisterAsync(request.Username, request.Email, request.Password);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var result = await authService.RegisterAsync(request.Username, request.Email, request.Password);
+        return Ok(new ApiResponse<AuthResponse> { Success = true, Data = result });
     }
 
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Refresh([FromBody] RefreshTokenRequest request)
     {
-        try
-        {
-            var result = await authService.RefreshTokenAsync(request.RefreshToken);
-            return Ok(result);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(new { message = ex.Message });
-        }
+        var result = await authService.RefreshTokenAsync(request.RefreshToken);
+        return Ok(new ApiResponse<AuthResponse> { Success = true, Data = result });
     }
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    public async Task<ActionResult<ApiResponse<object>>> Logout([FromBody] RefreshTokenRequest request)
     {
         await authService.LogoutAsync(request.RefreshToken);
-        return Ok();
+        return Ok(new ApiResponse<object> { Success = true, Data = new { } });
     }
 }

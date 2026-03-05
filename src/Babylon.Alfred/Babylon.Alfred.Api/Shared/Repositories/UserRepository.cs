@@ -21,6 +21,12 @@ public class UserRepository(BabylonDbContext context) : IUserRepository
         return await context.Users.FirstOrDefaultAsync(u => u.Username == username);
     }
 
+    public async Task<User?> GetUserByEmailOrUsernameAsync(string emailOrUsername)
+    {
+        return await context.Users.FirstOrDefaultAsync(u =>
+            u.Email == emailOrUsername || u.Username == emailOrUsername);
+    }
+
     public async Task<User> CreateUserAsync(User user)
     {
         context.Users.Add(user);

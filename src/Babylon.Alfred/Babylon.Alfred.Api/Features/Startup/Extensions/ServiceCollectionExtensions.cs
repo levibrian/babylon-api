@@ -14,6 +14,7 @@ public static class ServiceCollectionExtensions
         
         // Register Authentication
         serviceCollection.AddScoped<Features.Authentication.Services.IAuthService, Features.Authentication.Services.AuthService>();
+        serviceCollection.AddScoped<Features.Authentication.Services.IAccountLinkingService, Features.Authentication.Services.AccountLinkingService>();
         serviceCollection.AddSingleton<Features.Authentication.Utils.JwtTokenGenerator>();
     }
 }

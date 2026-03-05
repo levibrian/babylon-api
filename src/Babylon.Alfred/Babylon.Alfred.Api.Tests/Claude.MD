@@ -2,6 +2,17 @@
 
 **Purpose**: Defines testing standards and conventions for the Babylon Alfred test suite. For general testing philosophy, see root `CLAUDE.md` § Testing Contract (TDD).
 
+## 🚨 MANDATORY TDD REMINDER 🚨
+
+**BEFORE writing ANY production code:**
+
+1. ✋ **STOP** - Are you about to write production code?
+2. ❓ **ASK** - Have you written the test first?
+3. ❌ **NO?** - Go write the test NOW
+4. ✅ **YES?** - Proceed with implementation
+
+**Tests are not documentation. Tests are SPECIFICATION. Write them FIRST.**
+
 ## Framework & Libraries
 
 | Library | Purpose |
@@ -12,13 +23,40 @@
 | FluentAssertions | Assertions — readable, precise (`Should()` syntax) |
 | EF Core InMemory | Database tests with unique DB per test |
 
-## TDD Workflow
+## TDD Workflow (STRICT - NO EXCEPTIONS)
 
-1. Read the business rule invariants in the relevant feature's CLAUDE.md
-2. Write the test → Red
-3. Implement minimum code to pass → Green
-4. Refactor without breaking tests
-5. If a new invariant is discovered, add it to the feature CLAUDE.md before writing the test
+```
+┌──────────────────────────────────────────┐
+│ 1. Read feature CLAUDE.md invariants    │
+└───────────────┬──────────────────────────┘
+                ▼
+┌──────────────────────────────────────────┐
+│ 2. Write test for NEW functionality      │
+│    (Must compile but FAIL)               │
+└───────────────┬──────────────────────────┘
+                ▼
+┌──────────────────────────────────────────┐
+│ 3. Run test → Verify RED                 │
+└───────────────┬──────────────────────────┘
+                ▼
+┌──────────────────────────────────────────┐
+│ 4. Write MINIMUM production code         │
+└───────────────┬──────────────────────────┘
+                ▼
+┌──────────────────────────────────────────┐
+│ 5. Run test → Verify GREEN               │
+└───────────────┬──────────────────────────┘
+                ▼
+┌──────────────────────────────────────────┐
+│ 6. Refactor (keep tests green)           │
+└───────────────┬──────────────────────────┘
+                ▼
+┌──────────────────────────────────────────┐
+│ 7. Add new invariant to CLAUDE.md        │
+└──────────────────────────────────────────┘
+```
+
+**If you find yourself writing production code without a failing test, STOP IMMEDIATELY.**
 
 ## Test Class Structure
 

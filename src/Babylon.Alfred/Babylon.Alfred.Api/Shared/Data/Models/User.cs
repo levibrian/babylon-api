@@ -8,7 +8,9 @@ public class User
     public string Email { get; set; } = string.Empty;
 
     public decimal MonthlyInvestmentAmount { get; set; }
-    public string? AuthProvider { get; set; } // "Local" or "Google"
+    public string? AuthProvider { get; set; } // "Local", "Google", or "Local,Google" for hybrid
+    public bool HasLocalAuth => !string.IsNullOrEmpty(Password);
+    public bool HasGoogleAuth => AuthProvider?.Contains("Google") ?? false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation property - one user can have many transactions
