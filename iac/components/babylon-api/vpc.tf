@@ -4,7 +4,13 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "babylon-vpc-public-only"
+    Name        = "babylon-vpc-public-only"
+    Environment = "production"
+    Project     = "babylon-alfred"
+    ManagedBy   = "terraform"
+    Application = "babylon-api"
+    Component   = "network"
+    CostCenter  = "engineering"
   }
 }
 
@@ -13,7 +19,13 @@ resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "babylon-igw"
+    Name        = "babylon-igw"
+    Environment = "production"
+    Project     = "babylon-alfred"
+    ManagedBy   = "terraform"
+    Application = "babylon-api"
+    Component   = "network"
+    CostCenter  = "engineering"
   }
 }
 
@@ -25,7 +37,14 @@ resource "aws_subnet" "public_a" {
   map_public_ip_on_launch = true # Allows resources in this subnet to be publicly accessible
 
   tags = {
-    Name = "babylon-public-a"
+    Name             = "babylon-public-a"
+    Environment      = "production"
+    Project          = "babylon-alfred"
+    ManagedBy        = "terraform"
+    Application      = "babylon-api"
+    Component        = "network"
+    CostCenter       = "engineering"
+    AvailabilityZone = "${var.aws_region}a"
   }
 }
 
@@ -36,7 +55,14 @@ resource "aws_subnet" "public_b" {
   map_public_ip_on_launch = true # Allows resources in this subnet to be publicly accessible
 
   tags = {
-    Name = "babylon-public-b"
+    Name             = "babylon-public-b"
+    Environment      = "production"
+    Project          = "babylon-alfred"
+    ManagedBy        = "terraform"
+    Application      = "babylon-api"
+    Component        = "network"
+    CostCenter       = "engineering"
+    AvailabilityZone = "${var.aws_region}b"
   }
 }
 
@@ -50,7 +76,13 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "babylon-public-rt"
+    Name        = "babylon-public-rt"
+    Environment = "production"
+    Project     = "babylon-alfred"
+    ManagedBy   = "terraform"
+    Application = "babylon-api"
+    Component   = "network"
+    CostCenter  = "engineering"
   }
 }
 

@@ -10,6 +10,17 @@ resource "random_password" "db_password" {
 # Stores the generated password securely in AWS Secrets Manager
 resource "aws_secretsmanager_secret" "db_secret" {
   name = "babylon-rds-master-password"
+
+  tags = {
+    Name               = "babylon-rds-master-password"
+    Environment        = "production"
+    Project            = "babylon-alfred"
+    ManagedBy          = "terraform"
+    Application        = "babylon-api"
+    Component          = "security"
+    CostCenter         = "engineering"
+    DataClassification = "highly-confidential"
+  }
 }
 
 resource "aws_secretsmanager_secret_version" "db_secret_version" {
@@ -45,7 +56,14 @@ resource "aws_security_group" "rds_sg" {
   }
 
   tags = {
-    Name = "babylon-rds-sg"
+    Name               = "babylon-rds-sg"
+    Environment        = "production"
+    Project            = "babylon-alfred"
+    ManagedBy          = "terraform"
+    Application        = "babylon-api"
+    Component          = "security"
+    CostCenter         = "engineering"
+    DataClassification = "confidential"
   }
 }
 

@@ -4,11 +4,18 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
   subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   tags = {
-    Name = "babylon-rds-subnet-group"
+    Name               = "babylon-rds-subnet-group"
+    Environment        = "production"
+    Project            = "babylon-alfred"
+    ManagedBy          = "terraform"
+    Application        = "babylon-api"
+    Component          = "database"
+    CostCenter         = "engineering"
+    DataClassification = "confidential"
   }
 }
 
-# The RDS PostgreSQL Instance
+# The RDS PostgresSQL Instance
 resource "aws_db_instance" "main_db" {
   identifier           = "babylon-postgres-db"
   engine               = "postgres"
@@ -25,5 +32,18 @@ resource "aws_db_instance" "main_db" {
   db_subnet_group_name = aws_db_subnet_group.rds_subnet_group.name
 
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
+
+  tags = {
+    Name               = "babylon-postgres-db"
+    Environment        = "production"
+    Project            = "babylon-alfred"
+    ManagedBy          = "terraform"
+    Application        = "babylon-api"
+    Component          = "database"
+    DatabaseEngine     = "postgres"
+    CostCenter         = "engineering"
+    BackupPolicy       = "automated"
+    DataClassification = "confidential"
+  }
 }
 
