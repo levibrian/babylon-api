@@ -9,12 +9,13 @@ A .NET hosted service that runs scheduled background jobs via Quartz.NET. Respon
 ### Jobs (Quartz.NET scheduled)
 - **PriceFetchingJob** - Hourly price updates from Yahoo Finance
 - **PortfolioSnapshotJob** - Hourly portfolio value snapshots
+- **RealizedPnlBackfillJob** - Daily backfill of RealizedPnL on historical Sell transactions
 
 ### Services
 - **PriceFetchingService** - Orchestrates price fetching with rate limiting
 - **YahooFinanceService** - HTTP client for Yahoo Finance v8 API
 - **PortfolioSnapshotService** - Creates portfolio value snapshots
-- **RealizedGainsBackfillService** - One-time startup backfill of realized P&L
+- **RealizedPnlBackfillService** - Backfills RealizedPnL/RealizedPnLPct on Sell transactions with null values
 
 ### Root Files
 - `Program.cs` - Host builder, DI, Quartz configuration
@@ -46,19 +47,19 @@ A .NET hosted service that runs scheduled background jobs via Quartz.NET. Respon
   4. Creates `PortfolioSnapshot` record with TotalInvested, CashBalance, TotalMarketValue, UnrealizedPnL.
   5. Skips users with no holdings and no cash.
 
-## Background Services
-
-### RealizedGainsBackfillService
-- **Type**: `BackgroundService` (runs once on startup, then completes)
-- **Purpose**: One-time backfill of `RealizedPnL` and `RealizedPnLPct` fields on Transaction records.
-- **Idempotency**: Checks if value changed before writing. Safe to re-run on every deployment.
-- **Future**: Consider removing once all production rows are populated (check via query).
+### RealizedPnlBackfillJob
+- **Schedule**: `0 0 3 * * ?` (3:00 AM UTC, every day)
+- **Concurrency**: `[DisallowConcurrentExecution]`
+- **Purpose**: Idempotent daily backfill of `RealizedPnL` and `RealizedPnLPct` on Sell Transaction records that have null values.
+- **Idempotency**: Only queries users with at least one Sell where `RealizedPnL IS NULL`. Becomes a no-op once all rows are populated.
+- **Per-user resilience**: Exceptions for a single user are caught and logged; all other users continue to be processed.
 - **Behavior**:
-  1. Queries all unique user IDs from transactions.
-  2. Groups transactions by security.
+  1. Queries distinct user IDs with unbackfilled Sell transactions (`RealizedPnL IS NULL`).
+  2. For each user, fetches ALL transactions grouped by security (needed for FIFO reconstruction).
   3. Uses `RealizedPnLCalculator.CalculateRealizedPnLByTransactionId()`.
-  4. Updates transaction records only if values changed.
-  5. Logs update counts per user.
+  4. Skips Sell transactions already populated (`RealizedPnL IS NOT NULL`).
+  5. Skips Sells that cannot be calculated (no buy lots → calculator returns null).
+  6. Batch-updates changed records per user via `UpdateBulkAsync`.
 
 ## Shared Code (from Babylon.Alfred.Api)
 

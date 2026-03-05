@@ -1002,6 +1002,229 @@ public class TransactionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetDistinctUserIdsWithUnbackfilledSellsAsync_WhenNoTransactionsExist_ShouldReturnEmpty()
+    {
+        // Arrange — empty database
+
+        // Act
+        var result = await sut.GetDistinctUserIdsWithUnbackfilledSellsAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDistinctUserIdsWithUnbackfilledSellsAsync_WhenAllSellsAlreadyHavePnL_ShouldReturnEmpty()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL");
+        var userId = Guid.NewGuid();
+
+        await context.Transactions.AddAsync(new Transaction
+        {
+            Id = Guid.NewGuid(),
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Sell,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId,
+            RealizedPnL = 490m,
+            RealizedPnLPct = 48.76m
+        });
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetDistinctUserIdsWithUnbackfilledSellsAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDistinctUserIdsWithUnbackfilledSellsAsync_WhenOnlyBuyTransactionsExist_ShouldReturnEmpty()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("MSFT");
+        var userId = Guid.NewGuid();
+
+        await context.Transactions.AddAsync(new Transaction
+        {
+            Id = Guid.NewGuid(),
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Buy,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 100m,
+            Fees = 5m,
+            UserId = userId
+        });
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetDistinctUserIdsWithUnbackfilledSellsAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDistinctUserIdsWithUnbackfilledSellsAsync_WhenSomeSellsHaveNullPnL_ShouldReturnThoseUserIds()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("GOOGL");
+        var userIdWithNullPnL = Guid.NewGuid();
+        var userIdWithCalculatedPnL = Guid.NewGuid();
+
+        await context.Transactions.AddRangeAsync(
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security.Id,
+                TransactionType = TransactionType.Sell,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 10m,
+                SharePrice = 150m,
+                Fees = 5m,
+                UserId = userIdWithNullPnL,
+                RealizedPnL = null
+            },
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security.Id,
+                TransactionType = TransactionType.Sell,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 5m,
+                SharePrice = 200m,
+                Fees = 5m,
+                UserId = userIdWithCalculatedPnL,
+                RealizedPnL = 300m,
+                RealizedPnLPct = 30m
+            });
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetDistinctUserIdsWithUnbackfilledSellsAsync();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.Should().Contain(userIdWithNullPnL);
+        result.Should().NotContain(userIdWithCalculatedPnL);
+    }
+
+    [Fact]
+    public async Task GetDistinctUserIdsWithUnbackfilledSellsAsync_WithMultipleSellsForSameUser_ShouldReturnUserIdOnce()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("TSLA");
+        var userId = Guid.NewGuid();
+
+        await context.Transactions.AddRangeAsync(
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security.Id,
+                TransactionType = TransactionType.Sell,
+                Date = DateTime.UtcNow,
+                SharesQuantity = 10m,
+                SharePrice = 150m,
+                Fees = 5m,
+                UserId = userId,
+                RealizedPnL = null
+            },
+            new Transaction
+            {
+                Id = Guid.NewGuid(),
+                SecurityId = security.Id,
+                TransactionType = TransactionType.Sell,
+                Date = DateTime.UtcNow.AddDays(-1),
+                SharesQuantity = 5m,
+                SharePrice = 120m,
+                Fees = 5m,
+                UserId = userId,
+                RealizedPnL = null
+            });
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetDistinctUserIdsWithUnbackfilledSellsAsync();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.Should().Contain(userId);
+    }
+
+    [Fact]
+    public async Task UpdateBulkAsync_WithMultipleTransactions_ShouldPersistAllChanges()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("NVDA");
+        var userId = Guid.NewGuid();
+
+        var transaction1 = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Sell,
+            Date = DateTime.UtcNow,
+            SharesQuantity = 10m,
+            SharePrice = 150m,
+            Fees = 5m,
+            UserId = userId,
+            RealizedPnL = null,
+            RealizedPnLPct = null
+        };
+        var transaction2 = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            SecurityId = security.Id,
+            TransactionType = TransactionType.Sell,
+            Date = DateTime.UtcNow.AddDays(-1),
+            SharesQuantity = 5m,
+            SharePrice = 120m,
+            Fees = 5m,
+            UserId = userId,
+            RealizedPnL = null,
+            RealizedPnLPct = null
+        };
+        await context.Transactions.AddRangeAsync(transaction1, transaction2);
+        await context.SaveChangesAsync();
+
+        transaction1.RealizedPnL = 490m;
+        transaction1.RealizedPnLPct = 48.76m;
+        transaction2.RealizedPnL = 75m;
+        transaction2.RealizedPnLPct = 15m;
+
+        // Act
+        await sut.UpdateBulkAsync(new List<Transaction> { transaction1, transaction2 });
+
+        // Assert
+        context.ChangeTracker.Clear();
+        var saved1 = await context.Transactions.FindAsync(transaction1.Id);
+        var saved2 = await context.Transactions.FindAsync(transaction2.Id);
+
+        saved1!.RealizedPnL.Should().Be(490m);
+        saved1.RealizedPnLPct.Should().Be(48.76m);
+        saved2!.RealizedPnL.Should().Be(75m);
+        saved2.RealizedPnLPct.Should().Be(15m);
+    }
+
+    [Fact]
+    public async Task UpdateBulkAsync_WithEmptyList_ShouldNotThrow()
+    {
+        // Arrange
+        var emptyList = new List<Transaction>();
+
+        // Act
+        var act = async () => await sut.UpdateBulkAsync(emptyList);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public async Task Delete_ShouldNotDeleteOtherTransactions()
     {
         // Arrange

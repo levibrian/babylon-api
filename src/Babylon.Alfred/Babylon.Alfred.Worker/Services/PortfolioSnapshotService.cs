@@ -20,7 +20,8 @@ public class PortfolioSnapshotService(
 {
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Starting portfolio snapshot job at {Timestamp}", DateTime.UtcNow);
+        var startedAt = DateTime.UtcNow;
+        logger.LogInformation("PortfolioSnapshotService starting");
 
         try
         {
@@ -29,7 +30,7 @@ public class PortfolioSnapshotService(
 
             if (userIds.Count == 0)
             {
-                logger.LogInformation("No users with portfolios found. Skipping snapshot creation.");
+                logger.LogDebug("No users with portfolios found — skipping");
                 return;
             }
 
@@ -37,12 +38,15 @@ public class PortfolioSnapshotService(
 
             var successCount = 0;
             var skipCount = 0;
+            var processedCount = 0;
 
             foreach (var userId in userIds)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    logger.LogInformation("Portfolio snapshot job cancelled");
+                    logger.LogInformation(
+                        "Cancellation requested — {Processed}/{Total} users processed",
+                        processedCount, userIds.Count);
                     break;
                 }
 
@@ -61,18 +65,21 @@ public class PortfolioSnapshotService(
                     else
                     {
                         skipCount++;
-                        logger.LogDebug("Skipped snapshot for user {UserId} - no market value available", userId);
+                        logger.LogDebug("Skipped snapshot for user {UserId} — no market value available", userId);
                     }
                 }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Failed to create snapshot for user {UserId}", userId);
                 }
+
+                processedCount++;
             }
 
+            var elapsed = DateTime.UtcNow - startedAt;
             logger.LogInformation(
-                "Portfolio snapshot completed. Created: {Success}, Skipped: {Skip}, Total Users: {Total}",
-                successCount, skipCount, userIds.Count);
+                "PortfolioSnapshotService complete — {Success} created, {Skip} skipped, {Total} users in {ElapsedMs}ms",
+                successCount, skipCount, userIds.Count, (int)elapsed.TotalMilliseconds);
         }
         catch (Exception ex)
         {

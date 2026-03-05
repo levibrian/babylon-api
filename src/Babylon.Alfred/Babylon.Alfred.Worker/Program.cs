@@ -62,28 +62,13 @@ try
     builder.Services.AddScoped<YahooFinanceService>();
     builder.Services.AddScoped<PriceFetchingService>();
     builder.Services.AddScoped<PortfolioSnapshotService>();
+    builder.Services.AddScoped<RealizedPnlBackfillService>();
 
     // Register jobs
     builder.Services.AddScoped<PriceFetchingJob>();
     builder.Services.AddScoped<PortfolioSnapshotJob>();
+    builder.Services.AddScoped<RealizedPnlBackfillJob>();
 
-    // Register Background Services
-    builder.Services.AddHostedService<RealizedGainsBackfillService>();
-
-
-    // Configure Quartz scheduled jobs (cron expressions defined in job classes)
-    Log.Information("=== Job Configuration ===");
-    Log.Information("PriceFetchingJob Schedule: {CronExpression}", PriceFetchingJob.Cron);
-    Log.Information("  → Runs every hour on the hour");
-    Log.Information("  → Active hours: 9:00 AM - 10:00 PM UTC");
-    Log.Information("  → Active days: Monday through Friday (market days)");
-    Log.Information("  → Purpose: Fetch latest market prices from Yahoo Finance");
-    Log.Information("");
-    Log.Information("PortfolioSnapshotJob Schedule: {CronExpression}", PortfolioSnapshotJob.Cron);
-    Log.Information("  → Runs hourly at :15 (15 min after price fetch)");
-    Log.Information("  → Active hours: 9:15 AM - 10:15 PM UTC, weekdays only");
-    Log.Information("  → Purpose: Save hourly portfolio snapshots for intraday performance charts");
-    Log.Information("=========================");
 
     builder.Services.AddQuartz(q =>
     {
@@ -102,7 +87,24 @@ try
             .ForJob(portfolioSnapshotJobKey)
             .WithIdentity($"{nameof(PortfolioSnapshotJob)}-trigger")
             .WithCronSchedule(PortfolioSnapshotJob.Cron));
+
+        var realizedPnlBackfillJobKey = new JobKey(nameof(RealizedPnlBackfillJob));
+        q.AddJob<RealizedPnlBackfillJob>(opts => opts.WithIdentity(realizedPnlBackfillJobKey));
+
+        q.AddTrigger(opts => opts
+            .ForJob(realizedPnlBackfillJobKey)
+            .WithIdentity($"{nameof(RealizedPnlBackfillJob)}-trigger")
+            .WithCronSchedule(RealizedPnlBackfillJob.Cron));
     });
+
+    // Log the scheduler summary after all jobs are registered
+    Log.Information("Quartz scheduler configured — {JobCount} job(s) registered", 3);
+    Log.Information("Job {Job} scheduled | Cron: {Cron} | Market price fetch, weekdays 09:00–22:00 UTC",
+        nameof(PriceFetchingJob), PriceFetchingJob.Cron);
+    Log.Information("Job {Job} scheduled | Cron: {Cron} | Portfolio snapshots, weekdays 09:15–22:15 UTC",
+        nameof(PortfolioSnapshotJob), PortfolioSnapshotJob.Cron);
+    Log.Information("Job {Job} scheduled | Cron: {Cron} | Sell PnL backfill, daily 03:00 UTC (idempotent)",
+        nameof(RealizedPnlBackfillJob), RealizedPnlBackfillJob.Cron);
 
     builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

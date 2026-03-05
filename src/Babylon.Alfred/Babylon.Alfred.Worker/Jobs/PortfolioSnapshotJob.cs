@@ -23,7 +23,7 @@ public class PortfolioSnapshotJob(
 
     public async Task Execute(IJobExecutionContext context)
     {
-        logger.LogInformation("PortfolioSnapshotJob started at {Timestamp}", DateTime.UtcNow);
+        logger.LogInformation("PortfolioSnapshotJob started");
 
         try
         {
@@ -31,11 +31,11 @@ public class PortfolioSnapshotJob(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error executing PortfolioSnapshotJob");
+            logger.LogError(ex, "PortfolioSnapshotJob failed — will not refire");
             throw new JobExecutionException(ex, refireImmediately: false);
         }
 
-        logger.LogInformation("PortfolioSnapshotJob completed at {Timestamp}", DateTime.UtcNow);
+        logger.LogInformation("PortfolioSnapshotJob completed");
     }
 }
 
