@@ -22,7 +22,7 @@ Handles user registration, login, and session management for the Babylon platfor
 - Backend validates token via `Google.Apis.Auth`.
 - If user exists: updates auth provider, generates tokens.
 - If user does not exist: auto-creates user account from Google profile.
-- Supports account linking (existing local user can link Google account).
+- **Account linking rule**: If email matches existing local user, link Google provider to that user. Username is NOT changed.
 
 ### JWT Tokens
 - **Access token**: HS256, 24-hour expiration, zero clock skew.
@@ -42,22 +42,12 @@ Handles user registration, login, and session management for the Babylon platfor
 
 ## Architecture
 
-```
-Features/Authentication/
-├── Controllers/
-│   └── AuthController.cs        # POST: google, login, register, refresh, logout
-├── Services/
-│   ├── IAuthService.cs          # Interface: GoogleLoginAsync, LoginAsync, RegisterAsync, RefreshTokenAsync, LogoutAsync
-│   └── AuthService.cs           # Implementation with UserRepository + RefreshTokenRepository
-├── Models/
-│   ├── AuthResponse.cs          # { AccessToken, RefreshToken, ExpiresIn }
-│   ├── LoginRequest.cs          # { Username, Password }
-│   ├── RegisterRequest.cs       # { Username, Email, Password }
-│   ├── GoogleLoginRequest.cs    # { IdToken }
-│   └── RefreshTokenRequest.cs   # { RefreshToken }
-└── Utils/
-    └── JwtTokenGenerator.cs     # Generates access tokens (JWT) and refresh tokens (random bytes)
-```
+| Component | Purpose |
+|-----------|---------|
+| **AuthController** | POST: google, login, register, refresh, logout |
+| **AuthService** | Business logic: GoogleLoginAsync, LoginAsync, RegisterAsync, RefreshTokenAsync, LogoutAsync |
+| **JwtTokenGenerator** | Generates JWT access tokens + random refresh tokens |
+| **Models** | AuthResponse, LoginRequest, RegisterRequest, GoogleLoginRequest, RefreshTokenRequest |
 
 ## Dependencies
 
@@ -66,9 +56,22 @@ Features/Authentication/
 - `IConfiguration` - JWT settings, Google ClientId
 - `Google.Apis.Auth.GoogleJsonWebSignature` - Google IdToken validation
 
-## Security Notes
+## Security Invariants
 
-- Never return password hashes in responses.
-- Refresh tokens are single-use (revoked after refresh).
-- All previous refresh tokens for a user are revoked on new login (prevents token reuse).
-- `RequireHttpsMetadata = false` in development (should be `true` in production).
+**Critical security rules** (do not modify without security review):
+
+- Never return password hashes in responses
+- Refresh tokens are single-use (revoked after refresh)
+- All previous refresh tokens revoked on new login (prevents token reuse)
+- `RequireHttpsMetadata = false` in development only (MUST be `true` in production)
+- Password validation: BCrypt work factor configured for adequate complexity
+
+## Test Anchors
+
+Test scenarios that MUST have coverage:
+
+- Duplicate registration (username or email) → throw
+- Invalid Google token → throw
+- Expired refresh token → reject
+- Revoked token reuse → reject
+- Account linking: email match links to existing user, username preserved

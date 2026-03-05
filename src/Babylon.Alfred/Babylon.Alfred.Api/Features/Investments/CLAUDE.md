@@ -58,60 +58,66 @@ The Investments feature is the core of Babylon Alfred. It enables users to track
 - Hourly snapshots capture: TotalInvested, CashBalance, TotalMarketValue, UnrealizedPnL.
 - Used for portfolio performance charts over time.
 
+## Business Rule Invariants (TDD Anchors)
+
+These are the core business rules that MUST have corresponding test coverage:
+
+### Transaction Rules
+- Selling more shares than held → must throw `InvalidOperationException` (tested in `TransactionServiceTests`)
+- Dividend transaction → does NOT affect FIFO lots or cost basis
+- Split transaction → multiplies shares in ALL open lots, price = 0
+- Buy cost basis = `(Shares × Price) + Fees` (Tax NOT included)
+- Sell realized P&L = `(Proceeds - Fees) - CostBasisConsumed` (Tax NOT deducted from proceeds)
+- Tax applies ONLY to Dividend transactions: `NetDividendIncome = GrossAmount - Tax`
+
+### Portfolio Position Rules
+- Fully-sold positions (net shares = 0) → excluded from `GetOpenPositionsByUser`
+- Open position = security where `SUM(Buy shares) - SUM(Sell shares) > 0` for a user
+- Positions ordered by TargetPercentage DESC, nulls last
+
+### Allocation & Rebalancing Rules
+- Target allocation deviation < 0.5% → treated as `Balanced` (no rebalancing action)
+- Target allocation deviation >= 0.5% → `Underweight` (buy) or `Overweight` (sell)
+- Rebalancing noise threshold (default 10) → deviations below this amount are ignored
+
+### Risk Analysis Rules
+- Concentration >20% of portfolio → Warning severity
+- Concentration >40% of portfolio → Critical severity
+- Diversification measured via HHI (Herfindahl-Hirschman Index)
+
+### Analytics Boundary Conditions
+- Buy percentile threshold: <20th percentile of 1-year price range
+- Sell percentile threshold: >80th percentile of 1-year price range
+- Risk-free rate: 3% (US Treasury proxy)
+- Trading days per year: 252
+
+### Edge Cases to Test
+- Transaction with SecurityId that doesn't exist → throw
+- Deleting a Buy that would cause future Sell to over-sell → throw
+- Split with ratio 0 or negative → throw
+- Dividend with zero shares → allow (stock dividends based on holdings)
+- Updating transaction date → `UpdatedAt` set to `DateTime.UtcNow`, not transaction date
+
 ## Architecture
 
-```
-Features/Investments/
-├── Controllers/           # 11 controllers (thin, delegate to services)
-│   ├── PortfoliosController        # GET portfolio with positions & allocations
-│   ├── TransactionsController      # CRUD transactions + bulk
-│   ├── SecuritiesController        # CRUD securities + search-and-create
-│   ├── AllocationController        # GET/SET allocation strategies
-│   ├── PortfolioAnalyticsController # Risk, income, efficiency metrics
-│   ├── InsightsController          # AI-powered portfolio insights
-│   ├── RebalancingController       # Rebalancing suggestions + smart rebalancing
-│   ├── PortfolioHistoryController  # Historical snapshots
-│   ├── MarketController            # Market price data
-│   ├── CashController              # Cash balance management
-│   └── UserController              # User profile
-├── Services/              # Business logic layer
-│   ├── PortfolioService            # Position aggregation, cost basis calculation
-│   ├── TransactionService          # Transaction CRUD + validation + realized P&L
-│   ├── SecurityService             # Security CRUD + Yahoo Finance integration
-│   ├── AllocationStrategyService   # Allocation target management
-│   ├── PortfolioAnalyticsService   # Orchestrates analyzer pipeline
-│   ├── PortfolioInsightsService    # Runs all analyzers, collects insights
-│   ├── RebalancingService          # Rebalancing action calculation
-│   ├── TimedRebalancingActionsService # Time-based buy/sell signals
-│   ├── GeminiRebalancingOptimizer  # AI-powered rebalancing (Gemini API)
-│   ├── MarketPriceService          # Reads cached market prices
-│   ├── CashBalanceService          # Cash balance management
-│   └── PortfolioHistoryService     # Snapshot queries
-├── Analyzers/             # Strategy pattern implementations
-│   ├── IPortfolioAnalyzer          # Interface: AnalyzeAsync(portfolio, history)
-│   ├── RiskAnalyzer                # Concentration, diversification, HHI
-│   ├── IncomeAnalyzer              # Dividend patterns
-│   ├── EfficiencyAnalyzer          # Sharpe ratio, return/risk
-│   └── TrendAnalyzer               # Momentum, drawdown
-├── Shared/                # Shared utilities within Investments feature
-│   ├── PortfolioCalculator         # FIFO cost basis, position metrics, allocations
-│   ├── RealizedPnLCalculator       # Realized P&L per transaction (FIFO lots)
-│   ├── DividendCalculator          # Gross/net dividend calculations
-│   ├── StatisticsCalculator        # Portfolio statistics
-│   ├── TransactionValidator        # Input validation rules
-│   ├── SecurityValidator           # Security existence validation
-│   ├── TransactionMapper           # Entity-to-DTO mapping
-│   ├── ErrorMessages               # Centralized error message strings
-│   └── RiskMetricsConstants        # Benchmark ticker, risk-free rate, trading days
-├── Models/
-│   ├── Requests/                   # Input DTOs (CreateTransactionRequest, etc.)
-│   └── Responses/                  # Output DTOs
-│       ├── Portfolios/             # PortfolioResponse, PortfolioPositionDto, etc.
-│       ├── Analytics/              # RiskMetricsDto, DiversificationMetricsDto
-│       └── Rebalancing/            # RebalancingActionDto, SmartRebalancingResponseDto
-├── Options/               # Configuration option classes
-└── Extensions/            # DI registration for this feature
-```
+### Component Inventory
+
+| Layer | Components | Purpose |
+|-------|-----------|---------|
+| **Controllers** (11) | Portfolios, Transactions, Securities, Allocation, Analytics, Insights, Rebalancing, History, Market, Cash, User | Thin HTTP layer, delegates to services |
+| **Services** (12) | Portfolio, Transaction, Security, AllocationStrategy, Analytics, Insights, Rebalancing, TimedRebalancing, GeminiOptimizer, MarketPrice, CashBalance, History | Business logic orchestration |
+| **Analyzers** (4) | Risk, Income, Efficiency, Trend (implement `IPortfolioAnalyzer`) | Strategy pattern for portfolio analysis |
+| **Calculators** (4) | Portfolio (FIFO), RealizedPnL, Dividend, Statistics | Pure calculation logic (no dependencies) |
+| **Validators** (2) | Transaction, Security | Input validation rules |
+| **Mappers** | Transaction | Entity-to-DTO transformation |
+| **Models** | Requests/, Responses/ (Portfolios, Analytics, Rebalancing) | DTOs for API contracts |
+| **Options** | Configuration classes | Appsettings binding |
+| **Extensions** | ServiceCollectionExtensions | DI registration |
+
+### Key Patterns
+- **Strategy Pattern**: `IPortfolioAnalyzer` with 4 implementations
+- **FIFO Algorithm**: `PortfolioCalculator` maintains cost basis queue
+- **Pure Functions**: All calculators and validators have no side effects
 
 ## Key Constants
 

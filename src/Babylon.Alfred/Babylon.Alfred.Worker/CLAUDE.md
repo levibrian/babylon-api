@@ -6,23 +6,20 @@ A .NET hosted service that runs scheduled background jobs via Quartz.NET. Respon
 
 ## Project Structure
 
-```
-Babylon.Alfred.Worker/
-├── Program.cs                           # Host builder, DI, Quartz configuration
-├── appsettings.json                     # Connection string, logging, schedule config
-├── Dockerfile                           # Multi-stage Docker build
-├── Extensions/
-│   └── ServiceCollectionExtensions.cs   # HttpClient registration for Yahoo Finance
-├── Jobs/
-│   ├── IJob.cs                          # IJobBase : Quartz.IJob (base interface)
-│   ├── PriceFetchingJob.cs              # Hourly price updates from Yahoo Finance
-│   └── PortfolioSnapshotJob.cs          # Hourly portfolio value snapshots
-└── Services/
-    ├── PriceFetchingService.cs          # Orchestrates price fetching with rate limiting
-    ├── YahooFinanceService.cs           # HTTP client for Yahoo Finance v8 API
-    ├── PortfolioSnapshotService.cs      # Creates portfolio value snapshots
-    └── RealizedGainsBackfillService.cs  # One-time startup backfill of realized P&L
-```
+### Jobs (Quartz.NET scheduled)
+- **PriceFetchingJob** - Hourly price updates from Yahoo Finance
+- **PortfolioSnapshotJob** - Hourly portfolio value snapshots
+
+### Services
+- **PriceFetchingService** - Orchestrates price fetching with rate limiting
+- **YahooFinanceService** - HTTP client for Yahoo Finance v8 API
+- **PortfolioSnapshotService** - Creates portfolio value snapshots
+- **RealizedGainsBackfillService** - One-time startup backfill of realized P&L
+
+### Root Files
+- `Program.cs` - Host builder, DI, Quartz configuration
+- `appsettings.json` - Connection string, logging, schedule config
+- `Dockerfile` - Multi-stage Docker build
 
 ## Scheduled Jobs
 
@@ -40,6 +37,7 @@ Babylon.Alfred.Worker/
 
 ### PortfolioSnapshotJob
 - **Schedule**: `0 15 9-22 ? * MON-FRI` (15 minutes past each hour, weekdays)
+- **Schedule rationale**: 15-minute offset ensures price fetch job completes first (runs at top of hour)
 - **Concurrency**: `[DisallowConcurrentExecution]`
 - **Behavior**:
   1. Queries all users with portfolios (distinct user IDs from transactions).
@@ -53,6 +51,8 @@ Babylon.Alfred.Worker/
 ### RealizedGainsBackfillService
 - **Type**: `BackgroundService` (runs once on startup, then completes)
 - **Purpose**: One-time backfill of `RealizedPnL` and `RealizedPnLPct` fields on Transaction records.
+- **Idempotency**: Checks if value changed before writing. Safe to re-run on every deployment.
+- **Future**: Consider removing once all production rows are populated (check via query).
 - **Behavior**:
   1. Queries all unique user IDs from transactions.
   2. Groups transactions by security.
@@ -78,19 +78,7 @@ The Worker project references the API project and reuses:
 
 ## Configuration
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=...;Database=babylon_dev;SslMode=Require"
-  },
-  "Serilog": {
-    "WriteTo": [
-      { "Name": "Console" },
-      { "Name": "File", "Args": { "path": "/logs/babylon-worker-.log", "rollingInterval": "Day", "retainedFileCountLimit": 7 } }
-    ]
-  }
-}
-```
+See `appsettings.json` directly. Key sections: `ConnectionStrings`, `Serilog`.
 
 ## Resilience Patterns
 
@@ -98,6 +86,10 @@ The Worker project references the API project and reuses:
 - **Yahoo API**: Exponential backoff on 429s. Max 3 retries per ticker. Stops job early after 3 consecutive rate limits.
 - **Jobs**: `DisallowConcurrentExecution` prevents overlapping. CancellationToken for graceful shutdown.
 - **Scoping**: Each Quartz job execution gets a new DI scope for clean repository state.
+
+## Test Strategy
+
+Jobs are not directly unit tested. Services (`PriceFetchingService`, `PortfolioSnapshotService`) are tested in isolation via mocked repositories.
 
 ## Docker
 

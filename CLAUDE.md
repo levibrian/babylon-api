@@ -26,26 +26,23 @@ Babylon is a personal investment portfolio management platform. Named after Batm
 
 ## Solution Structure
 
-```
-babylon-api/
-├── src/Babylon.Alfred/
-│   ├── Babylon.Alfred.sln
-│   ├── Babylon.Alfred.Api/          # REST API (main application)
-│   ├── Babylon.Alfred.Api.Tests/    # Unit + integration tests
-│   ├── Babylon.Alfred.Worker/       # Background job service
-│   └── docker-compose.yml
-├── iac/                             # Terraform infrastructure
-├── .github/workflows/               # CI/CD pipelines
-├── fly.api.toml                     # Fly.io API deployment config
-├── fly.db.prod.toml                 # Fly.io database config
-└── test-api.http                    # HTTP request samples
-```
+**Structural Principles**:
+- **Vertical slices** under `Features/` (self-contained feature modules with Controllers, Services, Models, Extensions)
+- **Cross-cutting concerns** in `Shared/` (Data layer, Repositories, Middlewares, Logging, Models, Extensions)
+- **External adapters** in `Infrastructure/` (Yahoo Finance, etc.)
+- **Feature folders** contain: `Controllers/`, `Services/`, `Models/Requests/`, `Models/Responses/`, `Extensions/ServiceCollectionExtensions.cs`
 
 ### Projects
 
-- **Babylon.Alfred.Api**: REST API serving the investment platform. Vertical slice architecture with feature folders. Contains domain models, repositories, services, and controllers.
-- **Babylon.Alfred.Worker**: .NET hosted service running scheduled background jobs via Quartz.NET. Fetches market prices, creates portfolio snapshots, and runs data backfills. References the API project for shared models and business logic.
-- **Babylon.Alfred.Api.Tests**: xUnit test project mirroring the API folder structure. Covers controllers, services, analyzers, calculators, and repositories.
+- **Babylon.Alfred.Api**: REST API (`src/Babylon.Alfred/Babylon.Alfred.Api/`). Vertical slice architecture. Domain models, repositories, services, controllers.
+- **Babylon.Alfred.Worker**: Background job service (`src/Babylon.Alfred/Babylon.Alfred.Worker/`). Quartz.NET scheduler. Fetches market prices, creates snapshots, runs backfills. References API project.
+- **Babylon.Alfred.Api.Tests**: xUnit test project (`src/Babylon.Alfred/Babylon.Alfred.Api.Tests/`). Mirrors API structure. Controllers, services, analyzers, calculators, repositories.
+
+### Key Anchor Files
+- `babylon-api/iac/` - Terraform infrastructure (AWS VPC, RDS, Secrets)
+- `babylon-api/.github/workflows/` - CI/CD pipelines
+- `babylon-api/fly.api.toml` - Fly.io API deployment config
+- `babylon-api/test-api.http` - HTTP request samples
 
 ## Architecture
 
@@ -132,17 +129,43 @@ All API responses use a standard envelope:
 - **Enums**: Serialized as strings via `StringEnumConverter`.
 - **Decimal precision**: Shares (18,8), Prices/Fees/Tax (18,4), MarketCap (20,2), Percentages (8,4).
 
-## Testing Conventions
+## Testing Contract (TDD)
 
-- **Framework**: xUnit with `[Fact]` and `[Theory]`/`[InlineData]`.
-- **Naming**: `MethodName_ScenarioCondition_ExpectedResult`.
-- **Mocking**: Moq + AutoMocker (`autoMocker.CreateInstance<T>()`).
-- **Data generation**: AutoFixture with customizations for DateOnly and recursive types.
-- **Assertions**: FluentAssertions (`result.Should().Be(expected)`).
-- **Database tests**: EF Core InMemory with unique database per test (`Guid.NewGuid().ToString()`).
-- **Controller tests**: Mock `ControllerContext` with `ClaimsPrincipal` for auth scenarios.
-- **Pattern**: Strict AAA (Arrange-Act-Assert) with clear separation.
-- **GUID generation**: Use `Guid.NewGuid()`, never `fixture.Create<Guid>()`.
+### Framework & Libraries
+- xUnit with `[Fact]` and `[Theory]`/`[InlineData]`
+- Moq + AutoMocker (`autoMocker.CreateInstance<T>()`)
+- AutoFixture with customizations for DateOnly and recursive types
+- FluentAssertions for assertions (`result.Should().Be(expected)`)
+- EF Core InMemory with unique database per test (`Guid.NewGuid().ToString()`)
+
+### Test Naming & Structure
+- **Naming**: `MethodName_ScenarioCondition_ExpectedResult`
+- **Structure**: Strict AAA (Arrange-Act-Assert) with blank line separators
+- **Pattern**: One logical assertion per test (FluentAssertions `.And` chaining acceptable)
+
+### What to Mock
+- **Always mock**: Repositories (`I*Repository`), external HTTP services, `IConfiguration`
+- **Never mock**: Calculators, validators, mappers (pure functions — test directly)
+
+### Coverage Expectations
+- Every service method: happy path + primary failure path
+- Every business rule invariant (documented in feature CLAUDE.md): at least one test
+- Every threshold boundary (e.g., >20%, >0.5%): tested at, below, and above
+- Analyzers: all boundaries verified
+- Calculators: FIFO lots, splits, dividends, partial sells — dedicated test cases
+
+### TDD Workflow
+1. Read business rule invariants in feature CLAUDE.md
+2. Write test → Red
+3. Implement minimum code → Green
+4. Refactor
+5. Update CLAUDE.md if new invariant discovered
+
+### Testing Details
+- **Controller tests**: Mock `ControllerContext` with `ClaimsPrincipal` for auth scenarios
+- **GUID generation**: Use `Guid.NewGuid()`, never `fixture.Create<Guid>()`
+- **Test project**: `Babylon.Alfred.Api.Tests` mirrors API folder structure
+- **Full testing contract**: See `Babylon.Alfred.Api.Tests/Claude.MD`
 
 ## Deployment
 
@@ -158,3 +181,48 @@ All API responses use a standard envelope:
 - **Google OAuth**: Validates IdToken, auto-creates/links user accounts.
 - **Password**: BCrypt hashing for local auth.
 - **CORS**: Allowed origins configurable. Defaults: `localhost:3000`, `localhost:3001`, `babylonfinance.vercel.app`.
+
+## Context Loading Guide
+
+This guide helps AI agents select the minimal set of CLAUDE.md files needed for a given task:
+
+### Modifying a Service
+**Load**: Root + feature CLAUDE.md + `Shared/Repositories/CLAUDE.md`
+
+### Adding a New Feature
+**Load**: Root + `Babylon.Alfred.Api/CLAUDE.md` + `Babylon.Alfred.Api/Features/Startup/CLAUDE.md` + `Shared/Data/CLAUDE.md`
+
+### Writing Tests
+**Load**: Root (Testing Contract) + `Babylon.Alfred.Api.Tests/Claude.MD` + target feature CLAUDE.md
+
+### Working with Database/Migrations
+**Load**: Root + `Shared/Data/CLAUDE.md` + feature CLAUDE.md (if entity belongs to specific feature)
+
+### Working with Authentication
+**Load**: Root + `Features/Authentication/CLAUDE.md`
+
+### Working with Background Jobs
+**Load**: Root + `Babylon.Alfred.Worker/CLAUDE.md` + related feature CLAUDE.md
+
+### Working with External Integrations
+**Load**: Root + `Infrastructure/CLAUDE.md` + consuming feature CLAUDE.md
+
+## Global Rules
+
+### ✅ DOs
+- One controller per aggregate (thin, delegate all logic to services)
+- Primary constructor injection everywhere (C# 12)
+- Return `ApiResponse<T>` for all success responses
+- Use `LoggerExtensions` methods (never raw `logger.LogX()`)
+- All repository methods: async, `Async` suffix
+- Use `User.GetUserId()` to extract the authenticated user ID
+- Register everything as Scoped unless there's a documented reason not to
+
+### ❌ DON'Ts
+- No business logic in controllers
+- No business logic in repositories
+- No repository-to-repository calls
+- No `Async` suffix on service method names
+- No direct `DbContext` use outside of repositories
+- No `Controller` base class (use `ControllerBase`)
+- No `DateTime.Now` — always `DateTime.UtcNow`

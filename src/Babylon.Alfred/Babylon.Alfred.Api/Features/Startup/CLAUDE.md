@@ -1,70 +1,63 @@
-
-# Authentication Feature
+# Startup Feature
 
 ## Overview
 
-User registration, login, and session management. Supports local (username/password) and Google OAuth providers. All protected endpoints require a valid JWT bearer token.
+The Startup feature handles application bootstrapping concerns: health checks and root-level feature registration. This is the orchestration layer that wires together all other features.
 
-## Security Invariants (Non-Negotiable)
+## Components
 
-- Password hashes must NEVER be returned in responses.
-- Refresh tokens are **single-use**: revoked immediately upon use.
-- All previous refresh tokens for a user are revoked on new login.
-- Account linking: if a Google email matches an existing local user, link the Google provider — do NOT create a duplicate user, do NOT change the username.
-- `RequireHttpsMetadata = false` in development only; production must use `true`.
+| Component | Purpose |
+|-----------|---------|
+| **HealthController** | GET `/health` endpoint for deployment health checks |
+| **ServiceCollectionExtensions.RegisterFeatures()** | Root DI registration method that calls all feature-specific registration methods |
 
-## Business Rules
+## Feature Registration Order
 
-### Registration
-- Fields: `Username`, `Email`, `Password`.
-- Password hashed with BCrypt before storage.
-- `AuthProvider = "Local"`.
-- Duplicate username or email → reject.
+`RegisterFeatures()` calls feature registrations in this order:
 
-### Local Login
-- Validate username + BCrypt hash.
-- On success: issue JWT access token + refresh token.
-- All existing refresh tokens for user → revoked.
+1. `RegisterTelegram()` - Telegram bot client (no dependencies)
+2. `RegisterInvestmentServices()` - Core investment services (no dependencies on other features)
+3. `RegisterRecurringScheduleServices()` - Recurring schedules (no dependencies on other features)
+4. Authentication services (inline registration, no dependencies)
 
-### Google OAuth
-- Client sends Google `IdToken`.
-- Backend validates via `Google.Apis.Auth.GoogleJsonWebSignature`.
-- User exists → update auth provider, issue tokens.
-- User does not exist → auto-create from Google profile, issue tokens.
+**Note**: Order currently doesn't matter as features are independent. If future cross-feature dependencies arise, order MUST be documented here.
 
-### JWT Access Token
-- Algorithm: HS256. Expiry: 24h. Clock skew: zero.
-- Claims: `Sub` (user GUID), `Email`, `UniqueName`, `AuthProvider`.
-- Issuer: `BabylonAlfredApi`. Audience: `BabylonAlfredClient`.
+## Health Check Endpoint
 
-### Refresh Tokens
-- 32-byte random token, stored in `refresh_tokens` table.
-- Expiry: 7 days (configurable).
-- `IsActive = !IsRevoked && !IsExpired`.
-- On refresh: old token revoked, new access + refresh pair issued.
+**Route**: `GET /health`
 
-### Logout
-- Revokes the provided refresh token.
+**Purpose**: Used by deployment orchestrators (Fly.io) to verify app is running.
 
-## Component Inventory
+**Returns**: `200 OK` with `{ "status": "Healthy" }`
 
-| Component | Responsibility |
-|-----------|---------------|
-| `AuthController` | POST: google, login, register, refresh, logout |
-| `AuthService` | All auth business logic |
-| `JwtTokenGenerator` | JWT access token + refresh token generation |
+**No authentication required** (public endpoint).
 
-Dependencies: `IUserRepository`, `IRefreshTokenRepository`, `IConfiguration`, `Google.Apis.Auth`
+## DI Registration Pattern
 
-## Test Anchors
+Each feature exposes a `Register{FeatureName}()` extension method:
 
-Tests in `Babylon.Alfred.Api.Tests/Features/Authentication/` must cover:
+```csharp
+// Example pattern
+public static void RegisterInvestmentServices(this IServiceCollection services)
+{
+    services.AddScoped<IPortfolioService, PortfolioService>();
+    services.AddScoped<ITransactionService, TransactionService>();
+    // ... more registrations
+}
+```
 
-- Duplicate username → reject
-- Duplicate email → reject
-- Invalid Google IdToken → reject
-- Expired refresh token → reject
-- Revoked refresh token → reject (must not allow reuse)
-- Refresh token → old token revoked, new tokens issued
-- Google login with matching email to existing local user → link (not duplicate)
-- Successful local login → all prior refresh tokens revoked
+Authentication is an exception - currently registered inline in `RegisterFeatures()` rather than via its own extension method.
+
+## Adding a New Feature Registration
+
+When adding a new feature:
+
+1. Create `{Feature}/Extensions/ServiceCollectionExtensions.cs` with `Register{Feature}()` method
+2. Add call to `RegisterFeatures()` in this file
+3. If feature depends on another feature's services, register dependent feature AFTER its dependencies
+4. Document any ordering constraints in § Feature Registration Order above
+
+## Invariants
+
+- **Health endpoint must remain public** (no `[Authorize]`) - used by infrastructure for liveness probes
+- **Feature registration order matters only if cross-dependencies exist** - document any new dependencies immediately

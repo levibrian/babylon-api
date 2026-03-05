@@ -88,6 +88,28 @@ Security (1) ──> (N) RecurringSchedule
 
 All tables use snake_case: `users`, `securities`, `transactions`, `allocation_strategies`, `market_prices`, `cash_balances`, `portfolio_snapshots`, `recurring_schedules`, `refresh_tokens`.
 
+## Migration Rules
+
+**Critical**: Migrations are irreversible in production. Follow these rules to prevent data loss:
+
+- **NEVER** drop columns in a single migration. Process: add new column → backfill data → verify → drop old column in separate migration.
+- **NEVER** rename columns in a single migration. Process: add new column → backfill → update code → drop old column.
+- **NEVER** change column types without explicit casting. PostgreSQL may reject implicit conversions.
+- **ALWAYS** add new columns as nullable first, then backfill, then add NOT NULL constraint if needed.
+- **ALWAYS** run `dotnet ef migrations script` and inspect SQL before applying.
+- **ALWAYS** test migrations against a local PostgreSQL instance before committing.
+- **ALWAYS** ensure migrations are reversible (implement `Down()` method).
+- **NEVER** modify existing migrations that have been applied to production.
+
+### Migration Workflow
+1. Make entity changes in code
+2. Run: `dotnet ef migrations add MigrationName`
+3. Inspect generated SQL: `dotnet ef migrations script`
+4. Test on local PostgreSQL: `dotnet ef database update`
+5. Verify data integrity
+6. Commit migration file
+7. Deploy (migrations auto-apply on startup via `context.Database.Migrate()`)
+
 ## Adding a New Entity
 
 1. Create model class in `Models/`.
@@ -100,3 +122,10 @@ All tables use snake_case: `users`, `securities`, `transactions`, `allocation_st
 ## Database Provider
 
 PostgreSQL via Npgsql. Retry on failure configured: 3 retries, 5-second max delay.
+
+## Invariants (Do Not Change Without Discussion)
+
+- **Decimal precision rules** (§ Decimal Precision Rules table) are contract with database schema
+- **Table names** must remain snake_case for consistency with existing migrations
+- **Foreign key relationships** (§ Entity Relationships) define referential integrity constraints
+- **Computed properties** (`[NotMapped]`) are derived fields — changing them may break API contracts

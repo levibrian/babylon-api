@@ -6,32 +6,31 @@ The main ASP.NET Core REST API for the Babylon investment platform. Serves the R
 
 ## Project Structure
 
-```
-Babylon.Alfred.Api/
-├── Program.cs                          # Startup, DI, middleware pipeline
-├── Constants.cs                        # Solution-wide constants (RootUserId)
-├── appsettings.json                    # Configuration (JWT, CORS, DB, Rebalancing, Gemini)
-├── Dockerfile                          # Multi-stage Docker build
-│
-├── Features/                           # Vertical slices (self-contained feature modules)
-│   ├── Authentication/                 # User auth (JWT, Google OAuth, refresh tokens)
-│   ├── Investments/                    # Core feature: portfolios, transactions, analytics
-│   ├── RecurringSchedules/             # Recurring investment plans
-│   ├── Telegram/                       # Telegram bot integration (in progress)
-│   ├── Startup/                        # Health check, startup DI registration
-│   └── TestFeature/                    # Development test endpoint
-│
-├── Infrastructure/                     # External service integrations
-│   └── YahooFinance/                   # Market data provider
-│
-└── Shared/                             # Cross-cutting concerns
-    ├── Data/                           # DbContext, entity models, EF configurations, migrations
-    ├── Repositories/                   # Repository interfaces + implementations
-    ├── Middlewares/                     # Request logging, global error handler
-    ├── Logging/                        # LoggerExtensions for structured logging
-    ├── Models/                         # Shared DTOs (ApiResponse, ApiErrorResponse)
-    └── Extensions/                     # Claims extensions (User.GetUserId())
-```
+**Follows root architectural principles**: Vertical slices under `Features/`, cross-cutting in `Shared/`, external adapters in `Infrastructure/`.
+
+### Feature Modules
+- **Authentication**: JWT, Google OAuth, refresh tokens
+- **Investments**: Portfolios, transactions, securities, analytics, rebalancing (largest feature, see `Features/Investments/CLAUDE.md`)
+- **RecurringSchedules**: Recurring investment plans
+- **Telegram**: Bot integration (in progress, minimal implementation)
+- **Startup**: Health checks, root DI registration
+
+### Shared Layer (Cross-Cutting)
+- **Data**: `BabylonDbContext`, entity models, EF configurations, migrations (see `Shared/Data/CLAUDE.md`)
+- **Repositories**: Repository pattern implementations (see `Shared/Repositories/CLAUDE.md`)
+- **Middlewares**: Request logging, global error handler
+- **Logging**: `LoggerExtensions` for structured logging
+- **Models**: Shared DTOs (`ApiResponse<T>`, `ApiErrorResponse`)
+- **Extensions**: Claims extensions (`User.GetUserId()`)
+
+### Infrastructure Layer
+- **YahooFinance**: Market data provider (see `Infrastructure/CLAUDE.md`)
+
+### Root Files
+- `Program.cs` - Startup, DI, middleware pipeline
+- `Constants.cs` - Solution-wide constants (RootUserId)
+- `appsettings.json` - Configuration (JWT, CORS, DB, Rebalancing, Gemini)
+- `Dockerfile` - Multi-stage Docker build
 
 ## Startup (Program.cs)
 
@@ -44,13 +43,13 @@ Configuration order:
 6. Feature registration via `builder.Services.RegisterFeatures()`
 7. JWT authentication (conditional on SecretKey presence)
 
-Middleware pipeline:
-1. `UseCors()` (must be first for preflight)
-2. `RequestLoggingMiddleware`
-3. `GlobalErrorHandlerMiddleware`
-4. Swagger UI at `/swagger`
-5. `UseAuthorization()`
-6. `MapControllers()`
+Middleware pipeline (order matters):
+1. `UseCors()` — **Must be first** to handle preflight OPTIONS requests before any other middleware
+2. `RequestLoggingMiddleware` — Logs all requests early, captures timing for full pipeline
+3. `GlobalErrorHandlerMiddleware` — Catches unhandled exceptions from downstream middleware/controllers
+4. Swagger UI at `/swagger` — Serves API documentation
+5. `UseAuthorization()` — Enforces `[Authorize]` attributes on controllers
+6. `MapControllers()` — Routes requests to controller actions
 
 ## API Versioning
 
@@ -77,30 +76,24 @@ All endpoints are under `/api/v1/`. Route prefix is set per-controller via `[Rou
 
 ## Dependency Injection
 
+**DI rules**: See root `CLAUDE.md` § Global Rules. Default lifetime is **Scoped** (per-request).
+
 Each feature registers its own services via `ServiceCollectionExtensions.cs`:
 - `Features/Startup/Extensions/ServiceCollectionExtensions.cs` is the root registrar that calls feature-specific registrations.
-- Services registered as **Scoped** (per-request lifetime).
-- Repositories registered as **Scoped**.
+- Features use extension method pattern: `builder.Services.AddAuthenticationFeature()`, `builder.Services.AddInvestmentsFeature()`, etc.
 
 ## Configuration (appsettings.json)
 
-Key sections:
-- `ConnectionStrings:DefaultConnection` - PostgreSQL connection
-- `Authentication:Jwt` - SecretKey, Issuer (`BabylonAlfredApi`), Audience (`BabylonAlfredClient`), ExpirationMinutes (1440)
-- `Authentication:Google:ClientId` - Google OAuth client ID
-- `Cors:AllowedOrigins` - Additional allowed origins
-- `Rebalancing:TimedActions` - Buy/sell percentile thresholds, noise threshold
-- `Rebalancing:Gemini` - AI rebalancing config (Enabled, ApiKey, Model, Temperature)
-- `Serilog` - Logging levels and sinks
+See `appsettings.json` directly. Key sections: `ConnectionStrings`, `Authentication` (JWT, Google), `Cors`, `Rebalancing` (TimedActions, Gemini), `Serilog`.
 
-## Adding a New Feature
+## Adding a New Feature Checklist
 
-1. Create a folder under `Features/{FeatureName}/`
-2. Add subfolders: `Controllers/`, `Services/`, `Models/Requests/`, `Models/Responses/`
-3. Create `Extensions/ServiceCollectionExtensions.cs` to register DI
-4. Wire up in `Features/Startup/Extensions/ServiceCollectionExtensions.cs`
-5. Add corresponding test folder under `Babylon.Alfred.Api.Tests/Features/{FeatureName}/`
-6. Create a `CLAUDE.md` inside the feature folder documenting business requirements
+- [ ] Create `Features/{FeatureName}/` with subfolders: `Controllers/`, `Services/`, `Models/Requests/`, `Models/Responses/`, `Extensions/`
+- [ ] Implement `Extensions/ServiceCollectionExtensions.cs` with `Add{FeatureName}Feature()` method
+- [ ] Wire into `Features/Startup/Extensions/ServiceCollectionExtensions.cs`
+- [ ] Add test folder: `Babylon.Alfred.Api.Tests/Features/{FeatureName}/` (mirror structure)
+- [ ] Create `Features/{FeatureName}/CLAUDE.md` documenting business rules and invariants
+- [ ] Add route entries to § API Endpoints table in this file
 
 ## Controller Conventions
 

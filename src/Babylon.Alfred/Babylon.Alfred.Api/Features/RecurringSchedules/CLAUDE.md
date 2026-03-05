@@ -10,7 +10,7 @@ Manages recurring investment plans that users set up for automated/scheduled pur
 - Users create recurring investment plans tied to a specific security.
 - Each schedule tracks: UserId, SecurityId, Platform (e.g., "Trading212", "IBKR"), TargetAmount, IsActive.
 - Only active schedules are retrieved for a user.
-- Schedules support create-or-update semantics (upsert).
+- **Upsert semantics**: Unique key is `(UserId, SecurityId)`. If exists, update; else create.
 - Schedules can be deleted by ID.
 
 ### Use Cases
@@ -20,21 +20,11 @@ Manages recurring investment plans that users set up for automated/scheduled pur
 
 ## Architecture
 
-```
-Features/RecurringSchedules/
-├── Controllers/
-│   └── RecurringSchedulesController.cs   # GET active, POST create/update, DELETE
-├── Services/
-│   ├── IRecurringScheduleService.cs      # CreateOrUpdateAsync, GetActiveByUserIdAsync, DeleteAsync
-│   └── RecurringScheduleService.cs       # Business logic
-├── Models/
-│   ├── Requests/
-│   │   └── CreateRecurringScheduleRequest.cs  # { SecurityId, Platform?, TargetAmount?, IsActive }
-│   └── Responses/
-│       └── RecurringScheduleDto.cs            # { Id, SecurityId, Ticker, SecurityName, Platform, TargetAmount, IsActive }
-└── Extensions/
-    └── ServiceCollectionExtensions.cs    # DI registration
-```
+| Component | Purpose |
+|-----------|---------|
+| **RecurringSchedulesController** | GET active, POST create/update, DELETE |
+| **RecurringScheduleService** | CreateOrUpdateAsync, GetActiveByUserIdAsync, DeleteAsync |
+| **Models** | CreateRecurringScheduleRequest, RecurringScheduleDto |
 
 ## Dependencies
 
@@ -43,8 +33,12 @@ Features/RecurringSchedules/
 
 ## Domain Entity
 
-```csharp
-RecurringSchedule: Id, UserId, SecurityId, Platform?, TargetAmount?, IsActive, CreatedAt
-```
+**RecurringSchedule**: Id, UserId, SecurityId, Platform?, TargetAmount?, IsActive, CreatedAt
 
-Table: `recurring_schedules`
+**Table**: `recurring_schedules`
+
+## Test Strategy
+
+Service tests must cover:
+- Upsert idempotency: creating same (UserId, SecurityId) twice → updates existing
+- Deleting non-existent schedule → throws or returns error

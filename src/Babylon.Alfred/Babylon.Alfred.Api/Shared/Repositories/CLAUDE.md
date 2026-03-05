@@ -2,7 +2,9 @@
 
 ## Overview
 
-All database access goes through repository interfaces. Implementations use EF Core's `BabylonDbContext`. All repositories are registered as **Scoped** (per-request lifetime).
+All database access goes through repository interfaces. Implementations use EF Core's `BabylonDbContext`.
+
+**DI lifetime**: See root `CLAUDE.md` § Global Rules. Default is **Scoped** (per-request).
 
 ## Repository Inventory
 
@@ -29,7 +31,11 @@ All database access goes through repository interfaces. Implementations use EF C
 
 ## GetOpenPositionsByUser
 
-This is a key method on `ITransactionRepository` that returns only transactions for securities where the user still holds shares (excludes fully sold positions). Used by portfolio calculation to avoid processing closed positions.
+Key method on `ITransactionRepository` that returns only transactions for securities where the user still holds shares.
+
+**Definition**: Open position = security where `SUM(Buy shares) - SUM(Sell shares) > 0` for a given user.
+
+Used by portfolio calculation to avoid processing closed positions (fully sold securities).
 
 ## Adding a New Repository
 

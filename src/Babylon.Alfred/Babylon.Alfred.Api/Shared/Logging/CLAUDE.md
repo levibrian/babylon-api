@@ -6,10 +6,7 @@ Provides structured logging extensions and conventions for the entire API. Built
 
 ## Structure
 
-```
-Shared/Logging/
-└── LoggerExtensions.cs    # Extension methods for ILogger<T>
-```
+**Single file**: `LoggerExtensions.cs` - Extension methods for `ILogger<T>`
 
 ## LoggerExtensions Methods
 

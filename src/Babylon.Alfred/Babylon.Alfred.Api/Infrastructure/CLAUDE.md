@@ -6,20 +6,10 @@ Contains external service integrations. Currently the only integration is Yahoo 
 
 ## Structure
 
-```
-Infrastructure/
-└── YahooFinance/
-    ├── Services/
-    │   ├── YahooMarketDataService.cs        # Searches Yahoo Finance for security metadata
-    │   ├── IHistoricalPriceService.cs       # Interface for historical price data
-    │   └── HistoricalPriceService.cs        # Fetches historical OHLCV price data
-    ├── Models/
-    │   ├── YahooResponse.cs                 # API response deserialization models
-    │   └── YahooSearchResult.cs             # Search result model
-    └── Mappers/
-        ├── QuoteTypeMapper.cs               # Maps Yahoo QuoteType string to SecurityType enum
-        └── GeographyMapper.cs               # Maps exchange/currency to geography string
-```
+### YahooFinance Integration
+- **Services**: `YahooMarketDataService` (search), `HistoricalPriceService` (OHLCV data)
+- **Models**: `YahooResponse`, `YahooSearchResult`
+- **Mappers**: `QuoteTypeMapper` (Yahoo type → SecurityType enum), `GeographyMapper` (exchange → geography)
 
 ## Yahoo Finance Integration
 
@@ -39,14 +29,21 @@ Infrastructure/
 - **QuoteTypeMapper**: Converts Yahoo's `quoteType` (e.g., "EQUITY", "ETF", "CRYPTOCURRENCY") to the domain `SecurityType` enum.
 - **GeographyMapper**: Infers geography from exchange code and currency (e.g., NYSE/NASDAQ -> "North America", LSE -> "Europe").
 
-## Adding a New External Integration
+## Integration Contract
 
-1. Create a folder under `Infrastructure/{ServiceName}/`.
-2. Add subfolders: `Services/`, `Models/`, `Mappers/` as needed.
-3. Define an interface for the service (e.g., `IFooService`).
-4. Register the HTTP client and service in `ServiceCollectionExtensions`.
-5. Consume the interface in feature services via constructor injection.
+**Rule**: Every external integration must expose an interface consumed by feature services. The implementation is injected — never instantiated directly.
+
+### Adding a New Integration
+1. Create `Infrastructure/{ServiceName}/` folder
+2. Define interface (e.g., `IFooService`)
+3. Implement service with HTTP client via `IHttpClientFactory`
+4. Register in `ServiceCollectionExtensions`
+5. Consume via interface injection in feature services
 
 ## HTTP Client Configuration
 
-Yahoo Finance HTTP clients are registered via `IHttpClientFactory` in the Worker's `ServiceCollectionExtensions`. The API project uses the same models but the Worker handles the actual HTTP calls for price fetching.
+Yahoo Finance HTTP clients are registered via `IHttpClientFactory` in the Worker's `ServiceCollectionExtensions`. The API project uses the same models but the Worker handles actual HTTP calls for price fetching.
+
+## Test Strategy
+
+Infrastructure services are tested via integration tests or with `HttpClient` mocks. No actual HTTP calls in unit tests.
