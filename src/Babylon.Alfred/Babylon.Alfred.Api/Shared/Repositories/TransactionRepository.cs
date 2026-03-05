@@ -82,6 +82,17 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         return transactions;
     }
 
+    public async Task<IList<Guid>> GetDistinctUserIdsWithUnbackfilledSellsAsync(CancellationToken cancellationToken = default)
+    {
+        return await context.Transactions
+            .Where(t => t.TransactionType == TransactionType.Sell
+                     && t.RealizedPnL == null
+                     && t.UserId.HasValue)
+            .Select(t => t.UserId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Transaction?> GetById(Guid transactionId, Guid userId)
     {
         logger.LogInformation("Getting transaction {TransactionId} for UserId: {UserId}", transactionId, userId);
@@ -113,6 +124,21 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         logger.LogInformation("Transaction updated: {TransactionId} for UserId: {UserId}, SecurityId: {SecurityId}",
             transaction.Id, transaction.UserId, transaction.SecurityId);
         return transaction;
+    }
+
+    public async Task UpdateBulkAsync(IList<Transaction> transactions, CancellationToken cancellationToken = default)
+    {
+        if (transactions.Count == 0)
+        {
+            return;
+        }
+
+        logger.LogDatabaseOperation("UpdateBulk", "Transaction", null, transactions.Count);
+
+        context.Transactions.UpdateRange(transactions);
+        await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogDatabaseOperation("UpdatedBulk", "Transaction", null, transactions.Count);
     }
 
     public async Task<Transaction> Delete(Guid transactionId, Guid userId)

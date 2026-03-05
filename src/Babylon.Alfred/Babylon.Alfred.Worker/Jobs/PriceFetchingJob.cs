@@ -19,7 +19,7 @@ public class PriceFetchingJob(
 
     public async Task Execute(IJobExecutionContext context)
     {
-        logger.LogInformation("PriceFetchingJob started at {Timestamp}", DateTime.UtcNow);
+        logger.LogInformation("PriceFetchingJob started");
 
         try
         {
@@ -27,11 +27,11 @@ public class PriceFetchingJob(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error executing PriceFetchingJob");
+            logger.LogError(ex, "PriceFetchingJob failed — will not refire");
             throw new JobExecutionException(ex, refireImmediately: false);
         }
 
-        logger.LogInformation("PriceFetchingJob completed at {Timestamp}", DateTime.UtcNow);
+        logger.LogInformation("PriceFetchingJob completed");
     }
 }
 

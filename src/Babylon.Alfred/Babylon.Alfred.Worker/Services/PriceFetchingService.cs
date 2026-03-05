@@ -17,7 +17,8 @@ public class PriceFetchingService(
 
     public async Task ExecuteAsync(CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Starting price fetching job at {Timestamp}", DateTime.UtcNow);
+        var startedAt = DateTime.UtcNow;
+        logger.LogInformation("PriceFetchingService starting");
 
         try
         {
@@ -25,7 +26,7 @@ public class PriceFetchingService(
 
             if (securitiesNeedingUpdate.Count == 0)
             {
-                logger.LogInformation("No securities need price updates");
+                logger.LogDebug("No securities need price updates — skipping");
                 return;
             }
 
@@ -38,15 +39,18 @@ public class PriceFetchingService(
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    logger.LogInformation("Price fetching job cancelled");
+                    logger.LogInformation(
+                        "Cancellation requested — {Processed}/{Total} securities processed",
+                        processed, securitiesNeedingUpdate.Count);
                     break;
                 }
 
                 if (processed >= MaxApiCallsPerRun)
                 {
+                    var remaining = securitiesNeedingUpdate.Count - processed;
                     logger.LogInformation(
-                        "Reached max calls ({MaxCalls}). Remaining will be processed in next run",
-                        MaxApiCallsPerRun);
+                        "Reached max calls ({MaxCalls}) — {Remaining} remaining securities will be processed in next run",
+                        MaxApiCallsPerRun, remaining);
                     break;
                 }
 
@@ -64,7 +68,9 @@ public class PriceFetchingService(
                     rateLimitHits++;
                     if (rateLimitHits >= 3)
                     {
-                        logger.LogWarning("Too many rate limit hits. Stopping job early.");
+                        logger.LogWarning(
+                            "Too many rate limit hits ({RateLimitHits}) — stopping early after {Processed}/{Total} securities",
+                            rateLimitHits, processed, securitiesNeedingUpdate.Count);
                         break;
                     }
                 }
@@ -72,9 +78,10 @@ public class PriceFetchingService(
                 processed++;
             }
 
+            var elapsed = DateTime.UtcNow - startedAt;
             logger.LogInformation(
-                "Price fetching completed. Processed {Processed}/{Total} securities",
-                processed, securitiesNeedingUpdate.Count);
+                "PriceFetchingService complete — {Processed}/{Total} securities processed in {ElapsedMs}ms",
+                processed, securitiesNeedingUpdate.Count, (int)elapsed.TotalMilliseconds);
         }
         catch (Exception ex)
         {
@@ -100,7 +107,7 @@ public class PriceFetchingService(
                         result.Price,
                         currency);
 
-                    logger.LogInformation(
+                    logger.LogDebug(
                         "Updated price for {Ticker}: {Price} {Currency}",
                         security.Ticker, result.Price, currency);
                     return true;
