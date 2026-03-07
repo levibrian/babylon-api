@@ -1,0 +1,97 @@
+name: CD - Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  # ─── Step 1: Detect which projects changed ───────────────────────────────────
+  detect-changes:
+    name: Detect Changed Projects
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      worker: ${{ steps.filter.outputs.worker }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'src/Babylon.Alfred/Babylon.Alfred.Api/**'
+              - 'fly.api.toml'
+            worker:
+              # Worker has a ProjectReference to the API project.
+              # API source changes also affect the Worker binary, so we
+              # include the API paths here to ensure Worker is redeployed
+              # whenever shared code changes.
+              - 'src/Babylon.Alfred/Babylon.Alfred.Api/**'
+              - 'src/Babylon.Alfred/Babylon.Alfred.Worker/**'
+              - 'fly.worker.toml'
+
+  # ─── Step 2: Build and test (required before any deployment) ─────────────────
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore src/Babylon.Alfred/Babylon.Alfred.sln
+
+      - name: Build
+        run: dotnet build src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-build --verbosity normal
+
+  # ─── Step 3a: Deploy API ─────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API
+    needs: [detect-changes, build-and-test]
+    if: needs.detect-changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy API to Fly.io
+        run: flyctl deploy --config fly.api.toml --remote-only --wait-timeout 300
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # ─── Step 3b: Deploy Worker ──────────────────────────────────────────────────
+  deploy-worker:
+    name: Deploy Worker
+    needs: [detect-changes, build-and-test]
+    if: needs.detect-changes.outputs.worker == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy Worker to Fly.io
+        run: flyctl deploy --config fly.worker.toml --remote-only --wait-timeout 300
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
