@@ -72,4 +72,45 @@ public class MeControllerTests
         autoMocker.GetMock<IPasswordService>()
             .Verify(x => x.UpdatePassword(userId, request.CurrentPassword, request.Password), Times.Once);
     }
+
+    [Fact]
+    public async Task UpdatePassword_GoogleOnlyUserWithNullCurrentPassword_ShouldReturnOkWithEmptyData()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var sut = CreateSutWithUserId(userId);
+        var request = new UpdatePasswordRequest
+        {
+            CurrentPassword = null,
+            Password = "NewPass1!"
+        };
+
+        // Act
+        var result = await sut.UpdatePassword(request);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<object>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdatePassword_GoogleOnlyUserWithNullCurrentPassword_ShouldCallServiceWithNullCurrentPassword()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var sut = CreateSutWithUserId(userId);
+        var request = new UpdatePasswordRequest
+        {
+            CurrentPassword = null,
+            Password = "NewPass1!"
+        };
+
+        // Act
+        await sut.UpdatePassword(request);
+
+        // Assert
+        autoMocker.GetMock<IPasswordService>()
+            .Verify(x => x.UpdatePassword(userId, null, request.Password), Times.Once);
+    }
 }

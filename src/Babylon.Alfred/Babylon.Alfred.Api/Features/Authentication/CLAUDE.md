@@ -382,6 +382,33 @@ public class RefreshToken
 }
 \`\`\`
 
+### POST `/api/v1/me/password` (Requires JWT)
+
+Updates or sets the authenticated user's password.
+
+- **Local auth users**: `currentPassword` is required and verified before updating.
+- **Google-only users**: `currentPassword` is not required (no existing password). On success, `AuthProvider` is updated from `"Google"` to `"Local,Google"`, enabling both login methods.
+
+**Request**:
+\`\`\`json
+{
+  "currentPassword": "OldPass1!",
+  "password": "NewPass1!"
+}
+\`\`\`
+
+**Response** (`200 OK`):
+\`\`\`json
+{
+  "success": true,
+  "data": {}
+}
+\`\`\`
+
+**Errors**:
+- `400`: User not found
+- `401`: `currentPassword` missing or wrong (local auth users only)
+
 ## Security Invariants
 
 **Critical security rules** (do not modify without security review):
@@ -535,6 +562,20 @@ Test scenarios that MUST have coverage:
 ### Logout
 - ✅ Valid token → revoked successfully
 - ✅ Invalid token → no error (idempotent)
+
+### Password Update (`POST /api/v1/me/password`)
+- ✅ Local user + valid currentPassword → hash and persist new password
+- ✅ Local user + null currentPassword → throw `UnauthorizedAccessException("Current password is required")`
+- ✅ Local user + wrong currentPassword → throw `UnauthorizedAccessException("Invalid current password")`
+- ✅ Google-only user + null currentPassword → set password, update `AuthProvider` to `"Local,Google"`, success
+- ✅ Google-only user → no currentPassword required
+- ✅ Non-existent user → throw `InvalidOperationException`
+- ✅ New password never stored as plaintext (always BCrypt hashed)
+
+### Error Handling (GlobalErrorHandlerMiddleware)
+- ✅ `UnauthorizedAccessException` → HTTP 401
+- ✅ `InvalidOperationException` → HTTP 400
+- ✅ Unhandled exceptions → HTTP 500
 
 ## Dependencies
 
