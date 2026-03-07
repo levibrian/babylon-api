@@ -44,13 +44,21 @@ public class GlobalErrorHandlerMiddleware(RequestDelegate next, ILogger<GlobalEr
         }
 
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        var (statusCode, errorName, message) = exception switch
+        {
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
+            InvalidOperationException => (StatusCodes.Status400BadRequest, "BadRequest", exception.Message),
+            _ => (StatusCodes.Status500InternalServerError, "InternalServerError", "An unexpected error has occurred")
+        };
+
+        context.Response.StatusCode = statusCode;
 
         var response = new ApiErrorResponse
         {
             Success = false,
-            Message = "An unexpected error has occurred",
-            Errors = [new {name = "InternalServerError", message = exception.Message}]
+            Message = message,
+            Errors = [new {name = errorName, message = exception.Message}]
         };
 
         return context.Response.WriteAsync(JsonConvert.SerializeObject(response));
