@@ -82,8 +82,16 @@ public static class LoggerExtensions
     /// </summary>
     public static void LogBusinessRuleViolation(this ILogger logger, string operation, string rule, object? context = null)
     {
-        logger.LogWarning("Business rule violation in {Operation}: {Rule} {Context}", 
+        logger.LogWarning("Business rule violation in {Operation}: {Rule} {Context}",
             operation, rule, context);
+    }
+
+    /// <summary>
+    /// Logs a successful password update for the given user.
+    /// </summary>
+    public static void LogPasswordUpdated(this ILogger logger, Guid userId)
+    {
+        logger.LogInformation("Password updated for user {UserId}", userId);
     }
 }
 
