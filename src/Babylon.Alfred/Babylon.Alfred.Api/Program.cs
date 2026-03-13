@@ -34,7 +34,8 @@ builder.Services.AddSwaggerGen();
     {
         "http://localhost:3000",
         "http://localhost:3001",
-        "https://babylonfinance.vercel.app"
+        "https://babylonfinance.vercel.app",
+        "https://app.bebabylon.com"
     };
 
     var allowedOrigins = configuredOrigins.Length > 0
