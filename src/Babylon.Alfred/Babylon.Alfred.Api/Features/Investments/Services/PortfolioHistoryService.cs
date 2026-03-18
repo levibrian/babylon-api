@@ -38,9 +38,12 @@ public class PortfolioHistoryService(IPortfolioSnapshotRepository snapshotReposi
         {
             Timestamp = snapshot.Timestamp,
             TotalInvested = snapshot.TotalInvested,
+            CashBalance = snapshot.CashBalance,
             TotalMarketValue = snapshot.TotalMarketValue,
             UnrealizedPnL = snapshot.UnrealizedPnL,
-            UnrealizedPnLPercentage = snapshot.UnrealizedPnLPercentage
+            UnrealizedPnLPercentage = snapshot.UnrealizedPnLPercentage,
+            RealizedPnL = snapshot.RealizedPnL,
+            RealizedPnLPercentage = snapshot.RealizedPnLPercentage
         };
     }
 

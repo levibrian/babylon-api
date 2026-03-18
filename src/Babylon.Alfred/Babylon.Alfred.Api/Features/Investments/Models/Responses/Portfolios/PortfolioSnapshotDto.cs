@@ -34,5 +34,15 @@ public class PortfolioSnapshotDto
     /// Unrealized profit/loss as a percentage of TotalInvested.
     /// </summary>
     public decimal UnrealizedPnLPercentage { get; set; }
+
+    /// <summary>
+    /// Total realized profit/loss from all closed positions at snapshot time.
+    /// </summary>
+    public decimal RealizedPnL { get; set; }
+
+    /// <summary>
+    /// Realized profit/loss as a percentage of total cost basis consumed by sells.
+    /// </summary>
+    public decimal RealizedPnLPercentage { get; set; }
 }
 

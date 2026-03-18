@@ -122,6 +122,8 @@ public class PortfolioSnapshotService(
 
         decimal totalInvested = 0;
         decimal totalMarketValue = 0;
+        decimal totalRealizedPnL = 0;
+        decimal totalCostBasisConsumed = 0;
         var hasMarketPrices = false;
 
         foreach (var group in transactionsBySecurityId)
@@ -134,6 +136,16 @@ public class PortfolioSnapshotService(
             var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactionDtos);
 
             totalInvested += costBasis;
+
+            // Calculate realized P&L for all sells in this security group
+            var realizedPnLMap = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(transactionDtos);
+            foreach (var (_, (pnl, pct)) in realizedPnLMap)
+            {
+                if (!pnl.HasValue) continue;
+                totalRealizedPnL += pnl.Value;
+                if (pct.HasValue && pct.Value != 0)
+                    totalCostBasisConsumed += pnl.Value / (pct.Value / 100m);
+            }
 
             // Skip if no shares (position was fully sold)
             if (totalShares <= 0)
@@ -158,9 +170,6 @@ public class PortfolioSnapshotService(
             }
         }
 
-        // Total Market Value includes cash
-        var totalPortfolioMarketValue = totalMarketValue + cashAmount;
-
         // Skip snapshot if we don't have any market value (including cash)
         if (!hasMarketPrices && cashAmount == 0)
         {
@@ -172,6 +181,10 @@ public class PortfolioSnapshotService(
             ? (unrealizedPnL / totalInvested) * 100
             : 0;
 
+        var realizedPnLPercentage = totalCostBasisConsumed > 0
+            ? (totalRealizedPnL / totalCostBasisConsumed) * 100
+            : 0;
+
         return new PortfolioSnapshot
         {
             UserId = userId,
@@ -179,7 +192,9 @@ public class PortfolioSnapshotService(
             CashBalance = Math.Round(cashAmount, 2),
             TotalMarketValue = Math.Round(totalMarketValue, 2),
             UnrealizedPnL = Math.Round(unrealizedPnL, 2),
-            UnrealizedPnLPercentage = Math.Round(unrealizedPnLPercentage, 4)
+            UnrealizedPnLPercentage = Math.Round(unrealizedPnLPercentage, 4),
+            RealizedPnL = Math.Round(totalRealizedPnL, 2),
+            RealizedPnLPercentage = Math.Round(realizedPnLPercentage, 4)
         };
     }
 

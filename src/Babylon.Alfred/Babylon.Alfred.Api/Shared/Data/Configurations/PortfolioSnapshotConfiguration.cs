@@ -23,6 +23,8 @@ public class PortfolioSnapshotConfiguration : IEntityTypeConfiguration<Portfolio
         entity.Property(e => e.TotalMarketValue).IsRequired().HasPrecision(18, 2);
         entity.Property(e => e.UnrealizedPnL).IsRequired().HasPrecision(18, 2);
         entity.Property(e => e.UnrealizedPnLPercentage).IsRequired().HasPrecision(8, 4);
+        entity.Property(e => e.RealizedPnL).IsRequired().HasPrecision(18, 2);
+        entity.Property(e => e.RealizedPnLPercentage).IsRequired().HasPrecision(8, 4);
 
         // Index on UserId + Timestamp for efficient user queries
         entity.HasIndex(e => new { e.UserId, e.Timestamp });
