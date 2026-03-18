@@ -277,7 +277,7 @@ public class PortfolioSnapshotServiceTests
             .ToList();
 
         var marketPrices = securities
-            .ToDictionary(s => s.ticker, s => new MarketPrice { Ticker = s.ticker, Price = s.price });
+            .ToDictionary(s => s.ticker, s => new MarketPrice { Price = s.price });
 
         autoMocker.GetMock<IPortfolioSnapshotRepository>()
             .Setup(r => r.GetUserIdsWithPortfoliosAsync())

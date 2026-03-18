@@ -529,13 +529,13 @@ public class PortfolioServiceTests
         // Assert
         result.Should().NotBeNull();
         result.CashAmount.Should().Be(cashAmount);
-        result.TotalMarketValue.Should().Be(cashAmount);
+        result.TotalMarketValue.Should().Be(null);
         result.TotalInvested.Should().Be(0);
         result.Positions.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetPortfolio_CashShouldAffectAllocationPercentagesOfOtherPositions()
+    public async Task GetPortfolio_CashNotShouldAffectAllocationPercentagesOfOtherPositions()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -566,11 +566,11 @@ public class PortfolioServiceTests
         // Assert
         // Total Assets (AAPL) = 1000
         // Cash = 1000
-        // Total Market Value = 2000
+        // Total Market Value = 1000
         // AAPL Allocation should be 1000/2000 = 50%
 
         result.Should().NotBeNull();
-        result.TotalMarketValue.Should().Be(2000m);
+        result.TotalMarketValue.Should().Be(1000m);
         result.Positions.Should().HaveCount(1);
         result.Positions.First().Ticker.Should().Be("AAPL");
         result.Positions.First().CurrentAllocationPercentage.Should().Be(50m);

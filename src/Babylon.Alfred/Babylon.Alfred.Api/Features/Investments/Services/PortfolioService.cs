@@ -47,7 +47,7 @@ public class PortfolioService(
             totalAssetsValue = positions.Sum(p => p.CurrentMarketValue ?? p.TotalInvested);
         }
 
-        var totalValue = totalAssetsValue + cashAmount;
+        var totalValue = totalAssetsValue;
 
         decimal? totalUnrealizedPnL = null;
         decimal? totalUnrealizedPnLPercentage = null;
