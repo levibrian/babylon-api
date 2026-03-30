@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITimedRebalancingActionsService, TimedRebalancingActionsService>();
         services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
         services.AddScoped<ICashBalanceService, CashBalanceService>();
+        services.AddScoped<IDividendTrackerService, DividendTrackerService>();
 
         // Portfolio Analyzers
         services.AddScoped<IPortfolioAnalyzer, RiskAnalyzer>();

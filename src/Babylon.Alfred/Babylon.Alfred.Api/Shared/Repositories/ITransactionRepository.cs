@@ -10,6 +10,8 @@ public interface ITransactionRepository
     Task<IEnumerable<Transaction>> GetOpenPositionsByUser(Guid userId);
     Task<IEnumerable<Transaction>> GetAllByUser(Guid userId);
     Task<IList<Guid>> GetDistinctUserIdsWithUnbackfilledSellsAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<Transaction>> GetDividendTransactionsByUser(Guid userId);
+    Task<IEnumerable<Transaction>> GetBuyAndSellTransactionsByUserAndSecurity(Guid userId, Guid securityId);
     Task<Transaction?> GetById(Guid transactionId, Guid userId);
     Task<Transaction> Update(Transaction transaction);
     Task UpdateBulkAsync(IList<Transaction> transactions, CancellationToken cancellationToken = default);

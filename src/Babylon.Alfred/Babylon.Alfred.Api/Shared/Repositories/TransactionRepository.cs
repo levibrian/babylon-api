@@ -82,6 +82,36 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         return transactions;
     }
 
+    public async Task<IEnumerable<Transaction>> GetDividendTransactionsByUser(Guid userId)
+    {
+        logger.LogInformation("Getting dividend transactions for UserId: {UserId}", userId);
+
+        var transactions = await context.Transactions
+            .Include(t => t.Security)
+            .Where(t => t.UserId == userId && t.TransactionType == TransactionType.Dividend)
+            .OrderBy(t => t.Date)
+            .ToListAsync();
+
+        logger.LogInformation("Retrieved {Count} dividend transactions for UserId: {UserId}", transactions.Count, userId);
+        return transactions;
+    }
+
+    public async Task<IEnumerable<Transaction>> GetBuyAndSellTransactionsByUserAndSecurity(Guid userId, Guid securityId)
+    {
+        logger.LogInformation("Getting buy/sell transactions for UserId: {UserId}, SecurityId: {SecurityId}", userId, securityId);
+
+        var transactions = await context.Transactions
+            .Where(t => t.UserId == userId
+                     && t.SecurityId == securityId
+                     && (t.TransactionType == TransactionType.Buy || t.TransactionType == TransactionType.Sell))
+            .OrderBy(t => t.Date)
+            .ToListAsync();
+
+        logger.LogInformation("Retrieved {Count} buy/sell transactions for UserId: {UserId}, SecurityId: {SecurityId}",
+            transactions.Count, userId, securityId);
+        return transactions;
+    }
+
     public async Task<IList<Guid>> GetDistinctUserIdsWithUnbackfilledSellsAsync(CancellationToken cancellationToken = default)
     {
         return await context.Transactions
