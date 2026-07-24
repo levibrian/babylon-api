@@ -42,9 +42,6 @@ public class PortfolioServiceTests
         autoMocker.GetMock<IMarketPriceService>()
             .Setup(x => x.GetCurrentPricesAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(new Dictionary<string, decimal>());
-        autoMocker.GetMock<IAllocationStrategyService>()
-            .Setup(x => x.GetTargetAllocationsAsync(It.IsAny<Guid>()))
-            .ReturnsAsync(new List<AllocationStrategyDto>());
         autoMocker.GetMock<ICashBalanceService>()
             .Setup(x => x.GetBalanceAsync(It.IsAny<Guid>()))
             .ReturnsAsync(0m);
@@ -295,96 +292,6 @@ public class PortfolioServiceTests
     }
 
     [Fact]
-    public async Task GetPortfolio_ShouldOrderPositionsByTargetAllocationPercentageDescending()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var securitySmall = fixture.Build<Security>().With(c => c.Ticker, "SMALL").With(c => c.Id, Guid.NewGuid()).Create();
-        var securityLarge = fixture.Build<Security>().With(c => c.Ticker, "LARGE").With(c => c.Id, Guid.NewGuid()).Create();
-        var securityMedium = fixture.Build<Security>().With(c => c.Ticker, "MEDIUM").With(c => c.Id, Guid.NewGuid()).Create();
-        var transactionSmall = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, securitySmall.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 1m)
-            .With(t => t.SharePrice, 100m)
-            .With(t => t.Fees, 1m)
-            .With(t => t.UserId, userId)
-            .Create();
-        var transactionLarge = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, securityLarge.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 100m)
-            .With(t => t.SharePrice, 1000m)
-            .With(t => t.Fees, 50m)
-            .With(t => t.UserId, userId)
-            .Create();
-        var transactionMedium = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, securityMedium.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 10m)
-            .With(t => t.SharePrice, 500m)
-            .With(t => t.Fees, 10m)
-            .With(t => t.UserId, userId)
-            .Create();
-        var transactions = new List<Transaction> { transactionSmall, transactionLarge, transactionMedium };
-
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetOpenPositionsByUser(userId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ITransactionRepository>()
-            .Setup(x => x.GetAllByUser(userId))
-            .ReturnsAsync(transactions);
-        autoMocker.GetMock<ISecurityRepository>()
-            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
-            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
-            {
-                var securityIdList = securityIds.ToList();
-                var result = new List<Security>();
-                if (securityIdList.Contains(securitySmall.Id))
-                {
-                    result.Add(securitySmall);
-                }
-                if (securityIdList.Contains(securityLarge.Id))
-                {
-                    result.Add(securityLarge);
-                }
-                if (securityIdList.Contains(securityMedium.Id))
-                {
-                    result.Add(securityMedium);
-                }
-                return result;
-            });
-
-        // Set target allocations: LARGE: 50%, MEDIUM: 30%, SMALL: 20%
-        autoMocker.GetMock<IAllocationStrategyService>()
-            .Setup(x => x.GetTargetAllocationsAsync(userId))
-            .ReturnsAsync(new List<AllocationStrategyDto>
-            {
-                new() { Ticker = "LARGE", TargetPercentage = 50m },
-                new() { Ticker = "MEDIUM", TargetPercentage = 30m },
-                new() { Ticker = "SMALL", TargetPercentage = 20m }
-            });
-
-        // Act
-        var result = await sut.GetPortfolio(userId);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Positions.Should().HaveCount(3);
-        // Should be ordered by target allocation descending: LARGE (50%), MEDIUM (30%), SMALL (20%)
-        result.Positions[0].Ticker.Should().Be("LARGE");
-        result.Positions[0].TargetAllocationPercentage.Should().Be(50m);
-        result.Positions[1].Ticker.Should().Be("MEDIUM");
-        result.Positions[1].TargetAllocationPercentage.Should().Be(30m);
-        result.Positions[2].Ticker.Should().Be("SMALL");
-        result.Positions[2].TargetAllocationPercentage.Should().Be(20m);
-        // Verify ordering by checking each position's target allocation is greater than or equal to the next
-        result.Positions[0].TargetAllocationPercentage.Should().BeGreaterThanOrEqualTo(result.Positions[1].TargetAllocationPercentage!.Value);
-        result.Positions[1].TargetAllocationPercentage.Should().BeGreaterThanOrEqualTo(result.Positions[2].TargetAllocationPercentage!.Value);
-    }
-
-
-    [Fact]
     public async Task GetPortfolio_ShouldCalculateTotalInvestedCorrectly()
     {
         // Arrange
@@ -441,76 +348,6 @@ public class PortfolioServiceTests
         result.Should().NotBeNull();
         result.TotalInvested.Should().Be(1505m + 14010m); // Total of all transactions
         result.Positions.Sum(p => p.TotalInvested).Should().Be(result.TotalInvested);
-    }
-
-    [Fact]
-    public async Task GetPortfolio_ShouldCalculateRebalancingBasedOnMarketValue()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-
-        // Setup 2 securities: NVDA and AAPL
-        var securityNvda = fixture.Build<Security>().With(s => s.Ticker, "NVDA").With(s => s.Id, Guid.NewGuid()).Create();
-        var securityAapl = fixture.Build<Security>().With(s => s.Ticker, "AAPL").With(s => s.Id, Guid.NewGuid()).Create();
-
-        // NVDA: Invested 500, current value 600 (10 shares @ 50, now @ 60)
-        var transactionNvda = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, securityNvda.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 10m)
-            .With(t => t.SharePrice, 50m)
-            .With(t => t.Fees, 0m)
-            .With(t => t.UserId, userId)
-            .Create();
-
-        // AAPL: Invested 500, current value 400 (10 shares @ 50, now @ 40)
-        var transactionAapl = fixture.Build<Transaction>()
-            .With(t => t.SecurityId, securityAapl.Id)
-            .With(t => t.TransactionType, TransactionType.Buy)
-            .With(t => t.SharesQuantity, 10m)
-            .With(t => t.SharePrice, 50m)
-            .With(t => t.Fees, 0m)
-            .With(t => t.UserId, userId)
-            .Create();
-
-        var transactions = new List<Transaction> { transactionNvda, transactionAapl };
-
-        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetOpenPositionsByUser(userId)).ReturnsAsync(transactions);
-        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(transactions);
-        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>())).ReturnsAsync(new List<Security> { securityNvda, securityAapl });
-
-        // Market Prices: NVDA = 60, AAPL = 40
-        autoMocker.GetMock<IMarketPriceService>().Setup(x => x.GetCurrentPricesAsync(It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync(new Dictionary<string, decimal> { { "NVDA", 60m }, { "AAPL", 40m } });
-
-        // Target Allocation: 50% each
-        autoMocker.GetMock<IAllocationStrategyService>().Setup(x => x.GetTargetAllocationsAsync(userId))
-            .ReturnsAsync(new List<AllocationStrategyDto>
-            {
-                new() { Ticker = "NVDA", TargetPercentage = 50m },
-                new() { Ticker = "AAPL", TargetPercentage = 50m }
-            });
-
-        // Act
-        var result = await sut.GetPortfolio(userId);
-
-        // Assert
-        // Total Invested = 500 + 500 = 1000
-        // Total Market Value = 600 + 400 = 1000
-
-        // NVDA current allocation = 600/1000 = 60%
-        // AAPL current allocation = 400/1000 = 40%
-        // NVDA target value = 50% of 1000 = 500. Current is 600. Rebalancing = -100 (Sell 100)
-        // AAPL target value = 50% of 1000 = 500. Current is 400. Rebalancing = +100 (Buy 100)
-
-        result.Should().NotBeNull();
-        var nvda = result.Positions.First(p => p.Ticker == "NVDA");
-        var aapl = result.Positions.First(p => p.Ticker == "AAPL");
-
-        nvda.CurrentAllocationPercentage.Should().Be(60m);
-        aapl.CurrentAllocationPercentage.Should().Be(40m);
-        nvda.RebalancingAmount.Should().Be(-100m);
-        aapl.RebalancingAmount.Should().Be(100m);
     }
 
     [Fact]

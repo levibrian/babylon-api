@@ -1,5 +1,3 @@
-using Babylon.Alfred.Api.Features.Investments.Analyzers;
-using Babylon.Alfred.Api.Features.Investments.Options;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Infrastructure.YahooFinance.Services;
 using Babylon.Alfred.Api.Shared.Repositories;
@@ -10,19 +8,9 @@ public static class ServiceCollectionExtensions
 {
     public static void RegisterInvestmentServices(this IServiceCollection services)
     {
-        // Options
-        services.AddOptions<TimedRebalancingActionsOptions>()
-            .BindConfiguration(TimedRebalancingActionsOptions.SectionName)
-            .ValidateDataAnnotations();
-
-        services.AddOptions<GeminiRebalancingOptions>()
-            .BindConfiguration(GeminiRebalancingOptions.SectionName)
-            .ValidateDataAnnotations();
-
         // Repositories
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ISecurityRepository, SecurityRepository>();
-        services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
         services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
@@ -34,29 +22,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISecurityService, SecurityService>();
         services.AddScoped<IPortfolioService, PortfolioService>();
         services.AddScoped<IMarketPriceService, MarketPriceService>();
-        services.AddScoped<IAllocationStrategyService, AllocationStrategyService>();
-        services.AddScoped<IPortfolioAnalyticsService, PortfolioAnalyticsService>();
-        services.AddScoped<IRebalancingService, RebalancingService>();
-        services.AddScoped<ITimedRebalancingActionsService, TimedRebalancingActionsService>();
         services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
         services.AddScoped<ICashBalanceService, CashBalanceService>();
-        services.AddScoped<IDividendTrackerService, DividendTrackerService>();
-
-        // Portfolio Analyzers
-        services.AddScoped<IPortfolioAnalyzer, RiskAnalyzer>();
-        services.AddScoped<IPortfolioAnalyzer, IncomeAnalyzer>();
-        services.AddScoped<IPortfolioAnalyzer, EfficiencyAnalyzer>();
-        services.AddScoped<IPortfolioAnalyzer, TrendAnalyzer>();
-
-        // Insights Service (depends on analyzers)
-        services.AddScoped<IPortfolioInsightsService, PortfolioInsightsService>();
 
         // External Services
         services.AddHttpClient<IYahooMarketDataService, YahooMarketDataService>();
         services.AddHttpClient<IHistoricalPriceService, HistoricalPriceService>();
-
-        // AI Services (feature-flagged)
-        services.AddHttpClient<IRebalancingOptimizer, GeminiRebalancingOptimizer>();
     }
 }
-

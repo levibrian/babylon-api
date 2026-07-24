@@ -50,7 +50,6 @@ try
         }));
 
     // Register repositories
-    builder.Services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
     builder.Services.AddScoped<IMarketPriceRepository, MarketPriceRepository>();
     builder.Services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
     builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
