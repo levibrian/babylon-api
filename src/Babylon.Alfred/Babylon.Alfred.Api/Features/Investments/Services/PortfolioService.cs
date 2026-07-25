@@ -92,7 +92,10 @@ public class PortfolioService(
             var security = securitiesLookup.GetValueOrDefault(group.Key);
             var ticker = security?.Ticker ?? string.Empty;
             var positionTransactions = MapToTransactionDtos(group);
-            var (totalShares, averageSharePrice, costBasis) = PortfolioCalculator.CalculatePositionMetrics(positionTransactions);
+            var fifoResult = PortfolioCalculator.Calculate(positionTransactions);
+            var totalShares = fifoResult.TotalShares;
+            var averageSharePrice = fifoResult.AverageSharePrice;
+            var costBasis = fifoResult.CostBasis;
             var totalInvested = costBasis;
             var currentPrice = marketPrices.GetValueOrDefault(ticker, 0);
             var currentMarketValue = totalShares * currentPrice;

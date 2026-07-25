@@ -97,7 +97,7 @@ public class RealizedPnlBackfillService(
                 RealizedPnLPct = t.RealizedPnLPct
             }).ToList();
 
-            var calculated = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(transactionDtos);
+            var calculated = PortfolioCalculator.Calculate(transactionDtos).RealizedPnLByTransactionId;
 
             foreach (var transaction in securityTransactions)
             {

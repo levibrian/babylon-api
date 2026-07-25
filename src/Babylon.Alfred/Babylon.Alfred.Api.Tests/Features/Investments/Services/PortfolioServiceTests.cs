@@ -351,6 +351,136 @@ public class PortfolioServiceTests
     }
 
     [Fact]
+    public async Task GetPortfolio_AfterPartialSell_TotalInvestedShouldReflectCurrentPositionNotHistoricalBuys()
+    {
+        // Arrange — buy 10 @ 10 (no fees) = invested 100, then sell 2 @ 10.
+        // TotalInvested must drop to 80 (current remaining cost basis), NOT stay at 100
+        // (historical gross buys) and NOT be affected by the sell price/proceeds.
+        var userId = Guid.NewGuid();
+        var security = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
+        var baseDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var buyTransaction = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, baseDate)
+            .With(t => t.CreatedAt, baseDate)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 10m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+        var sellTransaction = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.TransactionType, TransactionType.Sell)
+            .With(t => t.Date, baseDate.AddDays(1))
+            .With(t => t.CreatedAt, baseDate.AddDays(1))
+            .With(t => t.SharesQuantity, 2m)
+            .With(t => t.SharePrice, 10m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        // Position is still open (8 shares remain) so it appears in GetOpenPositionsByUser
+        var openPositionTransactions = new List<Transaction> { buyTransaction };
+        var allTransactions = new List<Transaction> { buyTransaction, sellTransaction };
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(openPositionTransactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(allTransactions);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync(new List<Security> { security });
+
+        // Act
+        var result = await sut.GetPortfolio(userId);
+
+        // Assert
+        result.Positions.Should().HaveCount(1);
+        result.Positions.First().TotalShares.Should().Be(8m);
+        result.Positions.First().TotalInvested.Should().Be(80m);
+        result.TotalInvested.Should().Be(80m);
+    }
+
+    [Fact]
+    public async Task GetPortfolio_AfterSellAcrossMultipleLotsAtDifferentPrices_TotalInvestedShouldReflectFifoRemainingCost()
+    {
+        // Arrange — two buys at different prices (different lots), then a sell that spans
+        // both lots. TotalInvested must reflect the FIFO-remaining cost basis of what's left,
+        // not a simple average of historical buys and not the sell proceeds.
+        //
+        // Buy A: 10 @ 10, fee 0  -> cost 100 (10/share)
+        // Buy B: 10 @ 20, fee 0  -> cost 200 (20/share)
+        // Sell 15 @ 50: consumes all 10 from Lot A (cost 100) + 5 from Lot B (cost 100)
+        //   costBasisConsumed = 200
+        // Remaining: 5 shares from Lot B, cost 100
+        var userId = Guid.NewGuid();
+        var security = fixture.Build<Security>().With(c => c.Ticker, "AAPL").With(c => c.Id, Guid.NewGuid()).Create();
+        var baseDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var buyA = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, baseDate)
+            .With(t => t.CreatedAt, baseDate)
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 10m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+        var buyB = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.TransactionType, TransactionType.Buy)
+            .With(t => t.Date, baseDate.AddDays(1))
+            .With(t => t.CreatedAt, baseDate.AddDays(1))
+            .With(t => t.SharesQuantity, 10m)
+            .With(t => t.SharePrice, 20m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+        var sellTransaction = fixture.Build<Transaction>()
+            .With(t => t.SecurityId, security.Id)
+            .With(t => t.TransactionType, TransactionType.Sell)
+            .With(t => t.Date, baseDate.AddDays(2))
+            .With(t => t.CreatedAt, baseDate.AddDays(2))
+            .With(t => t.SharesQuantity, 15m)
+            .With(t => t.SharePrice, 50m)
+            .With(t => t.Fees, 0m)
+            .With(t => t.Tax, 0m)
+            .With(t => t.UserId, userId)
+            .Create();
+
+        var openPositionTransactions = new List<Transaction> { buyA, buyB };
+        var allTransactions = new List<Transaction> { buyA, buyB, sellTransaction };
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetOpenPositionsByUser(userId))
+            .ReturnsAsync(openPositionTransactions);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(allTransactions);
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync(new List<Security> { security });
+
+        // Act
+        var result = await sut.GetPortfolio(userId);
+
+        // Assert
+        result.Positions.Should().HaveCount(1);
+        result.Positions.First().TotalShares.Should().Be(5m);
+        result.Positions.First().TotalInvested.Should().Be(100m);
+        result.TotalInvested.Should().Be(100m);
+    }
+
+    [Fact]
     public async Task GetPortfolio_ShouldIncludeCashInTotalMarketValueButNotAsPosition()
     {
         // Arrange

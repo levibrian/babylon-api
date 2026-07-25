@@ -355,7 +355,7 @@ public class TransactionService(
                 .Select(ToPortfolioTransactionDto)
                 .ToList();
 
-            var results = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(portfolioTransactions);
+            var results = PortfolioCalculator.Calculate(portfolioTransactions).RealizedPnLByTransactionId;
 
             foreach (var transaction in transactionsForSecurity)
             {

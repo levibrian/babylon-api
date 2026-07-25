@@ -131,15 +131,15 @@ public class PortfolioSnapshotService(
             var securityId = group.Key;
             var transactions = group.ToList();
 
-            // Calculate metrics using weighted average cost method
+            // Single FIFO pass: cost basis, shares, and realized P&L for all sells together
             var transactionDtos = MapToTransactionDtos(transactions);
-            var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactionDtos);
+            var fifoResult = PortfolioCalculator.Calculate(transactionDtos);
+            var totalShares = fifoResult.TotalShares;
+            var costBasis = fifoResult.CostBasis;
 
             totalInvested += costBasis;
 
-            // Calculate realized P&L for all sells in this security group
-            var realizedPnLMap = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(transactionDtos);
-            foreach (var (_, (pnl, pct)) in realizedPnLMap)
+            foreach (var (_, (pnl, pct)) in fifoResult.RealizedPnLByTransactionId)
             {
                 if (!pnl.HasValue) continue;
                 totalRealizedPnL += pnl.Value;
