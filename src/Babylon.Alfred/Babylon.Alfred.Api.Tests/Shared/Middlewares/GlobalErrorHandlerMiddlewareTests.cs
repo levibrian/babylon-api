@@ -3,155 +3,83 @@ using Babylon.Alfred.Api.Shared.Middlewares;
 using Babylon.Alfred.Api.Shared.Models;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Moq;
-using Xunit;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Babylon.Alfred.Api.Tests.Shared.Middlewares;
 
 public class GlobalErrorHandlerMiddlewareTests
 {
-    private readonly Mock<ILogger<GlobalErrorHandlerMiddleware>> loggerMock = new();
-
-    private GlobalErrorHandlerMiddleware CreateSut(RequestDelegate next)
-    {
-        return new GlobalErrorHandlerMiddleware(next, loggerMock.Object);
-    }
-
-    private static DefaultHttpContext CreateHttpContext()
+    private static async Task<(int statusCode, ApiResponse<object>? body)> InvokeWithException(Exception ex)
     {
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
-        return context;
-    }
 
-    private static async Task<ApiResponse<object>?> ReadResponseBody(HttpContext context)
-    {
+        var middleware = new GlobalErrorHandlerMiddleware(
+            _ => throw ex,
+            NullLogger<GlobalErrorHandlerMiddleware>.Instance);
+
+        await middleware.InvokeAsync(context);
+
         context.Response.Body.Seek(0, SeekOrigin.Begin);
-        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
-        return JsonSerializer.Deserialize<ApiResponse<object>>(body, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
+        var json = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        var body = JsonSerializer.Deserialize<ApiResponse<object>>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        return (context.Response.StatusCode, body);
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenUnauthorizedAccessExceptionThrown_ShouldReturn401()
+    public async Task ArgumentException_Returns400()
     {
-        // Arrange
-        RequestDelegate next = _ => throw new UnauthorizedAccessException("Invalid current password");
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
+        var (status, body) = await InvokeWithException(new ArgumentException("invalid amount"));
 
-        // Act
-        await sut.InvokeAsync(context);
-
-        // Assert
-        context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+        status.Should().Be(400);
+        body!.Success.Should().BeFalse();
+        body.Error.Should().Be("invalid amount");
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenUnauthorizedAccessExceptionThrown_ShouldReturnErrorResponse()
+    public async Task KeyNotFoundException_Returns404()
     {
-        // Arrange
-        var exceptionMessage = "Invalid current password";
-        RequestDelegate next = _ => throw new UnauthorizedAccessException(exceptionMessage);
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
+        var (status, body) = await InvokeWithException(new KeyNotFoundException("not found"));
 
-        // Act
-        await sut.InvokeAsync(context);
-
-        // Assert
-        var response = await ReadResponseBody(context);
-        response.Should().NotBeNull();
-        response!.Success.Should().BeFalse();
-        response.Error.Should().Be(exceptionMessage);
+        status.Should().Be(404);
+        body!.Success.Should().BeFalse();
+        body.Error.Should().Be("not found");
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenInvalidOperationExceptionThrown_ShouldReturn400()
+    public async Task UnauthorizedAccessException_Returns401()
     {
-        // Arrange
-        RequestDelegate next = _ => throw new InvalidOperationException("User not found.");
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
+        var (status, body) = await InvokeWithException(new UnauthorizedAccessException("unauthorized"));
 
-        // Act
-        await sut.InvokeAsync(context);
-
-        // Assert
-        context.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        status.Should().Be(401);
+        body!.Success.Should().BeFalse();
+        body.Error.Should().Be("unauthorized");
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenInvalidOperationExceptionThrown_ShouldReturnErrorResponse()
+    public async Task UnhandledException_Returns500WithGenericMessage()
     {
-        // Arrange
-        var exceptionMessage = "User not found.";
-        RequestDelegate next = _ => throw new InvalidOperationException(exceptionMessage);
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
+        var (status, body) = await InvokeWithException(new InvalidOperationException("internal detail"));
 
-        // Act
-        await sut.InvokeAsync(context);
-
-        // Assert
-        var response = await ReadResponseBody(context);
-        response.Should().NotBeNull();
-        response!.Success.Should().BeFalse();
-        response.Error.Should().Be(exceptionMessage);
+        status.Should().Be(500);
+        body!.Success.Should().BeFalse();
+        body.Error.Should().Be("An unexpected error occurred");
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenGenericExceptionThrown_ShouldReturn500()
+    public async Task NoException_PassesThrough()
     {
-        // Arrange
-        RequestDelegate next = _ => throw new Exception("Unexpected error");
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
 
-        // Act
-        await sut.InvokeAsync(context);
+        var middleware = new GlobalErrorHandlerMiddleware(
+            ctx => { ctx.Response.StatusCode = 200; return Task.CompletedTask; },
+            NullLogger<GlobalErrorHandlerMiddleware>.Instance);
 
-        // Assert
-        context.Response.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
-    }
+        await middleware.InvokeAsync(context);
 
-    [Fact]
-    public async Task InvokeAsync_WhenGenericExceptionThrown_ShouldReturnGenericErrorMessage()
-    {
-        // Arrange
-        RequestDelegate next = _ => throw new Exception("Unexpected error");
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
-
-        // Act
-        await sut.InvokeAsync(context);
-
-        // Assert
-        var response = await ReadResponseBody(context);
-        response.Should().NotBeNull();
-        response!.Success.Should().BeFalse();
-        response.Error.Should().Be("An unexpected error has occurred");
-    }
-
-    [Fact]
-    public async Task InvokeAsync_WhenNoExceptionThrown_ShouldNotModifyResponse()
-    {
-        // Arrange
-        RequestDelegate next = ctx =>
-        {
-            ctx.Response.StatusCode = StatusCodes.Status200OK;
-            return Task.CompletedTask;
-        };
-        var context = CreateHttpContext();
-        var sut = CreateSut(next);
-
-        // Act
-        await sut.InvokeAsync(context);
-
-        // Assert
-        context.Response.StatusCode.Should().Be(StatusCodes.Status200OK);
+        context.Response.StatusCode.Should().Be(200);
     }
 }

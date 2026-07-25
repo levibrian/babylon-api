@@ -1,4 +1,6 @@
 ﻿using Babylon.Alfred.Api.Shared.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Babylon.Alfred.Api.Shared.Middlewares;
@@ -13,49 +15,30 @@ public class GlobalErrorHandlerMiddleware(RequestDelegate next, ILogger<GlobalEr
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(context, ex, logger);
-        }
-    }
-
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception, ILogger logger)
-    {
-        // Extract user ID from claims if available
-        var userId = context.User?.FindFirst("sub")?.Value;
-        Guid? userIdGuid = Guid.TryParse(userId, out var guid) ? guid : null;
-
-        // Log exception with full context
-        logger.LogError(
-            exception,
-            "Unhandled exception: {ExceptionType} - {Message} | Method: {Method} | Path: {Path} | UserId: {UserId}",
-            exception.GetType().Name,
-            exception.Message,
-            context.Request.Method,
-            context.Request.Path + context.Request.QueryString,
-            userIdGuid);
-
-        // Log inner exception if present
-        if (exception.InnerException != null)
-        {
             logger.LogError(
-                exception.InnerException,
-                "Inner exception: {ExceptionType} - {Message}",
-                exception.InnerException.GetType().Name,
-                exception.InnerException.Message);
+                ex,
+                "Unhandled exception: {ExceptionType} | {Method} {Path} | UserId: {UserId}",
+                ex.GetType().Name,
+                context.Request.Method,
+                context.Request.Path,
+                context.User?.FindFirst("sub")?.Value);
+
+            context.Response.StatusCode = ex switch
+            {
+                ArgumentException => StatusCodes.Status400BadRequest,
+                UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
+                KeyNotFoundException => StatusCodes.Status404NotFound,
+                _ => StatusCodes.Status500InternalServerError
+            };
+
+            context.Response.ContentType = "application/json";
+
+            var error = context.Response.StatusCode == 500
+                ? "An unexpected error occurred"
+                : ex.Message;
+
+            var response = ApiResponse<object>.Fail(error);
+            await context.Response.WriteAsync(JsonConvert.SerializeObject(response));
         }
-
-        context.Response.ContentType = "application/json";
-
-        var (statusCode, errorName, message) = exception switch
-        {
-            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
-            InvalidOperationException => (StatusCodes.Status400BadRequest, "BadRequest", exception.Message),
-            _ => (StatusCodes.Status500InternalServerError, "InternalServerError", "An unexpected error has occurred")
-        };
-
-        context.Response.StatusCode = statusCode;
-
-        var response = ApiResponse<object>.Fail(message);
-
-        return context.Response.WriteAsync(JsonConvert.SerializeObject(response));
     }
 }
