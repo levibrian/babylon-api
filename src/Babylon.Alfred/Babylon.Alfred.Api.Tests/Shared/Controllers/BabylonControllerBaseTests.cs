@@ -77,9 +77,9 @@ public class BabylonControllerBaseTests
 
     private class TestController : BabylonControllerBase
     {
-        public IActionResult CallSuccess<T>(T data) => Success(data);
-        public IActionResult CallSuccessVoid() => Success();
-        public IActionResult CallFail(string error, int status = 400) => Fail(error, status);
-        public IActionResult CallCreated<T>(T data) => Created(data);
+        public IActionResult CallSuccess<T>(T data) => Success(data).Result;
+        public IActionResult CallSuccessVoid() => Success().Result;
+        public IActionResult CallFail(string error, int status = 400) => Fail(error, status).Result;
+        public IActionResult CallCreated<T>(T data) => Created(data).Result;
     }
 }
