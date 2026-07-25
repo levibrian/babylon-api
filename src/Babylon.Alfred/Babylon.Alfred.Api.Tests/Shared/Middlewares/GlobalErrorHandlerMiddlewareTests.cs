@@ -54,7 +54,8 @@ public class GlobalErrorHandlerMiddlewareTests
     public async Task InvokeAsync_WhenUnauthorizedAccessExceptionThrown_ShouldReturnErrorResponse()
     {
         // Arrange
-        RequestDelegate next = _ => throw new UnauthorizedAccessException("Invalid current password");
+        var exceptionMessage = "Invalid current password";
+        RequestDelegate next = _ => throw new UnauthorizedAccessException(exceptionMessage);
         var context = CreateHttpContext();
         var sut = CreateSut(next);
 
@@ -65,6 +66,7 @@ public class GlobalErrorHandlerMiddlewareTests
         var response = await ReadResponseBody(context);
         response.Should().NotBeNull();
         response!.Success.Should().BeFalse();
+        response.Error.Should().Be(exceptionMessage);
     }
 
     [Fact]
@@ -86,7 +88,8 @@ public class GlobalErrorHandlerMiddlewareTests
     public async Task InvokeAsync_WhenInvalidOperationExceptionThrown_ShouldReturnErrorResponse()
     {
         // Arrange
-        RequestDelegate next = _ => throw new InvalidOperationException("User not found.");
+        var exceptionMessage = "User not found.";
+        RequestDelegate next = _ => throw new InvalidOperationException(exceptionMessage);
         var context = CreateHttpContext();
         var sut = CreateSut(next);
 
@@ -97,6 +100,7 @@ public class GlobalErrorHandlerMiddlewareTests
         var response = await ReadResponseBody(context);
         response.Should().NotBeNull();
         response!.Success.Should().BeFalse();
+        response.Error.Should().Be(exceptionMessage);
     }
 
     [Fact]
@@ -112,6 +116,24 @@ public class GlobalErrorHandlerMiddlewareTests
 
         // Assert
         context.Response.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WhenGenericExceptionThrown_ShouldReturnGenericErrorMessage()
+    {
+        // Arrange
+        RequestDelegate next = _ => throw new Exception("Unexpected error");
+        var context = CreateHttpContext();
+        var sut = CreateSut(next);
+
+        // Act
+        await sut.InvokeAsync(context);
+
+        // Assert
+        var response = await ReadResponseBody(context);
+        response.Should().NotBeNull();
+        response!.Success.Should().BeFalse();
+        response.Error.Should().Be("An unexpected error has occurred");
     }
 
     [Fact]
