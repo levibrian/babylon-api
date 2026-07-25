@@ -2,6 +2,7 @@ using AutoFixture;
 using Babylon.Alfred.Api.Features.Investments.Controllers;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses.Portfolios;
 using Babylon.Alfred.Api.Features.Investments.Services;
+using Babylon.Alfred.Api.Shared.Models;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -51,7 +52,7 @@ public class PortfoliosControllerTests
         {
             HttpContext = new DefaultHttpContext { User = claimsPrincipal }
         };
-        
+
         // Store common userId for mocks
         fixture.Inject(userId);
     }
@@ -71,9 +72,10 @@ public class PortfoliosControllerTests
         var result = await sut.Get();
 
         // Assert
-        var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = actionResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
-        returnedPortfolio.Should().BeEquivalentTo(portfolioResponse);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<PortfolioResponse>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().BeEquivalentTo(portfolioResponse);
         autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);
     }
 
@@ -99,10 +101,11 @@ public class PortfoliosControllerTests
         var result = await sut.Get();
 
         // Assert
-        var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = actionResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
-        returnedPortfolio.Positions.Should().BeEmpty();
-        returnedPortfolio.TotalInvested.Should().Be(0);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<PortfolioResponse>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data!.Positions.Should().BeEmpty();
+        apiResponse.Data!.TotalInvested.Should().Be(0);
         autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);
     }
 
@@ -126,11 +129,11 @@ public class PortfoliosControllerTests
         var result = await sut.Get();
 
         // Assert
-        var actionResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedPortfolio = actionResult.Value.Should().BeAssignableTo<PortfolioResponse>().Subject;
-        returnedPortfolio.Positions.Should().HaveCount(3);
-        returnedPortfolio.TotalInvested.Should().Be(positions.Sum(p => p.TotalInvested));
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<PortfolioResponse>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data!.Positions.Should().HaveCount(3);
+        apiResponse.Data!.TotalInvested.Should().Be(positions.Sum(p => p.TotalInvested));
         autoMocker.GetMock<IPortfolioService>().Verify(x => x.GetPortfolio(userId), Times.Once);
     }
 }
-

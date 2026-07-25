@@ -1,15 +1,16 @@
+using Babylon.Alfred.Api.Shared.Controllers;
+using Babylon.Alfred.Api.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Startup.Controllers;
 
-[ApiController]
 [Route("/health")]
-public class HealthController : ControllerBase
+public class HealthController : BabylonControllerBase
 {
     [HttpGet]
-    public IActionResult Get()
+    public ActionResult<ApiResponse<object>> Get()
     {
-        return Ok(new
+        return Success<object>(new
         {
             Status = "Healthy",
             Timestamp = DateTime.UtcNow,

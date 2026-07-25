@@ -5,6 +5,7 @@ using Babylon.Alfred.Api.Features.Investments.Models.Requests;
 using Babylon.Alfred.Api.Features.Investments.Models.Responses;
 using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
+using Babylon.Alfred.Api.Shared.Models;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -52,10 +53,11 @@ public class SecuritiesControllerTests
         var result = await sut.GetAllAsync();
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedSecurities = okResult.Value.Should().BeAssignableTo<IList<CompanyDto>>().Subject;
-        returnedSecurities.Should().HaveCount(3);
-        returnedSecurities.Should().BeEquivalentTo(securities);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<IList<CompanyDto>>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().HaveCount(3);
+        apiResponse.Data.Should().BeEquivalentTo(securities);
         autoMocker.GetMock<ISecurityService>().Verify(x => x.GetAllAsync(), Times.Once);
     }
 
@@ -71,9 +73,10 @@ public class SecuritiesControllerTests
         var result = await sut.GetAllAsync();
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedSecurities = okResult.Value.Should().BeAssignableTo<IList<CompanyDto>>().Subject;
-        returnedSecurities.Should().BeEmpty();
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<IList<CompanyDto>>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().BeEmpty();
     }
 
     [Fact]
@@ -89,9 +92,10 @@ public class SecuritiesControllerTests
         var result = await sut.GetByTickerAsync(security.Ticker);
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedSecurity = okResult.Value.Should().BeAssignableTo<CompanyDto>().Subject;
-        returnedSecurity.Should().BeEquivalentTo(security);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<CompanyDto>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().BeEquivalentTo(security);
         autoMocker
             .GetMock<ISecurityService>()
             .Verify(x => x.GetByTickerAsync(security.Ticker), Times.Once);
@@ -109,8 +113,11 @@ public class SecuritiesControllerTests
         var result = await sut.GetByTickerAsync(ticker);
 
         // Assert
-        var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-        notFoundResult.Value.Should().BeEquivalentTo(new { message = $"Security with ticker '{ticker}' not found" });
+        var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(404);
+        var apiResponse = objectResult.Value.Should().BeOfType<ApiResponse<CompanyDto>>().Subject;
+        apiResponse.Success.Should().BeFalse();
+        apiResponse.Error.Should().Be($"Security with ticker '{ticker}' not found");
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.GetByTickerAsync(ticker), Times.Once);
     }
@@ -132,11 +139,11 @@ public class SecuritiesControllerTests
         var result = await sut.CreateAdminAsync(request);
 
         // Assert
-        var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
-        createdResult.ActionName.Should().Be(nameof(SecuritiesController.GetByTickerAsync));
-        createdResult.RouteValues.Should().ContainKey("ticker");
-        createdResult.RouteValues!["ticker"].Should().Be(request.Ticker);
-        createdResult.Value.Should().BeEquivalentTo(createdSecurity);
+        var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(201);
+        var apiResponse = objectResult.Value.Should().BeOfType<ApiResponse<Security>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().BeEquivalentTo(createdSecurity);
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.CreateAsync(request), Times.Once);
     }
@@ -159,8 +166,10 @@ public class SecuritiesControllerTests
         var result = await sut.UpdateAsync(ticker, request);
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeEquivalentTo(updatedSecurity);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<Security>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().BeEquivalentTo(updatedSecurity);
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.UpdateAsync(ticker, request), Times.Once);
     }
@@ -178,8 +187,11 @@ public class SecuritiesControllerTests
         var result = await sut.UpdateAsync(ticker, request);
 
         // Assert
-        var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-        notFoundResult.Value.Should().BeEquivalentTo(new { message = $"Security with ticker '{ticker}' not found" });
+        var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(404);
+        var apiResponse = objectResult.Value.Should().BeOfType<ApiResponse<Security>>().Subject;
+        apiResponse.Success.Should().BeFalse();
+        apiResponse.Error.Should().Be($"Security with ticker '{ticker}' not found");
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.UpdateAsync(ticker, request), Times.Once);
     }
@@ -196,8 +208,9 @@ public class SecuritiesControllerTests
         var result = await sut.DeleteAsync(ticker);
 
         // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().BeEquivalentTo(new { message = $"Security with ticker '{ticker}' successfully deleted" });
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<object>>().Subject;
+        apiResponse.Success.Should().BeTrue();
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.DeleteAsync(ticker), Times.Once);
     }
@@ -214,10 +227,12 @@ public class SecuritiesControllerTests
         var result = await sut.DeleteAsync(ticker);
 
         // Assert
-        var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
-        notFoundResult.Value.Should().BeEquivalentTo(new { message = $"Security with ticker '{ticker}' not found" });
+        var objectResult = result.Result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(404);
+        var apiResponse = objectResult.Value.Should().BeOfType<ApiResponse<object>>().Subject;
+        apiResponse.Success.Should().BeFalse();
+        apiResponse.Error.Should().Be($"Security with ticker '{ticker}' not found");
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.DeleteAsync(ticker), Times.Once);
     }
 }
-
