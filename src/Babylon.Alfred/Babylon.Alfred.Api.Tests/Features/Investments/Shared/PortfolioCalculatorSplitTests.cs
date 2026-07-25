@@ -54,7 +54,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // Before split: 100 + 50 = 150 shares
@@ -102,7 +104,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // Split should be ignored (no shares to split)
@@ -147,7 +151,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // After selling all shares, split should be ignored (no shares to split)
@@ -182,7 +188,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // 200 shares × 0.5 = 100 shares
@@ -232,7 +240,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // After first split: 100 × 2 = 200 shares
@@ -291,7 +301,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // Pre-split: 10 shares × 3 = 30 shares (from May 1 buy, correctly multiplied)
@@ -349,7 +361,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // After split: 100 × 2 = 200 shares
@@ -401,7 +415,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         // After split: 200 shares, 10,000 cost basis -> avg cost 50
@@ -821,7 +837,9 @@ public class PortfolioCalculatorSplitTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert - Manual calculation:
         // Pre-split holdings (ONLY May 2 and Jun 2 - before Jun 10):

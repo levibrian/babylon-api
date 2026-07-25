@@ -14,47 +14,45 @@ public static class PortfolioCalculator
         public decimal Quantity { get; set; }
         public decimal TotalCost { get; set; }
     }
+
     /// <summary>
-    /// Calculates position metrics (total shares and average share price) using FIFO cost basis.
-    /// Processes transactions chronologically to handle buys and sells correctly.
+    /// Result of a single FIFO pass over a security's transactions: position metrics
+    /// (shares, average price, cost basis) and realized PnL per sell transaction.
     /// </summary>
-    /// <param name="transactions">List of transactions ordered by date (descending for display, will be reordered internally)</param>
-    /// <returns>Tuple containing total shares, average share price, and current cost basis</returns>
-    public static (decimal totalShares, decimal averageSharePrice, decimal costBasis) CalculatePositionMetrics(
-        List<PortfolioTransactionDto> transactions)
-    {
-        if (transactions.Count == 0)
-        {
-            return (0, 0, 0);
-        }
-
-        var (totalShares, costBasis) = CalculateCostBasis(transactions);
-        var averageSharePrice = totalShares > 0 ? costBasis / totalShares : 0;
-
-        return (totalShares, averageSharePrice, costBasis);
-    }
+    public sealed record FifoCalculationResult(
+        decimal TotalShares,
+        decimal AverageSharePrice,
+        decimal CostBasis,
+        IReadOnlyDictionary<Guid, (decimal? RealizedPnL, decimal? RealizedPnLPct)> RealizedPnLByTransactionId);
 
     /// <summary>
-    /// Calculates the cost basis and total shares using the FIFO method.
-    /// Processes transactions chronologically (ordered by date ascending):
+    /// Calculates position metrics and realized PnL using the FIFO (First-In, First-Out) cost basis method.
+    /// Processes transactions chronologically (ordered by date ascending) in a single pass:
     /// - Buys add new lots
-    /// - Sells consume lots from oldest to newest
+    /// - Sells consume lots from oldest to newest, and their realized PnL is both written onto
+    ///   the transaction DTO and returned in <see cref="FifoCalculationResult.RealizedPnLByTransactionId"/>
     /// - Splits multiply existing shares in all lots while keeping their cost basis unchanged
     /// - Dividends don't affect cost basis
     /// </summary>
-    public static (decimal totalShares, decimal costBasis) CalculateCostBasis(List<PortfolioTransactionDto> transactions)
+    public static FifoCalculationResult Calculate(List<PortfolioTransactionDto> transactions)
     {
+        if (transactions.Count == 0)
+        {
+            return new FifoCalculationResult(0, 0, 0, new Dictionary<Guid, (decimal?, decimal?)>());
+        }
+
         // CRITICAL: Order by date ascending to process transactions chronologically.
         // For transactions on the same day, process splits first (they take effect at market open),
         // then buys (post-split), then sells (at post-split quantities).
         // CreatedAt is used as final tiebreaker within the same type and date.
         var orderedTransactions = transactions
             .OrderBy(t => t.Date)
-            .ThenBy(t => GetTransactionTypeSortOrder(t.TransactionType))
+            .ThenBy(t => TransactionOrdering.GetSortOrder(t.TransactionType))
             .ThenBy(t => t.CreatedAt)
             .ToList();
 
         var lots = new List<BuyLot>();
+        var realizedPnLByTransactionId = new Dictionary<Guid, (decimal? RealizedPnL, decimal? RealizedPnLPct)>();
 
         foreach (var transaction in orderedTransactions)
         {
@@ -66,9 +64,10 @@ public static class PortfolioCalculator
                         Quantity = transaction.SharesQuantity,
                         TotalCost = (transaction.SharesQuantity * transaction.SharePrice) + transaction.Fees
                     });
+                    realizedPnLByTransactionId[transaction.Id] = (null, null);
                     break;
                 case TransactionType.Sell:
-                    ProcessSellTransactionFIFO(transaction, lots);
+                    realizedPnLByTransactionId[transaction.Id] = ProcessSellTransactionFIFO(transaction, lots);
                     break;
                 case TransactionType.Split:
                     if (transaction.SharesQuantity > 0)
@@ -78,6 +77,10 @@ public static class PortfolioCalculator
                             lot.Quantity *= transaction.SharesQuantity;
                         }
                     }
+                    realizedPnLByTransactionId[transaction.Id] = (null, null);
+                    break;
+                default:
+                    realizedPnLByTransactionId[transaction.Id] = (null, null);
                     break;
             }
 
@@ -90,22 +93,25 @@ public static class PortfolioCalculator
 
         var totalShares = Math.Round(lots.Sum(l => l.Quantity), 8);
         var costBasis = lots.Sum(l => l.TotalCost);
+        var averageSharePrice = totalShares > 0 ? costBasis / totalShares : 0;
 
-        return (totalShares, costBasis);
+        return new FifoCalculationResult(totalShares, averageSharePrice, costBasis, realizedPnLByTransactionId);
     }
 
     /// <summary>
     /// Processes a sell transaction using FIFO method.
-    /// Consumes shares from oldest lots first and calculates realized PnL.
+    /// Consumes shares from oldest lots first, writes realized PnL onto the transaction DTO,
+    /// and returns the same values for the caller's per-transaction result map.
     /// </summary>
-    private static void ProcessSellTransactionFIFO(PortfolioTransactionDto transaction, List<BuyLot> lots)
+    private static (decimal? RealizedPnL, decimal? RealizedPnLPct) ProcessSellTransactionFIFO(
+        PortfolioTransactionDto transaction, List<BuyLot> lots)
     {
         var totalAvailable = lots.Sum(l => l.Quantity);
         if (totalAvailable <= 0)
         {
             transaction.RealizedPnL = null;
             transaction.RealizedPnLPct = null;
-            return;
+            return (null, null);
         }
 
         var sharesToSell = Math.Min(transaction.SharesQuantity, totalAvailable);
@@ -113,7 +119,7 @@ public static class PortfolioCalculator
         {
             transaction.RealizedPnL = null;
             transaction.RealizedPnLPct = null;
-            return;
+            return (null, null);
         }
 
         decimal costBasisConsumed = 0;
@@ -146,22 +152,9 @@ public static class PortfolioCalculator
         transaction.RealizedPnLPct = costBasisConsumed > 0
             ? (transaction.RealizedPnL / costBasisConsumed) * 100
             : null;
+
+        return (transaction.RealizedPnL, transaction.RealizedPnLPct);
     }
-
-
-    /// <summary>
-    /// Returns a sort order for transaction types within the same date.
-    /// Splits process first (take effect at market open), then dividends,
-    /// then buys (at post-split prices), then sells (post-split quantities).
-    /// </summary>
-    private static int GetTransactionTypeSortOrder(TransactionType type) => type switch
-    {
-        TransactionType.Split => 0,
-        TransactionType.Dividend => 1,
-        TransactionType.Buy => 2,
-        TransactionType.Sell => 3,
-        _ => 4
-    };
 
     /// <summary>
     /// Calculates the current allocation percentage for a position.

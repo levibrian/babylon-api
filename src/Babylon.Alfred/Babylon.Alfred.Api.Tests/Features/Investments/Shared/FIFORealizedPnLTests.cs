@@ -59,7 +59,7 @@ public class FIFORealizedPnLTests
         };
 
         // Act
-        var results = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(transactions);
+        var results = PortfolioCalculator.Calculate(transactions).RealizedPnLByTransactionId;
 
         // Assert
         var sellResult = results[transactions[2].Id];
@@ -111,7 +111,9 @@ public class FIFORealizedPnLTests
         };
 
         // Act
-        var (totalShares, costBasis) = PortfolioCalculator.CalculateCostBasis(transactions);
+        var fifoResult = PortfolioCalculator.Calculate(transactions);
+        var totalShares = fifoResult.TotalShares;
+        var costBasis = fifoResult.CostBasis;
 
         // Assert
         totalShares.Should().Be(5m);
@@ -174,7 +176,7 @@ public class FIFORealizedPnLTests
         };
 
         // Act
-        var results = RealizedPnLCalculator.CalculateRealizedPnLByTransactionId(transactions);
+        var results = PortfolioCalculator.Calculate(transactions).RealizedPnLByTransactionId;
 
         // Assert
         var sellResult = results[transactions[3].Id];
