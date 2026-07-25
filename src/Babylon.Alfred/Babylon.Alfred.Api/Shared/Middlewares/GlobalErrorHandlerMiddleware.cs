@@ -54,12 +54,7 @@ public class GlobalErrorHandlerMiddleware(RequestDelegate next, ILogger<GlobalEr
 
         context.Response.StatusCode = statusCode;
 
-        var response = new ApiErrorResponse
-        {
-            Success = false,
-            Message = message,
-            Errors = [new {name = errorName, message = exception.Message}]
-        };
+        var response = ApiResponse<object>.Fail("An unexpected error has occurred");
 
         return context.Response.WriteAsync(JsonConvert.SerializeObject(response));
     }

@@ -25,11 +25,11 @@ public class GlobalErrorHandlerMiddlewareTests
         return context;
     }
 
-    private static async Task<ApiErrorResponse?> ReadResponseBody(HttpContext context)
+    private static async Task<ApiResponse<object>?> ReadResponseBody(HttpContext context)
     {
         context.Response.Body.Seek(0, SeekOrigin.Begin);
         var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
-        return JsonSerializer.Deserialize<ApiErrorResponse>(body, new JsonSerializerOptions
+        return JsonSerializer.Deserialize<ApiResponse<object>>(body, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
