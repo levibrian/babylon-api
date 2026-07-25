@@ -959,6 +959,93 @@ public class TransactionServiceTests
     }
 
     [Fact]
+    public async Task Create_WhenSellTransactionSpansMultipleLots_ShouldCalculatePerTransactionRealizedPnLAndPercentageViaFifo()
+    {
+        // Arrange — this is the "Performance" (Profit % / Gain €) shown on a single sell
+        // transaction's detail screen. Unlike Create_WhenSellTransaction_ShouldCalculateRealizedPnL
+        // above (which only partially consumes the first lot), this sell spans across two lots,
+        // with a fee, exercising the actual FIFO boundary-crossing math end to end through
+        // TransactionService.Create — not just the calculator in isolation.
+        //
+        // Buy 1: 10 @ 100, fee 0 -> cost 1000 (100/share)
+        // Buy 2: 10 @ 200, fee 0 -> cost 2000 (200/share)
+        // Sell 15 @ 180, fee 5:
+        //   consume all 10 from Lot 1 (cost 1000) + 5 from Lot 2 (5*200=1000) -> costConsumed = 2000
+        //   netProceeds = 15*180 - 5 = 2695
+        //   RealizedPnL (Gain) = 2695 - 2000 = 695
+        //   RealizedPnLPct (Profit %) = 695 / 2000 * 100 = 34.75%
+        var userId = Guid.NewGuid();
+        var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Tax, 0m)
+            .With(r => r.Ticker, "AAPL")
+            .With(r => r.TransactionType, TransactionType.Sell)
+            .With(r => r.SharesQuantity, 15m)
+            .With(r => r.SharePrice, 180m)
+            .With(r => r.Fees, 5m)
+            .With(r => r.Date, new DateOnly(2025, 2, 1))
+            .Create();
+
+        var security = fixture.Build<Security>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+
+        var existingTransactions = new List<Transaction>
+        {
+            fixture.Build<Transaction>()
+                .With(t => t.Tax, 0m)
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.SharesQuantity, 10m)
+                .With(t => t.SharePrice, 100m)
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 1, 1))
+                .With(t => t.UpdatedAt, new DateTime(2025, 1, 1))
+                .With(t => t.CreatedAt, new DateTime(2025, 1, 1))
+                .Create(),
+            fixture.Build<Transaction>()
+                .With(t => t.Tax, 0m)
+                .With(t => t.SecurityId, security.Id)
+                .With(t => t.TransactionType, TransactionType.Buy)
+                .With(t => t.SharesQuantity, 10m)
+                .With(t => t.SharePrice, 200m)
+                .With(t => t.Fees, 0m)
+                .With(t => t.Date, new DateTime(2025, 1, 2))
+                .With(t => t.UpdatedAt, new DateTime(2025, 1, 2))
+                .With(t => t.CreatedAt, new DateTime(2025, 1, 2))
+                .Create()
+        };
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(request.Ticker))
+            .ReturnsAsync(security);
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.GetAllByUser(userId))
+            .ReturnsAsync(existingTransactions);
+
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Add(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Update(It.IsAny<Transaction>()))
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        var result = await sut.Create(userId, request);
+
+        // Assert
+        result.RealizedPnL.Should().Be(695m);
+        result.RealizedPnLPct.Should().Be(34.75m);
+
+        autoMocker.GetMock<ITransactionRepository>().Verify(
+            x => x.Update(It.Is<Transaction>(t =>
+                t.RealizedPnL == 695m &&
+                t.RealizedPnLPct == 34.75m)),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task Create_WhenSellTransactionWithNoHistory_ShouldThrowInvalidOperationException()
     {
         // Arrange
