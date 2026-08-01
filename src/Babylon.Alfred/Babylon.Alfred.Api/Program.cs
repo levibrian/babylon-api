@@ -26,7 +26,15 @@ try
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Babylon API",
+        Version = "v1",
+        Description = "[Architecture Diagrams (living doc)](/architecture/architecture-diagrams.html) — components, DB schema, endpoint sequences, business rules."
+    });
+});
 
 // Configure CORS
     var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
@@ -102,6 +110,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // CORS must be early in the pipeline to handle preflight requests and add headers to error responses
 app.UseCors();
+app.UseStaticFiles();
 
 // Request logging should come first to capture all requests
 app.UseMiddleware<RequestLoggingMiddleware>();

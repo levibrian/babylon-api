@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>babylon-api — Living Architecture Doc</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg-alt: #11151f;
+    --panel: #161b26;
+    --border: #262d3d;
+    --text: #d7dce5;
+    --text-dim: #8891a3;
+    --accent: #5ec7ff;
+    --accent-glow: rgba(94, 199, 255, 0.35);
+    --planned: #f0b429;
+    --unwired: #8891a3;
+    --danger: #ff6b6b;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+  body {
+    background: linear-gradient(120deg, #0b0e14, #0d1420, #0b0e14, #10131c);
+    background-size: 400% 400%;
+    animation: bgshift 45s ease infinite;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100vh;
+  }
+  @keyframes bgshift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-family: var(--mono); }
+  header .sub { color: var(--text-dim); font-size: 13px; }
+  nav { display: flex; gap: 8px; padding: 14px 28px; border-bottom: 1px solid var(--border); }
+  nav button {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  nav button.active { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+  main { padding: 28px; }
+  #view-components { max-width: 1400px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .node {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: box-shadow .2s, border-color .2s;
+    overflow-wrap: anywhere;
+  }
+  .node:hover, .node.highlight, .node.related-expanded, .node.pin-related-expanded { border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
+  .node.dim { opacity: 0.25; }
+  .node.status-planned { border-color: var(--planned); color: var(--planned); border-style: dashed; }
+  .node.status-unwired { color: var(--unwired); border-style: dotted; }
+  .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 3px; margin-left: 6px; }
+  .badge.planned { background: rgba(240,180,41,.15); color: var(--planned); }
+  .badge.unwired { background: rgba(136,145,163,.15); color: var(--unwired); }
+  svg.edges { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  path.edge { fill: none; stroke: var(--border); stroke-width: 1.5; }
+  path.edge.flow { stroke: var(--accent); stroke-dasharray: 6 4; animation: flow 0.6s linear; }
+  @keyframes flow { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+  .rel-container { position: relative; }
+  .layer-band { border-top: 1px solid var(--border); padding: 18px 0; }
+  .layer-band:first-child { border-top: none; }
+  .layer-label { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .layer-lanes { display: grid; grid-template-columns: repeat(4, minmax(230px, 1fr)); column-gap: 36px; }
+  .feature-lane { border: 1px solid var(--border); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .feature-lane-nodes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .feature-lane-nodes .node { flex: 1 1 100%; font-size: 11px; padding: 6px 8px; white-space: nowrap; }
+  .feature-lane-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-bottom: 2px; }
+  .feature-lane[data-feature="Authentication"] .node { border-left: 3px solid #5ec7ff; }
+  .feature-lane[data-feature="BrokerIntegration"] .node { border-left: 3px solid #f0b429; }
+  .feature-lane[data-feature="Investments"] .node { border-left: 3px solid #6ee7b7; }
+  .feature-lane[data-feature="Startup"] .node { border-left: 3px solid #f472b6; }
+  #components-diagram { position: relative; }
+  .node.db-table { transition: box-shadow .2s, border-color .2s; }
+  .io-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .io-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .io-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .io-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .io-tab { background: transparent; border: 1px solid transparent; color: var(--text-dim); font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; cursor: pointer; }
+  .io-tab.status-2xx { color: #6ee7b7; }
+  .io-tab.status-4xx, .io-tab.status-5xx { color: var(--danger); }
+  .io-tab.active { border-color: currentColor; background: rgba(255,255,255,.06); }
+  .io-copy-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 2px 6px; line-height: 1; flex-shrink: 0; }
+  .io-copy-btn:hover { color: var(--accent); }
+  .io-copy-btn.copied { color: #6ee7b7; }
+  .io-body { padding: 12px; margin: 0; font-family: var(--mono); font-size: 10.5px; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto; }
+  #dbschema-detail {
+    position: fixed; top: 140px; right: 24px; width: 320px; max-height: 70vh;
+    overflow-y: auto; background: var(--panel); border: 1px solid var(--accent);
+    border-radius: 8px; box-shadow: 0 14px 32px rgba(0,0,0,.55); padding: 16px;
+    z-index: 50; display: none;
+  }
+  #dbschema-detail.visible { display: block; }
+  .node.db-table.pinned-expanded { border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); outline: 1px solid var(--accent); outline-offset: -2px; }
+  #dbschema-detail .detail-title { font-family: var(--mono); font-size: 14px; color: var(--accent); margin-bottom: 10px; }
+  .db-table-header { display: flex; align-items: center; gap: 6px; }
+  .db-table-hint { font-size: 9px; color: var(--text-dim); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>babylon-api</h1>
+  <span class="sub">living architecture doc — snapshot, manually updated</span>
+</header>
+<nav>
+  <button data-view="components" class="active">Components</button>
+  <button data-view="dbschema">DB Schema</button>
+  <button data-view="endpoints">Endpoints &amp; Sequences</button>
+  <button data-view="rules">Business Rules</button>
+</nav>
+<main>
+  <div id="view-components" class="view active rel-container"></div>
+  <div id="view-dbschema" class="view rel-container"></div>
+  <div id="view-endpoints" class="view rel-container"></div>
+  <div id="view-rules" class="view rel-container"></div>
+</main>
+<script id="api-data" type="application/json">
+{
+  "components": [
+    { "id": "auth-controller", "name": "AuthController", "feature": "Authentication", "layer": "Controller", "connectsTo": ["auth-service"] },
+    { "id": "auth-service", "name": "AuthService", "feature": "Authentication", "layer": "Service", "connectsTo": ["user-repository", "refresh-token-repository", "account-linking-service", "jwt-token-generator", "google-identity"] },
+    { "id": "account-linking-service", "name": "AccountLinkingService", "feature": "Authentication", "layer": "Service", "connectsTo": ["user-repository"] },
+    { "id": "password-service", "name": "PasswordService", "feature": "Authentication", "layer": "Service", "status": "unwired", "connectsTo": ["user-repository", "account-linking-service"] },
+    { "id": "jwt-token-generator", "name": "JwtTokenGenerator", "feature": "Authentication", "layer": "Utility", "connectsTo": [] },
+    { "id": "user-repository", "name": "UserRepository", "feature": "Authentication", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "refresh-token-repository", "name": "RefreshTokenRepository", "feature": "Authentication", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "google-identity", "name": "GoogleJsonWebSignature (Google.Apis.Auth)", "feature": "Authentication", "layer": "External", "connectsTo": [] },
+
+    { "id": "broker-controller", "name": "BrokerController", "feature": "BrokerIntegration", "layer": "Controller", "status": "planned", "connectsTo": ["trade-republic-client"] },
+    { "id": "trade-republic-client", "name": "ITradeRepublicClient", "feature": "BrokerIntegration", "layer": "External", "status": "planned", "connectsTo": [] },
+
+    { "id": "cash-controller", "name": "CashController", "feature": "Investments", "layer": "Controller", "connectsTo": ["cash-balance-service"] },
+    { "id": "portfolio-history-controller", "name": "PortfolioHistoryController", "feature": "Investments", "layer": "Controller", "connectsTo": ["portfolio-history-service"] },
+    { "id": "portfolios-controller", "name": "PortfoliosController", "feature": "Investments", "layer": "Controller", "connectsTo": ["portfolio-service"] },
+    { "id": "securities-controller", "name": "SecuritiesController", "feature": "Investments", "layer": "Controller", "connectsTo": ["security-service"] },
+    { "id": "transactions-controller", "name": "TransactionsController", "feature": "Investments", "layer": "Controller", "connectsTo": ["transaction-service"] },
+
+    { "id": "cash-balance-service", "name": "CashBalanceService", "feature": "Investments", "layer": "Service", "connectsTo": ["cash-balance-repository"] },
+    { "id": "market-price-service", "name": "MarketPriceService", "feature": "Investments", "layer": "Service", "connectsTo": ["market-price-repository"] },
+    { "id": "portfolio-history-service", "name": "PortfolioHistoryService", "feature": "Investments", "layer": "Service", "connectsTo": ["portfolio-snapshot-repository"] },
+    { "id": "portfolio-service", "name": "PortfolioService", "feature": "Investments", "layer": "Service", "connectsTo": ["transaction-repository", "security-repository", "market-price-service", "cash-balance-service"] },
+    { "id": "security-service", "name": "SecurityService", "feature": "Investments", "layer": "Service", "connectsTo": ["security-repository", "yahoo-market-data-service"] },
+    { "id": "transaction-service", "name": "TransactionService", "feature": "Investments", "layer": "Service", "connectsTo": ["transaction-repository", "security-repository", "yahoo-market-data-service", "cash-balance-service", "portfolio-calculator", "realized-pnl-calculator"] },
+
+    { "id": "portfolio-calculator", "name": "PortfolioCalculator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
+    { "id": "realized-pnl-calculator", "name": "RealizedPnLCalculator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
+    { "id": "dividend-calculator", "name": "DividendCalculator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
+    { "id": "transaction-ordering", "name": "TransactionOrdering", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
+    { "id": "transaction-validator", "name": "TransactionValidator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
+
+    { "id": "transaction-repository", "name": "TransactionRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "security-repository", "name": "SecurityRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "market-price-repository", "name": "MarketPriceRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "portfolio-snapshot-repository", "name": "PortfolioSnapshotRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "cash-balance-repository", "name": "CashBalanceRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
+
+    { "id": "yahoo-market-data-service", "name": "YahooMarketDataService", "feature": "Investments", "layer": "External", "connectsTo": [] },
+    { "id": "historical-price-service", "name": "HistoricalPriceService", "feature": "Investments", "layer": "External", "status": "unwired", "connectsTo": [] },
+
+    { "id": "health-controller", "name": "HealthController", "feature": "Startup", "layer": "Controller", "connectsTo": [] },
+
+    { "id": "db-context", "name": "BabylonDbContext", "feature": "Shared", "layer": "DbContext", "connectsTo": [] }
+  ],
+  "entities": [
+    { "id": "user", "name": "User", "relatesTo": ["transaction", "refresh-token", "cash-balance"] },
+    { "id": "security", "name": "Security", "relatesTo": ["transaction", "allocation-strategy", "market-price", "recurring-schedule"] },
+    { "id": "transaction", "name": "Transaction", "relatesTo": ["security", "user"] },
+    { "id": "allocation-strategy", "name": "AllocationStrategy", "relatesTo": ["user", "security"] },
+    { "id": "market-price", "name": "MarketPrice", "relatesTo": ["security"] },
+    { "id": "portfolio-snapshot", "name": "PortfolioSnapshot", "relatesTo": ["user"] },
+    { "id": "recurring-schedule", "name": "RecurringSchedule", "relatesTo": ["user", "security"] },
+    { "id": "refresh-token", "name": "RefreshToken", "relatesTo": ["user"] },
+    { "id": "cash-balance", "name": "CashBalance", "relatesTo": ["user"] }
+  ],
+  "endpoints": [
+    { "id": "auth-google", "controller": "AuthController", "method": "POST", "path": "/api/v1/auth/google", "sequence": [
+      { "from": "Client", "to": "AuthController", "label": "GoogleLogin(idToken)" },
+      { "from": "AuthController", "to": "AuthService", "label": "GoogleLoginAsync(idToken)", "returns": "AuthResponse" },
+      { "from": "AuthService", "to": "GoogleJsonWebSignature", "label": "ValidateAsync(idToken)" },
+      { "from": "AuthService", "to": "AccountLinkingService", "label": "GetOrCreateGoogleUserAsync(email, sub)" },
+      { "from": "AccountLinkingService", "to": "UserRepository", "label": "GetUserByEmailAsync / CreateUserAsync" },
+      { "from": "AuthService", "to": "RefreshTokenRepository", "label": "AddAsync(refreshToken)" }
+    ],
+    "notes": [{ "stepIndex": 2, "text": "validates ID token against Google's public keys, then links/creates local user" }],
+    "request": { "idToken": "eyJhbGciOiJSUzI1NiIsIm...  (Google ID token)" },
+    "response": { "200": { "success": true, "data": { "token": "eyJhbGciOiJIUzI1NiIs...", "refreshToken": "8f14e45f-ceea-467e-9575...", "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "username": "brian", "email": "bra.levi@gmail.com", "authProvider": "Google" } } } },
+    { "id": "auth-login", "controller": "AuthController", "method": "POST", "path": "/api/v1/auth/login", "sequence": [
+      { "from": "Client", "to": "AuthController", "label": "Login(request)" },
+      { "from": "AuthController", "to": "AuthService", "label": "LoginAsync(emailOrUsername, password)", "returns": "AuthResponse" },
+      { "from": "AuthService", "to": "UserRepository", "label": "GetUserByEmailOrUsernameAsync" },
+      { "from": "AuthService", "to": "RefreshTokenRepository", "label": "AddAsync(refreshToken)" }
+    ],
+    "request": { "emailOrUsername": "brian", "password": "••••••••" },
+    "response": { "200": { "success": true, "data": { "token": "eyJhbGciOiJIUzI1NiIs...", "refreshToken": "8f14e45f-ceea-467e-9575...", "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "username": "brian", "email": "bra.levi@gmail.com", "authProvider": null } } },
+      "401": { "success": false, "error": "Invalid email/username or password" } },
+    { "id": "auth-register", "controller": "AuthController", "method": "POST", "path": "/api/v1/auth/register", "sequence": [
+      { "from": "Client", "to": "AuthController", "label": "Register(request)" },
+      { "from": "AuthController", "to": "AuthService", "label": "RegisterAsync(username, email, password)", "returns": "AuthResponse" },
+      { "from": "AuthService", "to": "UserRepository", "label": "GetUserByEmailAsync / CreateUserAsync" },
+      { "from": "AuthService", "to": "AccountLinkingService", "label": "LinkLocalToAccountAsync" }
+    ],
+    "request": { "username": "brian", "email": "bra.levi@gmail.com", "password": "••••••••" },
+    "response": { "200": { "success": true, "data": { "token": "eyJhbGciOiJIUzI1NiIs...", "refreshToken": "8f14e45f-ceea-467e-9575...", "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "username": "brian", "email": "bra.levi@gmail.com", "authProvider": null } } } },
+    { "id": "auth-refresh", "controller": "AuthController", "method": "POST", "path": "/api/v1/auth/refresh", "sequence": [
+      { "from": "Client", "to": "AuthController", "label": "Refresh(request)" },
+      { "from": "AuthController", "to": "AuthService", "label": "RefreshTokenAsync(refreshToken)", "returns": "AuthResponse" },
+      { "from": "AuthService", "to": "RefreshTokenRepository", "label": "GetByTokenAsync / UpdateAsync" }
+    ],
+    "request": { "refreshToken": "8f14e45f-ceea-467e-9575..." },
+    "response": { "200": { "success": true, "data": { "token": "eyJhbGciOiJIUzI1NiIs...(new)", "refreshToken": "1b2c3d4e-aaaa-467e-9575...(rotated)", "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "username": "brian", "email": "bra.levi@gmail.com", "authProvider": null } } } },
+    { "id": "auth-logout", "controller": "AuthController", "method": "POST", "path": "/api/v1/auth/logout", "sequence": [
+      { "from": "Client", "to": "AuthController", "label": "Logout(request)" },
+      { "from": "AuthController", "to": "AuthService", "label": "LogoutAsync(refreshToken)", "returns": "void" },
+      { "from": "AuthService", "to": "RefreshTokenRepository", "label": "GetByTokenAsync / UpdateAsync" }
+    ],
+    "request": { "refreshToken": "8f14e45f-ceea-467e-9575..." },
+    "response": { "200": { "success": true, "data": null } } },
+
+    { "id": "cash-update", "controller": "CashController", "method": "PUT", "path": "/api/v1/cash", "sequence": [
+      { "from": "Client", "to": "CashController", "label": "UpdateManualBalance(request)" },
+      { "from": "CashController", "to": "CashBalanceService", "label": "UpdateManualBalanceAsync(userId, amount)" },
+      { "from": "CashBalanceService", "to": "CashBalanceRepository", "label": "AddOrUpdateAsync" }
+    ],
+    "request": { "amount": 2500.00 },
+    "response": { "200": { "success": true, "data": null } } },
+    { "id": "portfolio-history-get", "controller": "PortfolioHistoryController", "method": "GET", "path": "/api/v1/portfolios/history", "sequence": [
+      { "from": "Client", "to": "PortfolioHistoryController", "label": "GetHistory(from, to)" },
+      { "from": "PortfolioHistoryController", "to": "PortfolioHistoryService", "label": "GetHistoryAsync(userId, from, to)" },
+      { "from": "PortfolioHistoryService", "to": "PortfolioSnapshotRepository", "label": "GetSnapshotsByUserAsync" }
+    ],
+    "request": { "query": { "from": "2026-01-01T00:00:00Z", "to": "2026-07-01T00:00:00Z" } },
+    "response": { "200": { "success": true, "data": { "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "from": "2026-01-01T00:00:00Z", "to": "2026-07-01T00:00:00Z", "count": 2, "snapshots": [
+      { "timestamp": "2026-01-01T00:00:00Z", "totalInvested": 10000.00, "cashBalance": 500.00, "totalMarketValue": 10250.00, "unrealizedPnL": 250.00, "unrealizedPnLPercentage": 2.5, "realizedPnL": 0, "realizedPnLPercentage": 0 },
+      { "timestamp": "2026-07-01T00:00:00Z", "totalInvested": 12000.00, "cashBalance": 300.00, "totalMarketValue": 13100.00, "unrealizedPnL": 1100.00, "unrealizedPnLPercentage": 9.16, "realizedPnL": 420.00, "realizedPnLPercentage": 4.2 }
+    ], "summary": { "startingValue": 10250.00, "endingValue": 13100.00, "valueChange": 2850.00, "valueChangePercentage": 27.8, "netPnL": 1520.00, "pnLChange": 1270.00, "pnLChangePercentage": 508.0, "highestValue": 13100.00, "highestValueTimestamp": "2026-07-01T00:00:00Z", "lowestValue": 10250.00, "lowestValueTimestamp": "2026-01-01T00:00:00Z" } } } } },
+    { "id": "portfolio-history-latest", "controller": "PortfolioHistoryController", "method": "GET", "path": "/api/v1/portfolios/history/latest", "sequence": [
+      { "from": "Client", "to": "PortfolioHistoryController", "label": "GetLatest()" },
+      { "from": "PortfolioHistoryController", "to": "PortfolioHistoryService", "label": "GetLatestSnapshotAsync(userId)" },
+      { "from": "PortfolioHistoryService", "to": "PortfolioSnapshotRepository", "label": "GetLatestSnapshotAsync" }
+    ],
+    "response": { "200": { "success": true, "data": { "timestamp": "2026-07-01T00:00:00Z", "totalInvested": 12000.00, "cashBalance": 300.00, "totalMarketValue": 13100.00, "unrealizedPnL": 1100.00, "unrealizedPnLPercentage": 9.16, "realizedPnL": 420.00, "realizedPnLPercentage": 4.2 } } } },
+    { "id": "portfolios-get", "controller": "PortfoliosController", "method": "GET", "path": "/api/v1/portfolios", "sequence": [
+      { "from": "Client", "to": "PortfoliosController", "label": "GetPortfolio()" },
+      { "from": "PortfoliosController", "to": "PortfolioService", "label": "GetPortfolio(userId)" },
+      { "from": "PortfolioService", "to": "TransactionRepository", "label": "GetOpenPositionsByUser" },
+      { "from": "PortfolioService", "to": "MarketPriceService", "label": "GetCurrentPricesAsync" },
+      { "from": "PortfolioService", "to": "CashBalanceService", "label": "GetBalanceAsync" }
+    ],
+    "notes": [{ "stepIndex": 1, "text": "aggregates FIFO positions + live prices + cash balance into one portfolio view" }],
+    "response": { "200": { "success": true, "data": { "positions": [
+      { "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "totalInvested": 5000.00, "totalShares": 25, "averageSharePrice": 200.00, "sector": "Technology", "industry": "Consumer Electronics", "geography": "North America", "marketCap": 3200000000000, "currentMarketValue": 5375.00, "unrealizedPnL": 375.00, "unrealizedPnLPercentage": 7.5, "currentAllocationPercentage": 43.0, "targetAllocationPercentage": 40.0, "allocationDeviation": 3.0, "rebalancingAmount": -87.50, "rebalancingStatus": "Overweight" }
+    ], "cashAmount": 300.00, "totalInvested": 12000.00, "totalMarketValue": 13100.00, "totalUnrealizedPnL": 1100.00, "totalUnrealizedPnLPercentage": 9.16 } } } },
+    { "id": "securities-get-all", "controller": "SecuritiesController", "method": "GET", "path": "/api/v1/securities", "sequence": [
+      { "from": "Client", "to": "SecuritiesController", "label": "GetAll()" },
+      { "from": "SecuritiesController", "to": "SecurityService", "label": "GetAllAsync()" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "GetAllAsync" }
+    ],
+    "response": { "200": { "success": true, "data": [
+      { "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "currency": "USD", "exchange": "NASDAQ", "sector": "Technology", "industry": "Consumer Electronics", "geography": "North America", "marketCap": 3200000000000 }
+    ] } } },
+    { "id": "securities-get-by-ticker", "controller": "SecuritiesController", "method": "GET", "path": "/api/v1/securities/{ticker}", "sequence": [
+      { "from": "Client", "to": "SecuritiesController", "label": "GetByTicker(ticker)" },
+      { "from": "SecuritiesController", "to": "SecurityService", "label": "GetByTickerAsync(ticker)" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "GetByTickerAsync" }
+    ],
+    "request": { "ticker": "AAPL (path param)" },
+    "response": { "200": { "success": true, "data": { "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "currency": "USD", "exchange": "NASDAQ", "sector": "Technology", "industry": "Consumer Electronics", "geography": "North America", "marketCap": 3200000000000 } },
+      "404": { "success": false, "error": "Security with ticker 'AAPL' not found" } } },
+    { "id": "securities-create", "controller": "SecuritiesController", "method": "POST", "path": "/api/v1/securities", "sequence": [
+      { "from": "Client", "to": "SecuritiesController", "label": "Create(request)" },
+      { "from": "SecuritiesController", "to": "SecurityService", "label": "CreateOrGetByTickerAsync(ticker)" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "GetByTickerAsync" },
+      { "from": "SecurityService", "to": "YahooMarketDataService", "label": "SearchAsync(ticker)" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "AddOrUpdateAsync" }
+    ],
+    "notes": [{ "stepIndex": 3, "text": "falls back to Yahoo Finance search when ticker not found locally" }],
+    "request": { "ticker": "AAPL" },
+    "response": { "200": { "success": true, "data": { "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "currency": "USD", "exchange": "NASDAQ", "sector": "Technology", "industry": "Consumer Electronics", "geography": "North America", "marketCap": 3200000000000 } } } },
+    { "id": "securities-create-admin", "controller": "SecuritiesController", "method": "POST", "path": "/api/v1/securities/admin", "sequence": [
+      { "from": "Client", "to": "SecuritiesController", "label": "CreateAdmin(request)" },
+      { "from": "SecuritiesController", "to": "SecurityService", "label": "CreateAsync(request)" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "AddOrUpdateAsync" }
+    ],
+    "request": { "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock" },
+    "response": { "201": { "success": true, "data": { "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "ticker": "AAPL", "isin": null, "securityName": "Apple Inc.", "securityType": "Stock", "currency": null, "exchange": null, "sector": null, "industry": null, "geography": null, "marketCap": null, "lastUpdated": null } } } },
+    { "id": "securities-update", "controller": "SecuritiesController", "method": "PUT", "path": "/api/v1/securities/{ticker}", "sequence": [
+      { "from": "Client", "to": "SecuritiesController", "label": "Update(ticker, request)" },
+      { "from": "SecuritiesController", "to": "SecurityService", "label": "UpdateAsync(ticker, request)" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "AddOrUpdateAsync" }
+    ],
+    "request": { "securityName": "Apple Inc.", "securityType": "Stock" },
+    "response": { "200": { "success": true, "data": { "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "sector": "Technology", "industry": "Consumer Electronics" } },
+      "404": { "success": false, "error": "Security with ticker 'AAPL' not found" } } },
+    { "id": "securities-delete", "controller": "SecuritiesController", "method": "DELETE", "path": "/api/v1/securities/{ticker}", "sequence": [
+      { "from": "Client", "to": "SecuritiesController", "label": "Delete(ticker)" },
+      { "from": "SecuritiesController", "to": "SecurityService", "label": "DeleteAsync(ticker)" },
+      { "from": "SecurityService", "to": "SecurityRepository", "label": "DeleteAsync" }
+    ],
+    "request": { "ticker": "AAPL (path param)" },
+    "response": { "200": { "success": true, "data": null },
+      "404": { "success": false, "error": "Security with ticker 'AAPL' not found" } } },
+    { "id": "transactions-create", "controller": "TransactionsController", "method": "POST", "path": "/api/v1/transactions", "sequence": [
+      { "from": "Client", "to": "TransactionsController", "label": "Create(request)" },
+      { "from": "TransactionsController", "to": "TransactionService", "label": "Create(userId, request)" },
+      { "from": "TransactionService", "to": "SecurityRepository", "label": "GetByTickerAsync" },
+      { "from": "TransactionService", "to": "PortfolioCalculator", "label": "Calculate(...)" },
+      { "from": "TransactionService", "to": "TransactionRepository", "label": "Add" },
+      { "from": "TransactionService", "to": "CashBalanceService", "label": "ProcessTransactionAsync" }
+    ],
+    "notes": [{ "stepIndex": 3, "text": "FIFO cost basis + realized PnL computed here" }],
+    "request": { "ticker": "AAPL", "transactionType": "Buy", "date": "2026-07-15", "sharesQuantity": 10, "sharePrice": 215.50, "fees": 1.99, "tax": 0 },
+    "response": { "200": { "success": true, "data": null },
+      "400": { "success": false, "error": "SharesQuantity must be greater than zero" } } },
+    { "id": "transactions-create-bulk", "controller": "TransactionsController", "method": "POST", "path": "/api/v1/transactions/bulk", "sequence": [
+      { "from": "Client", "to": "TransactionsController", "label": "CreateBulk(requests)" },
+      { "from": "TransactionsController", "to": "TransactionService", "label": "CreateBulk(userId, requests)" },
+      { "from": "TransactionService", "to": "TransactionRepository", "label": "AddBulk" }
+    ],
+    "notes": [{ "stepIndex": 2, "text": "skips per-transaction PnL recalculation; used for CSV-style imports" }],
+    "request": [
+      { "ticker": "AAPL", "transactionType": "Buy", "date": "2026-01-10", "sharesQuantity": 10, "sharePrice": 190.00, "fees": 1.99, "tax": 0 },
+      { "ticker": "AAPL", "transactionType": "Buy", "date": "2026-03-05", "sharesQuantity": 5, "sharePrice": 205.00, "fees": 1.99, "tax": 0 }
+    ],
+    "response": { "200": { "success": true, "data": null } } },
+    { "id": "transactions-get-all", "controller": "TransactionsController", "method": "GET", "path": "/api/v1/transactions", "sequence": [
+      { "from": "Client", "to": "TransactionsController", "label": "GetAll()" },
+      { "from": "TransactionsController", "to": "TransactionService", "label": "GetAllByUser(userId)" },
+      { "from": "TransactionService", "to": "TransactionRepository", "label": "GetAllByUser" }
+    ],
+    "response": { "200": { "success": true, "data": [
+      { "id": "5f1b3c2a-8e4d-4a1b-9c3d-1a2b3c4d5e6f", "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "date": "2026-07-15T00:00:00Z", "sharesQuantity": 10, "sharePrice": 215.50, "fees": 1.99, "tax": 0, "transactionType": "Buy", "realizedPnL": null, "realizedPnLPct": null, "totalAmount": 2156.99, "impliedDividendRate": null }
+    ] } } },
+    { "id": "transactions-update", "controller": "TransactionsController", "method": "PUT", "path": "/api/v1/transactions/{transactionId}", "sequence": [
+      { "from": "Client", "to": "TransactionsController", "label": "Update(id, request)" },
+      { "from": "TransactionsController", "to": "TransactionService", "label": "Update(userId, id, request)" },
+      { "from": "TransactionService", "to": "TransactionRepository", "label": "GetById / Update" },
+      { "from": "TransactionService", "to": "RealizedPnLCalculator", "label": "CalculateAvailableSharesBeforeTransaction" }
+    ],
+    "notes": [{ "stepIndex": 3, "text": "oversell validation against FIFO-remaining shares" }],
+    "request": { "sharesQuantity": 12, "sharePrice": 218.00 },
+    "response": { "200": { "success": true, "data": { "id": "5f1b3c2a-8e4d-4a1b-9c3d-1a2b3c4d5e6f", "ticker": "AAPL", "securityName": "Apple Inc.", "securityType": "Stock", "date": "2026-07-15T00:00:00Z", "sharesQuantity": 12, "sharePrice": 218.00, "fees": 1.99, "tax": 0, "transactionType": "Buy", "realizedPnL": null, "realizedPnLPct": null, "totalAmount": 2617.99, "impliedDividendRate": null } } } },
+    { "id": "transactions-delete", "controller": "TransactionsController", "method": "DELETE", "path": "/api/v1/transactions/{transactionId}", "sequence": [
+      { "from": "Client", "to": "TransactionsController", "label": "Delete(id)" },
+      { "from": "TransactionsController", "to": "TransactionService", "label": "Delete(userId, id)" },
+      { "from": "TransactionService", "to": "TransactionRepository", "label": "Delete" },
+      { "from": "TransactionService", "to": "CashBalanceService", "label": "RevertTransactionAsync" }
+    ],
+    "request": { "transactionId": "5f1b3c2a-8e4d-4a1b-9c3d-1a2b3c4d5e6f (path param)" },
+    "response": { "200": { "success": true, "data": null } } },
+
+    { "id": "health-get", "controller": "HealthController", "method": "GET", "path": "/health", "sequence": [
+      { "from": "Client", "to": "HealthController", "label": "Get()" }
+    ],
+    "response": { "200": { "success": true, "data": { "status": "Healthy", "timestamp": "2026-08-01T12:00:00Z", "version": "1.0.0" } } } },
+
+    { "id": "broker-pair-initiate", "controller": "BrokerController", "method": "POST", "path": "/api/v1/broker/pair/initiate", "status": "planned", "sequence": [] },
+    { "id": "broker-pair-complete", "controller": "BrokerController", "method": "POST", "path": "/api/v1/broker/pair/complete", "status": "planned", "sequence": [] },
+    { "id": "broker-sync", "controller": "BrokerController", "method": "POST", "path": "/api/v1/broker/sync", "status": "planned", "sequence": [] },
+    { "id": "broker-status", "controller": "BrokerController", "method": "GET", "path": "/api/v1/broker/status", "status": "planned", "sequence": [] },
+    { "id": "broker-sync-job", "controller": "BrokerController", "method": "GET", "path": "/api/v1/broker/sync/{jobId}", "status": "planned", "sequence": [] },
+    { "id": "broker-revoke", "controller": "BrokerController", "method": "DELETE", "path": "/api/v1/broker/revoke", "status": "planned", "sequence": [] }
+  ],
+  "businessRules": [
+    { "id": "fifo-cost-basis", "title": "FIFO cost basis", "description": "Cost basis, average price, and realized PnL are computed with a single FIFO pass over BuyLots (unified in SPEC-006 part 1). Sells consume the oldest open lots first.", "anchorsTo": ["portfolio-calculator", "realized-pnl-calculator"],
+      "flow": [
+        { "from": "TransactionService", "to": "PortfolioCalculator", "label": "Calculate(transactions)" },
+        { "from": "PortfolioCalculator", "to": "BuyLots", "label": "Buy → Add(qty, cost)", "returns": "lot added" },
+        { "from": "PortfolioCalculator", "to": "BuyLots", "label": "Sell → consume oldest lot(s) first", "returns": "costBasisConsumed" },
+        { "from": "PortfolioCalculator", "to": "BuyLots", "label": "Split → multiply lot.Quantity ×factor", "returns": "cost basis unchanged" },
+        { "from": "PortfolioCalculator", "to": "TransactionService", "label": "return FifoCalculationResult", "returns": "shares, avgPrice, costBasis, PnL by txId" }
+      ],
+      "flowNotes": [
+        { "stepIndex": 0, "text": "Ordered by Date asc → TransactionType (Split, Buy, Sell) → CreatedAt" },
+        { "stepIndex": 2, "text": "RealizedPnL = (Shares×Price − Fees) − costBasisConsumed" }
+      ]
+    },
+    { "id": "dividends-taxed-only", "title": "Dividends taxed only", "description": "Only Dividend transactions carry a Tax deduction; Buy/Sell/Split do not. Enforced at the Transaction entity level (Tax field, default 0) and in DividendCalculator.", "anchorsTo": ["dividend-calculator", "transaction-validator"],
+      "flow": [
+        { "from": "TransactionsController", "to": "TransactionValidator", "label": "ValidateCreateRequest(request)", "returns": "throws if invalid" },
+        { "from": "TransactionValidator", "to": "TransactionValidator", "label": "ValidateSharePrice(price, type)" },
+        { "from": "TransactionService", "to": "DividendCalculator", "label": "CalculateSharePriceForDividend(request)", "returns": "gross dividend / share" }
+      ],
+      "flowNotes": [
+        { "stepIndex": 1, "text": "Dividend: price ≥ 0 allowed. Split: price must = 0. Buy/Sell: price > 0 required." },
+        { "stepIndex": 2, "text": "sharePrice = (netAmount + Tax) / SharesQuantity — only Dividend carries Tax" }
+      ]
+    },
+    { "id": "rebalancing-threshold", "title": "Rebalancing threshold ±0.5%", "description": "AllocationStrategy defines target percentages per security; rebalancing triggers when actual allocation drifts beyond ±0.5% of target. Anchor location not confirmed against current code during this audit — verify against AllocationStrategy consumers before treating this anchor as authoritative.", "anchorsTo": ["allocation-strategy"],
+      "flow": [
+        { "from": "PortfolioService", "to": "AllocationStrategy", "label": "read TargetPercentage per security" },
+        { "from": "PortfolioService", "to": "PortfolioCalculator", "label": "CalculateCurrentAllocationPercentage(posValue, totalValue)", "returns": "currentAllocation %" },
+        { "from": "PortfolioService", "to": "PortfolioCalculator", "label": "DetermineRebalancingStatus(current, target) — UNWIRED", "returns": "no caller found in src" }
+      ],
+      "flowNotes": [
+        { "stepIndex": 2, "text": "Audit finding: DetermineRebalancingStatus / CalculateRebalancingAmount exist but have zero callers outside PortfolioCalculator.cs itself. ±0.5% threshold is defined, not enforced anywhere in production code." }
+      ]
+    }
+  ],
+  "dbSchema": {
+    "tables": [
+      { "id": "user", "name": "User", "tableName": "users", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "Username", "type": "string(50)", "nullable": false },
+        { "name": "Password", "type": "string", "nullable": true },
+        { "name": "Email", "type": "string(50)", "nullable": false, "noIndex": true },
+        { "name": "MonthlyInvestmentAmount", "type": "decimal", "nullable": false },
+        { "name": "AuthProvider", "type": "string(20)", "nullable": true },
+        { "name": "CreatedAt", "type": "DateTime", "nullable": false }
+      ], "indexes": [] },
+      { "id": "security", "name": "Security", "tableName": "securities", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "Ticker", "type": "string(50)", "nullable": false },
+        { "name": "Isin", "type": "string(12)", "nullable": true },
+        { "name": "SecurityName", "type": "string(100)", "nullable": false },
+        { "name": "SecurityType", "type": "enum(int)", "nullable": false },
+        { "name": "Currency", "type": "string(10)", "nullable": true },
+        { "name": "Exchange", "type": "string(50)", "nullable": true },
+        { "name": "Sector", "type": "string(100)", "nullable": true },
+        { "name": "Industry", "type": "string(150)", "nullable": true },
+        { "name": "Geography", "type": "string(50)", "nullable": true },
+        { "name": "MarketCap", "type": "decimal(20,2)", "nullable": true },
+        { "name": "LastUpdated", "type": "DateTime", "nullable": true }
+      ], "indexes": [ { "columns": ["Ticker"], "unique": true }, { "columns": ["Isin"], "unique": false } ] },
+      { "id": "transaction", "name": "Transaction", "tableName": "transactions", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "SecurityId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "TransactionType", "type": "enum(int)", "nullable": false },
+        { "name": "Date", "type": "DateTime", "nullable": false },
+        { "name": "CreatedAt", "type": "DateTime", "nullable": false },
+        { "name": "UpdatedAt", "type": "DateTime", "nullable": false },
+        { "name": "SharesQuantity", "type": "decimal(18,8)", "nullable": false },
+        { "name": "SharePrice", "type": "decimal(18,4)", "nullable": false },
+        { "name": "Fees", "type": "decimal(18,4)", "nullable": false },
+        { "name": "Tax", "type": "decimal(18,4)", "nullable": false },
+        { "name": "UserId", "type": "Guid", "nullable": true, "fk": true },
+        { "name": "RealizedPnL", "type": "decimal(18,4)", "nullable": true },
+        { "name": "RealizedPnLPct", "type": "decimal(18,4)", "nullable": true }
+      ], "indexes": [ { "columns": ["SecurityId"], "unique": false }, { "columns": ["UserId"], "unique": false } ] },
+      { "id": "allocation-strategy", "name": "AllocationStrategy", "tableName": "allocation_strategies", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "UserId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "SecurityId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "TargetPercentage", "type": "decimal(18,4)", "nullable": false },
+        { "name": "IsEnabledForWeekly", "type": "bool", "nullable": false },
+        { "name": "IsEnabledForBiWeekly", "type": "bool", "nullable": false },
+        { "name": "IsEnabledForMonthly", "type": "bool", "nullable": false },
+        { "name": "CreatedAt", "type": "DateTime", "nullable": false },
+        { "name": "UpdatedAt", "type": "DateTime", "nullable": false }
+      ], "indexes": [ { "columns": ["UserId", "SecurityId"], "unique": true } ] },
+      { "id": "market-price", "name": "MarketPrice", "tableName": "market_prices", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "SecurityId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "Price", "type": "decimal(18,4)", "nullable": false },
+        { "name": "Currency", "type": "string(10)", "nullable": true },
+        { "name": "LastUpdated", "type": "DateTime", "nullable": false }
+      ], "indexes": [ { "columns": ["SecurityId"], "unique": true }, { "columns": ["LastUpdated"], "unique": false } ] },
+      { "id": "recurring-schedule", "name": "RecurringSchedule", "tableName": "recurring_schedules", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "UserId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "SecurityId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "Platform", "type": "string(100)", "nullable": true },
+        { "name": "TargetAmount", "type": "decimal(18,4)", "nullable": true },
+        { "name": "IsActive", "type": "bool", "nullable": false },
+        { "name": "CreatedAt", "type": "DateTime", "nullable": false }
+      ], "indexes": [ { "columns": ["UserId", "SecurityId"], "unique": true, "filter": "IsActive = true" } ] },
+      { "id": "portfolio-snapshot", "name": "PortfolioSnapshot", "tableName": "portfolio_snapshots", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "UserId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "Timestamp", "type": "DateTime", "nullable": false },
+        { "name": "TotalInvested", "type": "decimal(18,2)", "nullable": false },
+        { "name": "CashBalance", "type": "decimal", "nullable": false },
+        { "name": "TotalMarketValue", "type": "decimal(18,2)", "nullable": false },
+        { "name": "UnrealizedPnL", "type": "decimal(18,2)", "nullable": false },
+        { "name": "UnrealizedPnLPercentage", "type": "decimal(8,4)", "nullable": false },
+        { "name": "RealizedPnL", "type": "decimal(18,2)", "nullable": false },
+        { "name": "RealizedPnLPercentage", "type": "decimal(8,4)", "nullable": false }
+      ], "indexes": [ { "columns": ["UserId", "Timestamp"], "unique": false }, { "columns": ["Timestamp"], "unique": false } ] },
+      { "id": "refresh-token", "name": "RefreshToken", "tableName": "refresh_tokens", "columns": [
+        { "name": "Id", "type": "Guid", "nullable": false, "pk": true },
+        { "name": "Token", "type": "string(255)", "nullable": false, "noIndex": true },
+        { "name": "ExpiresAt", "type": "DateTime", "nullable": false },
+        { "name": "CreatedAt", "type": "DateTime", "nullable": false },
+        { "name": "UserId", "type": "Guid", "nullable": false, "fk": true },
+        { "name": "IsRevoked", "type": "bool", "nullable": false }
+      ], "indexes": [] },
+      { "id": "cash-balance", "name": "CashBalance", "tableName": "cash_balances", "columns": [
+        { "name": "UserId", "type": "Guid", "nullable": false, "pk": true, "fk": true },
+        { "name": "Amount", "type": "decimal(18,4)", "nullable": false },
+        { "name": "LastUpdatedAt", "type": "DateTime", "nullable": false },
+        { "name": "LastUpdatedSource", "type": "enum(int)", "nullable": false }
+      ], "indexes": [] }
+    ],
+    "relationships": [
+      { "from": "transaction", "fromColumn": "UserId", "to": "user", "toColumn": "Id", "cardinality": "many-to-one", "required": false, "onDelete": "Restrict" },
+      { "from": "transaction", "fromColumn": "SecurityId", "to": "security", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Restrict" },
+      { "from": "allocation-strategy", "fromColumn": "UserId", "to": "user", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Cascade" },
+      { "from": "allocation-strategy", "fromColumn": "SecurityId", "to": "security", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Restrict" },
+      { "from": "market-price", "fromColumn": "SecurityId", "to": "security", "toColumn": "Id", "cardinality": "one-to-one", "required": true, "onDelete": "Cascade" },
+      { "from": "recurring-schedule", "fromColumn": "UserId", "to": "user", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Cascade" },
+      { "from": "recurring-schedule", "fromColumn": "SecurityId", "to": "security", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Restrict" },
+      { "from": "portfolio-snapshot", "fromColumn": "UserId", "to": "user", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Cascade" },
+      { "from": "refresh-token", "fromColumn": "UserId", "to": "user", "toColumn": "Id", "cardinality": "many-to-one", "required": true, "onDelete": "Cascade" },
+      { "from": "cash-balance", "fromColumn": "UserId", "to": "user", "toColumn": "Id", "cardinality": "one-to-one", "required": true, "onDelete": "Cascade" }
+    ]
+  }
+}
+</script>
+<script>
+const API_DATA = JSON.parse(document.getElementById('api-data').textContent);
+
+const DB_COLUMNS = [
+  ['user', 'portfolio-snapshot', 'refresh-token', 'cash-balance'],
+  ['transaction', 'allocation-strategy', 'recurring-schedule'],
+  ['security', 'market-price']
+];
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(el => el.classList.toggle('active', el.id === 'view-' + name));
+  document.querySelectorAll('nav button').forEach(el => el.classList.toggle('active', el.dataset.view === name));
+  if (name === 'dbschema' && typeof drawDbSchemaEdges === 'function') drawDbSchemaEdges();
+  if (name === 'components' && typeof drawComponentEdges === 'function') drawComponentEdges();
+}
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => showView(btn.dataset.view));
+});
+
+function renderComponents() {
+  const container = document.getElementById('view-components');
+  const layerOrder = ['Controller', 'Service', 'Utility', 'Repository', 'External'];
+  const featureOrder = ['Authentication', 'BrokerIntegration', 'Investments', 'Startup'];
+  const byLayer = {};
+  layerOrder.forEach(l => byLayer[l] = []);
+  API_DATA.components.forEach(c => {
+    if (c.id === 'db-context') return;
+    if (byLayer[c.layer]) byLayer[c.layer].push(c);
+  });
+
+  let html = '<div id="components-diagram">';
+  layerOrder.forEach(layer => {
+    const nodes = byLayer[layer];
+    if (!nodes.length) return;
+    html += `<div class="layer-band" data-layer="${layer}"><div class="layer-label">${layer}</div><div class="layer-lanes">`;
+    featureOrder.forEach(feature => {
+      const featureNodes = nodes.filter(c => c.feature === feature);
+      const laneStyle = featureNodes.length ? '' : ' style="border:none;padding:0;"';
+      html += `<div class="feature-lane" data-feature="${feature}"${laneStyle}>`;
+      if (featureNodes.length) {
+        html += `<div class="feature-lane-label">${feature}</div><div class="feature-lane-nodes">`;
+        featureNodes.forEach(c => {
+          const statusClass = c.status ? ` status-${c.status}` : '';
+          const badge = c.status ? `<span class="badge ${c.status}">${c.status}</span>` : '';
+          html += `<div class="node${statusClass}" id="node-${c.id}" data-id="${c.id}">${c.name}${badge}</div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `<div class="layer-band" data-layer="DbContext" style="text-align:center;">
+    <div class="layer-label">Data</div>
+    <div class="node" id="node-db-context" data-id="db-context" style="display:inline-block;">BabylonDbContext</div>
+  </div>`;
+  html += `<svg class="edges" id="edges-components"></svg>`;
+  html += '</div>';
+  container.innerHTML = html;
+
+  drawComponentEdges();
+  attachComponentInteractions();
+  window.addEventListener('resize', drawComponentEdges);
+}
+
+function drawComponentEdges() {
+  const svg = document.getElementById('edges-components');
+  if (!svg) return;
+  svg.innerHTML = '';
+  const svgRect = svg.getBoundingClientRect();
+  const pairs = new Map();
+  API_DATA.components.forEach(c => {
+    c.connectsTo.forEach(targetId => {
+      const target = API_DATA.components.find(t => t.id === targetId);
+      if (!target) return;
+      const isDb = targetId === 'db-context';
+      const fromKey = `${c.feature}|${c.layer}`;
+      const toKey = isDb ? 'db-context' : `${target.feature}|${target.layer}`;
+      if (fromKey === toKey) return;
+      const pairKey = fromKey + '=>' + toKey;
+      if (!pairs.has(pairKey)) pairs.set(pairKey, { fromKey, toKey, isDb, members: new Set() });
+      const entry = pairs.get(pairKey);
+      entry.members.add(c.id);
+      entry.members.add(targetId);
+    });
+  });
+  const gutterEdgeCounts = {};
+  pairs.forEach(({ fromKey, toKey, isDb, members }) => {
+    const [fromFeature, fromLayer] = fromKey.split('|');
+    const fromBandEl = document.querySelector(`.layer-band[data-layer="${fromLayer}"]`);
+    if (!fromBandEl) return;
+    const fromEl = fromBandEl.querySelector(`.feature-lane[data-feature="${fromFeature}"]`);
+    if (!fromEl) return;
+    let toEl;
+    if (isDb) {
+      toEl = document.getElementById('node-db-context');
+    } else {
+      const [toFeature, toLayer] = toKey.split('|');
+      const toBandEl = document.querySelector(`.layer-band[data-layer="${toLayer}"]`);
+      toEl = toBandEl ? toBandEl.querySelector(`.feature-lane[data-feature="${toFeature}"]`) : null;
+    }
+    if (!toEl) return;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let d;
+    if (isDb) {
+      const columnKey = Math.round(a.right);
+      gutterEdgeCounts[columnKey] = (gutterEdgeCounts[columnKey] || 0) + 1;
+      const idx = gutterEdgeCounts[columnKey] - 1;
+      const gapX = a.right - svgRect.left + 8 + (idx % 4) * 8;
+      const y1 = a.top + a.height / 2 - svgRect.top;
+      const dataBand = toEl.closest('.layer-band');
+      const gutterY = dataBand.getBoundingClientRect().top - svgRect.top - 9;
+      const x2 = b.left + b.width / 2 - svgRect.left;
+      const y2 = b.top - svgRect.top;
+      d = `M ${a.right - svgRect.left} ${y1} L ${gapX} ${y1} L ${gapX} ${gutterY} L ${x2} ${gutterY} L ${x2} ${y2}`;
+    } else {
+      const columnKey = Math.round(Math.max(a.right, b.right));
+      gutterEdgeCounts[columnKey] = (gutterEdgeCounts[columnKey] || 0) + 1;
+      const idx = gutterEdgeCounts[columnKey] - 1;
+      const gapX = Math.max(a.right, b.right) - svgRect.left + 8 + (idx % 4) * 8;
+      const y1 = a.top + a.height / 2 - svgRect.top;
+      const y2 = b.top + b.height / 2 - svgRect.top;
+      d = `M ${a.right - svgRect.left} ${y1} L ${gapX} ${y1} L ${gapX} ${y2} L ${b.right - svgRect.left} ${y2}`;
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'edge');
+    path.dataset.from = fromKey;
+    path.dataset.to = toKey;
+    path.dataset.members = Array.from(members).join(',');
+    svg.appendChild(path);
+  });
+  if (typeof pinnedComponentId !== 'undefined' && pinnedComponentId) highlightComponent(pinnedComponentId, true);
+}
+
+let pinnedComponentId = null;
+
+function attachComponentInteractions() {
+  document.querySelectorAll('#view-components .node').forEach(node => {
+    node.addEventListener('mouseenter', () => {
+      if (!pinnedComponentId) highlightComponent(node.dataset.id, false);
+    });
+    node.addEventListener('mouseleave', () => {
+      if (!pinnedComponentId) clearComponentHighlight();
+    });
+    node.addEventListener('click', () => {
+      if (pinnedComponentId === node.dataset.id) {
+        pinnedComponentId = null;
+        clearComponentHighlight();
+      } else {
+        pinnedComponentId = node.dataset.id;
+        highlightComponent(pinnedComponentId, true);
+      }
+    });
+  });
+}
+
+function highlightComponent(id, dimOthers) {
+  const related = new Set([id]);
+  API_DATA.components.forEach(c => {
+    if (c.id === id) c.connectsTo.forEach(t => related.add(t));
+    if (c.connectsTo.includes(id)) related.add(c.id);
+  });
+  document.querySelectorAll('#view-components .node').forEach(n => {
+    n.classList.toggle('highlight', related.has(n.dataset.id));
+    n.classList.toggle('dim', dimOthers && !related.has(n.dataset.id));
+  });
+  document.querySelectorAll('#view-components path.edge').forEach(p => {
+    const members = (p.dataset.members || '').split(',');
+    p.classList.toggle('flow', members.some(m => related.has(m)));
+  });
+}
+
+function clearComponentHighlight() {
+  document.querySelectorAll('#view-components .node').forEach(n => n.classList.remove('highlight', 'dim'));
+  document.querySelectorAll('#view-components path.edge').forEach(p => p.classList.remove('flow'));
+}
+
+renderComponents();
+
+function renderDbSchema() {
+  const container = document.getElementById('view-dbschema');
+  const tableById = {};
+  API_DATA.dbSchema.tables.forEach(t => { tableById[t.id] = t; });
+  const dbTableDetailHtml = t => {
+    let bodyHtml = `<div class="detail-title">${t.name} <span style="color:var(--text-dim);font-size:10px;">(${t.tableName})</span></div>`;
+    t.columns.forEach(c => {
+      const pk = c.pk ? ' 🔑' : '';
+      const fk = c.fk ? ' 🔗' : '';
+      const warn = c.noIndex ? ` <span class="badge" style="background:rgba(255,107,107,.15);color:var(--danger);">no index</span>` : '';
+      bodyHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--text);padding:2px 0;border-bottom:1px solid var(--border);">${c.name}${pk}${fk}: <span style="color:var(--text-dim);">${c.type}${c.nullable ? '?' : ''}</span>${warn}</div>`;
+    });
+    if (t.indexes.length) {
+      bodyHtml += `<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">`;
+      t.indexes.forEach(ix => {
+        bodyHtml += `idx(${ix.columns.join(',')})${ix.unique ? ' unique' : ''}${ix.filter ? ' where ' + ix.filter : ''}<br>`;
+      });
+      bodyHtml += `</div>`;
+    }
+    return bodyHtml;
+  };
+  const renderTableCard = t => {
+    let cardHtml = `<div class="node db-table" id="table-${t.id}" data-id="${t.id}" style="text-align:left;padding:18px;cursor:pointer;width:300px;">`;
+    cardHtml += `<div class="db-table-header" style="flex-direction:column;align-items:flex-start;gap:2px;"><span style="font-family:var(--mono);font-size:13px;color:var(--accent);white-space:nowrap;">${t.name}</span><span style="color:var(--text-dim);font-size:10px;">(${t.tableName})</span></div>`;
+    cardHtml += `<div class="db-table-hint">hover or click for columns</div>`;
+    cardHtml += `</div>`;
+    return cardHtml;
+  };
+  // Safety net: any table present in the data but not assigned a column in
+  // DB_COLUMNS still renders (appended to the last column) instead of vanishing.
+  const assignedIds = new Set(DB_COLUMNS.flat());
+  const orphaned = API_DATA.dbSchema.tables.filter(t => !assignedIds.has(t.id));
+  let html = '<div style="overflow-x: auto;display:flex;justify-content:safe center;min-height: 80vh;width: 100%;"><div id="dbschema-grid" style="position:relative;display:grid;grid-template-columns:repeat(3,300px);column-gap:80px;align-items:start;">';
+  DB_COLUMNS.forEach((colIds, colIdx) => {
+    html += `<div class="db-col" data-col="${colIdx}" style="display:flex;flex-direction:column;gap:32px;">`;
+    colIds.forEach(id => {
+    const t = tableById[id];
+    if (!t) return;
+    html += renderTableCard(t);
+    });
+    if (colIdx === DB_COLUMNS.length - 1 && orphaned.length) {
+      orphaned.forEach(t => { html += renderTableCard(t); });
+    }
+    html += '</div>';
+  });
+  html += '<svg class="edges" id="edges-dbschema"></svg></div></div>';
+  html += '<div id="dbschema-detail"></div>';
+  container.innerHTML = html;
+  drawDbSchemaEdges();
+  window.addEventListener('resize', drawDbSchemaEdges);
+
+  const detailEl = document.getElementById('dbschema-detail');
+  function showDbDetail(id) {
+    const t = tableById[id];
+    if (!t || !detailEl) return;
+    detailEl.innerHTML = dbTableDetailHtml(t);
+    detailEl.classList.add('visible');
+  }
+  function hideDbDetail() {
+    if (detailEl) detailEl.classList.remove('visible');
+  }
+
+  function recomputePinRelatedExpansion() {
+    const pinnedIds = Array.from(document.querySelectorAll('#view-dbschema .node.pinned-expanded')).map(n => n.dataset.id);
+    const related = new Set();
+    pinnedIds.forEach(pid => {
+      API_DATA.dbSchema.relationships.forEach(rel => {
+        if (rel.from === pid) related.add(rel.to);
+        if (rel.to === pid) related.add(rel.from);
+      });
+    });
+    document.querySelectorAll('#view-dbschema .node').forEach(n => {
+      n.classList.toggle('pin-related-expanded', related.has(n.dataset.id) && !pinnedIds.includes(n.dataset.id));
+    });
+  }
+
+  document.querySelectorAll('#view-dbschema .node').forEach(node => {
+    node.addEventListener('mouseenter', () => {
+      highlightDbSchema(node.dataset.id);
+      showDbDetail(node.dataset.id);
+    });
+    node.addEventListener('mouseleave', () => {
+      clearDbSchemaHighlight();
+      if (pinnedDbTableId) { highlightDbSchema(pinnedDbTableId); showDbDetail(pinnedDbTableId); }
+      else hideDbDetail();
+    });
+    node.addEventListener('click', () => {
+      const isPinned = node.classList.toggle('pinned-expanded');
+      if (isPinned) {
+        if (pinnedDbTableId && pinnedDbTableId !== node.dataset.id) {
+          const prev = document.getElementById('table-' + pinnedDbTableId);
+          if (prev) prev.classList.remove('pinned-expanded');
+        }
+        pinnedDbTableId = node.dataset.id;
+        showDbDetail(pinnedDbTableId);
+      } else {
+        pinnedDbTableId = null;
+        showDbDetail(node.dataset.id);
+      }
+      recomputePinRelatedExpansion();
+    });
+  });
+}
+
+function drawDbSchemaEdges() {
+  const svg = document.getElementById('edges-dbschema');
+  if (!svg) return;
+  svg.innerHTML = '';
+  const svgRect = svg.getBoundingClientRect();
+  const colOf = {};
+  DB_COLUMNS.forEach((ids, idx) => ids.forEach(id => { colOf[id] = idx; }));
+  // Any table not assigned a column in DB_COLUMNS renders in the last column
+  // (see renderDbSchema's orphan fallback) — keep routing consistent with that.
+  const assignedIds = new Set(DB_COLUMNS.flat());
+  API_DATA.dbSchema.tables.forEach(t => {
+    if (!assignedIds.has(t.id)) colOf[t.id] = DB_COLUMNS.length - 1;
+  });
+  const gutterEdgeCounts = {};
+  API_DATA.dbSchema.relationships.forEach(rel => {
+    const fromEl = document.getElementById('table-' + rel.from);
+    const toEl = document.getElementById('table-' + rel.to);
+    if (!fromEl || !toEl) return;
+    const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+    const colA = colOf[rel.from], colB = colOf[rel.to];
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let d, lx, ly;
+    if (colA === colB) {
+      const isLastColumn = colA === DB_COLUMNS.length - 1;
+      const xEdge = isLastColumn
+        ? Math.min(a.left, b.left) - svgRect.left
+        : Math.max(a.right, b.right) - svgRect.left;
+      const key = 'same-' + colA;
+      gutterEdgeCounts[key] = (gutterEdgeCounts[key] || 0) + 1;
+      const idx = gutterEdgeCounts[key] - 1;
+      const busX = isLastColumn ? (xEdge - 20 - (idx % 4) * 10) : (xEdge + 20 + (idx % 4) * 10);
+      const y1 = a.top + a.height / 2 - svgRect.top;
+      const y2 = b.top + b.height / 2 - svgRect.top;
+      d = isLastColumn
+        ? `M ${a.left - svgRect.left} ${y1} L ${busX} ${y1} L ${busX} ${y2} L ${b.left - svgRect.left} ${y2}`
+        : `M ${a.right - svgRect.left} ${y1} L ${busX} ${y1} L ${busX} ${y2} L ${b.right - svgRect.left} ${y2}`;
+      lx = isLastColumn ? busX - 24 : busX + 4;
+      ly = (y1 + y2) / 2 - 4;
+    } else {
+      const aIsLeft = colA < colB;
+      const leftRect = aIsLeft ? a : b;
+      const rightRect = aIsLeft ? b : a;
+      const key = 'gutter-' + Math.min(colA, colB);
+      gutterEdgeCounts[key] = (gutterEdgeCounts[key] || 0) + 1;
+      const idx = gutterEdgeCounts[key] - 1;
+      const midX = (leftRect.right + rightRect.left) / 2 - svgRect.left + (idx % 3 - 1) * 12;
+      const yLeft = leftRect.top + leftRect.height / 2 - svgRect.top;
+      const yRight = rightRect.top + rightRect.height / 2 - svgRect.top;
+      d = `M ${leftRect.right - svgRect.left} ${yLeft} L ${midX} ${yLeft} L ${midX} ${yRight} L ${rightRect.left - svgRect.left} ${yRight}`;
+      lx = midX;
+      ly = (yLeft + yRight) / 2 - 4;
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'edge');
+    path.dataset.from = rel.from;
+    path.dataset.to = rel.to;
+    svg.appendChild(path);
+    const label = rel.cardinality === 'one-to-one' ? '1—1' : '1—*';
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', lx);
+    text.setAttribute('y', ly);
+    text.setAttribute('fill', 'var(--text-dim)');
+    text.setAttribute('font-family', 'var(--mono)');
+    text.setAttribute('font-size', '9');
+    text.textContent = label;
+    svg.appendChild(text);
+  });
+  if (pinnedDbTableId) highlightDbSchema(pinnedDbTableId);
+}
+
+let pinnedDbTableId = null;
+function highlightDbSchema(id) {
+  const related = new Set([id]);
+  API_DATA.dbSchema.relationships.forEach(rel => {
+    if (rel.from === id) related.add(rel.to);
+    if (rel.to === id) related.add(rel.from);
+  });
+  document.querySelectorAll('#view-dbschema .node').forEach(n => {
+    n.classList.toggle('highlight', related.has(n.dataset.id));
+    n.classList.toggle('related-expanded', related.has(n.dataset.id) && n.dataset.id !== id);
+  });
+  document.querySelectorAll('#view-dbschema path.edge').forEach(p => {
+    p.classList.toggle('flow', related.has(p.dataset.from) && related.has(p.dataset.to));
+  });
+}
+function clearDbSchemaHighlight() {
+  document.querySelectorAll('#view-dbschema .node').forEach(n => {
+    n.classList.remove('highlight');
+    n.classList.remove('related-expanded');
+  });
+  document.querySelectorAll('#view-dbschema path.edge').forEach(p => p.classList.remove('flow'));
+}
+
+renderDbSchema();
+
+function renderEndpoints() {
+  const container = document.getElementById('view-endpoints');
+  const byController = {};
+  API_DATA.endpoints.forEach(e => (byController[e.controller] = byController[e.controller] || []).push(e));
+
+  let listHtml = '<div style="display:grid;grid-template-columns:1fr 3fr 1fr;gap:24px;align-items:start;padding-right:4px;">';
+  listHtml += '<div id="endpoint-list" style="max-height:80vh;overflow-y:auto;padding:2px 12px 12px 2px;">';
+  Object.keys(byController).forEach(controller => {
+    listHtml += `<h3 style="font-family:var(--mono);font-size:13px;color:var(--text-dim);">${controller}</h3>`;
+    byController[controller].forEach(e => {
+      const statusClass = e.status ? ` status-${e.status}` : '';
+      const badge = e.status ? `<span class="badge ${e.status}">${e.status}</span>` : '';
+      listHtml += `<div class="node${statusClass}" data-id="${e.id}" style="margin-bottom:8px;">${e.method} ${e.path}${badge}</div>`;
+    });
+  });
+  listHtml += '</div>';
+  listHtml += '<div id="sequence-panel" style="position:relative;min-height:400px;overflow-x:auto;padding:12px;"><p style="color:var(--text-dim);">Click an endpoint to see its sequence.</p></div>';
+  listHtml += `<div id="request-response-panel" style="display:flex;flex-direction:column;gap:16px;">
+    <div id="request-body-panel" class="node" style="cursor:default;padding:14px;"><p style="color:var(--text-dim);margin:0;">Click an endpoint to see its request body.</p></div>
+    <div id="response-body-panel" class="node" style="cursor:default;padding:14px;"><p style="color:var(--text-dim);margin:0;">Click an endpoint to see its response body.</p></div>
+  </div>`;
+  listHtml += '</div>';
+  container.innerHTML = listHtml;
+
+  document.querySelectorAll('#endpoint-list .node').forEach(node => {
+    node.addEventListener('click', () => selectEndpoint(node.dataset.id));
+  });
+}
+
+function statusClass(code) {
+  if (code.startsWith('2')) return 'status-2xx';
+  if (code.startsWith('4')) return 'status-4xx';
+  return 'status-5xx';
+}
+
+function renderRequestPanel(endpoint) {
+  if (endpoint.request === undefined) {
+    return `<div class="io-panel"><div class="io-header"><span class="io-title">Request — ${endpoint.method} ${endpoint.path}</span></div><div class="io-body" style="color:var(--text-dim);">no example yet</div></div>`;
+  }
+  return `<div class="io-panel">
+    <div class="io-header"><span class="io-title">Request — ${endpoint.method} ${endpoint.path}</span><button class="io-copy-btn" data-copy="request">⧉</button></div>
+    <pre class="io-body" data-body="request">${JSON.stringify(endpoint.request, null, 2)}</pre>
+  </div>`;
+}
+
+function renderResponsePanel(endpoint) {
+  const codes = Object.keys(endpoint.response || {});
+  if (!codes.length) {
+    return `<div class="io-panel"><div class="io-header"><span class="io-title">Response</span></div><div class="io-body" style="color:var(--text-dim);">no example yet</div></div>`;
+  }
+  const tabs = codes.map((c, i) => `<button class="io-tab ${statusClass(c)}${i === 0 ? ' active' : ''}" data-code="${c}">${c}</button>`).join('');
+  const bodies = codes.map((c, i) => `<pre class="io-body" data-body="response" data-code="${c}" style="${i === 0 ? '' : 'display:none;'}">${JSON.stringify(endpoint.response[c], null, 2)}</pre>`).join('');
+  return `<div class="io-panel">
+    <div class="io-header"><div class="io-tabs">${tabs}</div><button class="io-copy-btn" data-copy="response">⧉</button></div>
+    ${bodies}
+  </div>`;
+}
+
+function wireIoPanel(panelEl) {
+  panelEl.querySelectorAll('.io-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      panelEl.querySelectorAll('.io-tab').forEach(t => t.classList.toggle('active', t === tab));
+      panelEl.querySelectorAll('[data-body="response"]').forEach(body => {
+        body.style.display = body.dataset.code === tab.dataset.code ? '' : 'none';
+      });
+    });
+  });
+  const copyBtn = panelEl.querySelector('.io-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const kind = copyBtn.dataset.copy;
+      const visibleBody = Array.from(panelEl.querySelectorAll(`[data-body="${kind}"]`)).find(b => b.style.display !== 'none');
+      if (!visibleBody) return;
+      navigator.clipboard.writeText(visibleBody.textContent).then(() => {
+        copyBtn.classList.add('copied');
+        copyBtn.textContent = '✓';
+        setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.textContent = '⧉'; }, 1200);
+      });
+    });
+  }
+}
+
+function buildSequenceSvg(sequence, notes) {
+  const participants = [];
+  sequence.forEach(s => {
+    if (!participants.includes(s.from)) participants.push(s.from);
+    if (!participants.includes(s.to)) participants.push(s.to);
+  });
+  const colWidth = 180, rowHeight = 70, topPad = 30, selfLoopWidth = 46, noteWidth = 230, noteCharsPerLine = 34;
+  const noteHeightFor = text => 16 + Math.ceil(text.length / noteCharsPerLine) * 13 + 10;
+  const hasNotes = (notes || []).length > 0;
+  const svgWidth = participants.length * colWidth + selfLoopWidth + (hasNotes ? noteWidth + 30 : 0);
+  const maxNoteBottom = Math.max(0, ...(notes || []).map(n => {
+    const i = n.stepIndex;
+    const yCall = topPad + i * rowHeight + rowHeight * 0.35;
+    return yCall - 20 + noteHeightFor(n.text);
+  }));
+  const svgHeight = Math.max(topPad + sequence.length * rowHeight + 30, maxNoteBottom + 20);
+  let html = `<svg width="${svgWidth}" height="${svgHeight}">`;
+  participants.forEach((p, i) => {
+    const x = i * colWidth + colWidth / 2;
+    html += `<text x="${x}" y="18" text-anchor="middle" fill="var(--text)" font-family="var(--mono)" font-size="11">${p}</text>`;
+    html += `<line x1="${x}" y1="${topPad}" x2="${x}" y2="${topPad + sequence.length * rowHeight}" stroke="var(--border)" stroke-width="1" />`;
+  });
+  sequence.forEach((s, i) => {
+    const yCall = topPad + i * rowHeight + rowHeight * 0.35;
+    const yReturn = topPad + i * rowHeight + rowHeight * 0.7;
+    const x1 = participants.indexOf(s.from) * colWidth + colWidth / 2;
+    const x2 = participants.indexOf(s.to) * colWidth + colWidth / 2;
+    const isSelfCall = x1 === x2;
+    const unwired = /UNWIRED/.test(s.label);
+    const lineColor = unwired ? 'var(--unwired)' : 'var(--accent)';
+    if (isSelfCall) {
+      const loopX = x1 + selfLoopWidth;
+      html += `<path d="M ${x1} ${yCall} L ${loopX} ${yCall} L ${loopX} ${yReturn} L ${x1} ${yReturn}" fill="none" stroke="${lineColor}" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)" />`;
+      html += `<text x="${loopX + 6}" y="${(yCall + yReturn) / 2 + 4}" fill="var(--text-dim)" font-family="var(--mono)" font-size="10">${s.label}</text>`;
+    } else {
+      html += `<line x1="${x1}" y1="${yCall}" x2="${x2}" y2="${yCall}" stroke="${lineColor}" stroke-width="1.5" stroke-dasharray="6 4" style="animation: flow .5s linear ${i * 0.08}s;" marker-end="url(#arrow)" />`;
+      html += `<text x="${(x1 + x2) / 2}" y="${yCall - 6}" text-anchor="middle" fill="var(--text-dim)" font-family="var(--mono)" font-size="10">${s.label}</text>`;
+      if (s.returns) {
+        html += `<line x1="${x2}" y1="${yReturn}" x2="${x1}" y2="${yReturn}" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#arrow-return)" />`;
+        html += `<text x="${(x1 + x2) / 2}" y="${yReturn + 12}" text-anchor="middle" fill="var(--text-dim)" font-family="var(--mono)" font-size="9" font-style="italic">→ ${s.returns}</text>`;
+      }
+    }
+    const note = (notes || []).find(n => n.stepIndex === i);
+    if (note) {
+      const noteX = Math.max(x1, x2) + colWidth * 0.55 + (isSelfCall ? selfLoopWidth : 0);
+      const noteHeight = noteHeightFor(note.text);
+      html += `<foreignObject x="${noteX}" y="${yCall - 20}" width="${noteWidth}" height="${noteHeight}">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:var(--mono);font-size:10px;line-height:13px;color:${unwired ? 'var(--danger)' : 'var(--planned)'};background:${unwired ? 'rgba(255,107,107,.1)' : 'rgba(240,180,41,.1)'};border:1px dashed ${unwired ? 'var(--danger)' : 'var(--planned)'};border-radius:4px;padding:4px 6px;box-sizing:border-box;">${note.text}</div>
+      </foreignObject>`;
+    }
+  });
+  html += `<defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)" /></marker>
+    <marker id="arrow-return" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--text-dim)" /></marker>
+  </defs>`;
+  html += '</svg>';
+  return html;
+}
+
+function selectEndpoint(id) {
+  document.querySelectorAll('#endpoint-list .node').forEach(n => n.classList.toggle('highlight', n.dataset.id === id));
+  const endpoint = API_DATA.endpoints.find(e => e.id === id);
+  const panel = document.getElementById('sequence-panel');
+  if (!endpoint.sequence.length) {
+    panel.innerHTML = `<p style="color:var(--planned);">Planned — not implemented yet. No sequence to show.</p>`;
+  } else {
+    panel.innerHTML = buildSequenceSvg(endpoint.sequence, endpoint.notes);
+  }
+  const requestPanel = document.getElementById('request-body-panel');
+  const responsePanel = document.getElementById('response-body-panel');
+  requestPanel.innerHTML = renderRequestPanel(endpoint);
+  responsePanel.innerHTML = renderResponsePanel(endpoint);
+  wireIoPanel(requestPanel);
+  wireIoPanel(responsePanel);
+}
+
+renderEndpoints();
+
+function resolveAnchorName(id) {
+  const comp = API_DATA.components.find(c => c.id === id);
+  if (comp) return comp.name;
+  const ent = API_DATA.entities.find(e => e.id === id);
+  if (ent) return ent.name;
+  return id;
+}
+
+function renderRules() {
+  const container = document.getElementById('view-rules');
+  let html = '<div style="display:flex;gap:32px;">';
+  html += '<div id="rule-list" style="min-width:280px;display:flex;flex-direction:column;gap:8px;">';
+  API_DATA.businessRules.forEach(rule => {
+    html += `<div class="node" data-id="${rule.id}" style="padding:12px 14px;">${rule.title}</div>`;
+  });
+  html += '</div>';
+  html += '<div id="rule-panel" style="flex:1;"><p style="color:var(--text-dim);">Click a business rule to see its flow diagram.</p></div>';
+  html += '</div>';
+  container.innerHTML = html;
+
+  document.querySelectorAll('#rule-list .node').forEach(node => {
+    node.addEventListener('click', () => selectRule(node.dataset.id));
+  });
+}
+
+function selectRule(id) {
+  document.querySelectorAll('#rule-list .node').forEach(n => n.classList.toggle('highlight', n.dataset.id === id));
+  const rule = API_DATA.businessRules.find(r => r.id === id);
+  const anchors = rule.anchorsTo.map(resolveAnchorName).join(', ');
+  const panel = document.getElementById('rule-panel');
+  panel.innerHTML = `
+    <h3 style="margin:0 0 6px 0;font-family:var(--mono);font-size:14px;color:var(--accent);">${rule.title}</h3>
+    ${renderRuleIllustration(rule.id)}
+    <div style="overflow-x:auto;margin:10px 0;">${buildSequenceSvg(rule.flow, rule.flowNotes)}</div>
+    <p style="margin:10px 0 4px 0;font-size:11px;color:var(--text-dim);font-family:var(--mono);">${rule.description}</p>
+    <p style="margin:0;font-size:10px;color:var(--text-dim);font-family:var(--mono);">anchors: ${anchors}</p>
+  `;
+}
+
+function renderRuleIllustration(ruleId) {
+  if (ruleId === 'fifo-cost-basis') {
+    let lots = '';
+    for (let i = 0; i < 5; i++) {
+      const consumed = i < 2;
+      lots += `<rect x="${i * 70}" y="10" width="56" height="36" rx="4" fill="${consumed ? 'var(--border)' : 'var(--panel)'}" stroke="${consumed ? 'var(--text-dim)' : 'var(--accent)'}" stroke-width="1.5" opacity="${consumed ? 0.5 : 1}"/>
+        <text x="${i * 70 + 28}" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="${consumed ? 'var(--text-dim)' : 'var(--text)'}">Lot ${i + 1}</text>`;
+    }
+    return `<svg width="350" height="70"><text x="0" y="60" font-family="var(--mono)" font-size="9" fill="var(--text-dim)">oldest → consumed first on sell</text>${lots}</svg>`;
+  }
+  if (ruleId === 'rebalancing-threshold') {
+    return `<svg width="220" height="130">
+      <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="var(--border)" stroke-width="10" />
+      <path d="M 95 22 A 90 90 0 0 1 125 22" fill="none" stroke="var(--planned)" stroke-width="10" opacity="0.6" />
+      <line x1="110" y1="110" x2="140" y2="35" stroke="var(--accent)" stroke-width="2" />
+      <circle cx="110" cy="110" r="4" fill="var(--accent)" />
+      <text x="110" y="128" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--text-dim)">target ± 0.5%</text>
+    </svg>`;
+  }
+  if (ruleId === 'dividends-taxed-only') {
+    const types = [
+      { name: 'Buy', taxed: false },
+      { name: 'Sell', taxed: false },
+      { name: 'Dividend', taxed: true },
+      { name: 'Split', taxed: false }
+    ];
+    let html = '<svg width="380" height="90">';
+    types.forEach((t, i) => {
+      const x = i * 95;
+      html += `<rect x="${x}" y="5" width="80" height="30" rx="4" fill="var(--panel)" stroke="var(--border)" />
+        <text x="${x + 40}" y="24" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--text)">${t.name}</text>
+        <line x1="${x + 40}" y1="35" x2="${x + 40}" y2="55" stroke="var(--border)" stroke-width="1" />
+        <text x="${x + 40}" y="70" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="${t.taxed ? 'var(--danger)' : 'var(--text-dim)'}">${t.taxed ? '− Tax' : 'no tax'}</text>`;
+    });
+    html += '</svg>';
+    return html;
+  }
+  return '';
+}
+
+renderRules();
+</script>
+</body>
+</html>
