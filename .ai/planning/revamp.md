@@ -13,7 +13,9 @@ North star and rules: `../decisions.md`.
   _Residual:_ org-managed plugins still load (company policy); session transcripts still go to `~/.claude/projects/`.
 - [x] **3. Feature audit**
   Table in `audit.md`; cuts applied (build green, 261 tests pass).
-  _Follow-up:_ stale context docs (see `audit.md`).
+  Stale context docs fixed in the same PR.
+- [x] **3b. CLAUDE.md amendment**
+  Rule 0, north star gatekeeper, lightweight plan → approve → build, Angular rules removed.
 - [ ] **4. Backend rebalancing**
   Wire `AllocationStrategy` into `PortfolioService` → `PortfolioCalculator.CalculateRebalancingAmount` (currently returns nulls).
   _Done when:_ positions return target %, deviation, status and € buy/sell, with tests.

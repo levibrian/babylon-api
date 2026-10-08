@@ -10,3 +10,4 @@ Not in scope. To build any of these, change the north star first.
 - **Buy-only rebalancing via next contribution**
 - **Publish the MCP / babylon as a product** (bebabylon). Note: profiling that leads to a recommended strategy is a MiFID II suitability assessment, i.e. regulated advice, once offered to others.
 - **babylon-app frontend**
+- **Two-level targets (buckets)**: bucket % per asset type (`SecurityType`), then % per security within the bucket. Bucket = asset type, not platform. Target model (stored vs derived buckets) undecided.
