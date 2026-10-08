@@ -7,11 +7,11 @@
 | User | `users` | Portfolio owner. Local + Google auth. |
 | Security | `securities` | Investment instrument (Stock, ETF, Bond, Crypto, etc.). Unique by ticker. |
 | Transaction | `transactions` | Buy/Sell/Dividend/Split records. |
-| AllocationStrategy | `allocation_strategies` | Target allocation % per security per user. |
+| AllocationStrategy | `allocation_strategies` | Target allocation % per security per user. Source of truth for targets. No API yet; `MarketPriceRepository` reads it to pick which securities get prices. |
 | MarketPrice | `market_prices` | Cached market prices. FK to Security. Updated by Worker. |
 | CashBalance | `cash_balances` | User cash holdings. PK = UserId (one per user). |
-| PortfolioSnapshot | `portfolio_snapshots` | Hourly portfolio value snapshots for charts. |
-| RecurringSchedule | `recurring_schedules` | Recurring investment plans. |
+| PortfolioSnapshot | `portfolio_snapshots` | Hourly portfolio value snapshots (history). |
+| RecurringSchedule | `recurring_schedules` | Recurring contribution plan. Table only — no code reads or writes it yet. |
 | RefreshToken | `refresh_tokens` | JWT refresh tokens with expiration and revocation. |
 
 ---
@@ -120,7 +120,7 @@ All tables use `snake_case`: `users`, `securities`, `transactions`, `allocation_
 4. dotnet ef database update     ← test locally
 5. Verify data integrity
 6. Commit migration file
-7. Deploy (auto-applies on startup via context.Database.Migrate())
+7. Apply to the database manually (`dotnet ef database update`) — migrations are NOT applied on startup
 ```
 
 ---
@@ -135,15 +135,15 @@ PostgreSQL via Npgsql. Retry on failure: 3 retries, 5-second max delay.
 
 | Interface | Entity | Key Operations |
 |-----------|--------|---------------|
-| `IUserRepository` | User | GetByUsername, GetByEmail, GetById, Create, Update |
-| `ITransactionRepository` | Transaction | Add, AddBulk, GetAll, GetAllByUser, **GetOpenPositionsByUser**, GetById, Update, Delete |
-| `ISecurityRepository` | Security | GetByTicker, GetByIsin, GetByIds, GetAll, AddOrUpdate, Delete |
-| `IMarketPriceRepository` | MarketPrice | GetByTicker, GetByTickers, UpsertMarketPriceAsync, MarkAsNotFound, GetSecuritiesNeedingUpdate |
-| `IAllocationStrategyRepository` | AllocationStrategy | GetByUserId, SetStrategy, GetDistinctSecurityIds |
+| `IUserRepository` | User | GetUser, GetUserByEmail, GetUserByUsername, GetUserByEmailOrUsername, CreateUser, UpdateUser |
+| `ITransactionRepository` | Transaction | Add, GetAll, GetAllByUser, **GetOpenPositionsByUser**, GetDividendTransactionsByUser, GetBuyAndSellTransactionsByUserAndSecurity, GetById, Update, UpdateBulk, Delete, GetDistinctUserIdsWithUnbackfilledSells |
+| `ISecurityRepository` | Security | GetByTicker, GetByTickers, GetByIds, GetByIsin, GetAllByIsin, GetAll, AddOrUpdate, Delete |
+| `IMarketPriceRepository` | MarketPrice | GetByTicker, GetByTickers, UpsertMarketPrice, MarkSecurityAsNotFound, GetSecuritiesNeedingUpdate |
 | `ICashBalanceRepository` | CashBalance | GetByUserId, AddOrUpdate |
-| `IPortfolioSnapshotRepository` | PortfolioSnapshot | AddSnapshotAsync, GetByUserAndDateRange, GetUserIdsWithPortfoliosAsync |
-| `IRecurringScheduleRepository` | RecurringSchedule | GetActiveByUserId, CreateOrUpdate, Delete |
-| `IRefreshTokenRepository` | RefreshToken | GetByToken, Add, Update, RevokeAllByUserId |
+| `IPortfolioSnapshotRepository` | PortfolioSnapshot | AddSnapshot, GetSnapshotsByUser, GetLatestSnapshot, GetUserIdsWithPortfolios |
+| `IRefreshTokenRepository` | RefreshToken | GetByToken, Add, Update, RevokeAllUserTokens |
+
+`AllocationStrategy` and `RecurringSchedule` have no repository yet.
 
 ### GetOpenPositionsByUser
 

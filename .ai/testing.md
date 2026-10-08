@@ -149,8 +149,7 @@ var request = fixture.Build<CreateTransactionRequest>()
 
 - **Service methods**: Happy path + primary failure path minimum
 - **Business rule invariants**: Every invariant in `.ai/features/{feature}.md` must have at least one test
-- **Threshold boundaries**: Test at, below, AND above (e.g., concentration >20%, allocation deviation >0.5%)
-- **Analyzers**: All four (Risk, Income, Efficiency, Trend) — all boundary conditions
+- **Threshold boundaries**: Test at, below, AND above (e.g., allocation deviation 0.5%)
 - **Calculators**: FIFO lots, splits, dividends, partial sells — dedicated cases for each
 
 ### Mandatory Scenarios for Every Feature
@@ -184,7 +183,7 @@ Test business logic, orchestration, exception throwing:
 - Business rules enforced (see feature invariants)
 - Repository calls made with correct parameters
 
-### Calculator / Analyzer Tests
+### Calculator Tests
 Pure input → output, no mocks:
 - Use precise `decimal` values: `Should().Be(exactValue)`
 - FluentAssertions `.And` chaining acceptable for related properties
@@ -231,14 +230,10 @@ public async Task TestMethod() { } // always Task, never void
 | Transaction | Split multiplies shares in ALL lots | investments.md |
 | Transaction | Tax only applies to Dividends | investments.md |
 | Portfolio | Fully-sold positions excluded from open positions | investments.md |
-| Portfolio | Positions ordered by TargetPercentage DESC, nulls last | investments.md |
-| Allocation | Deviation < 0.5% → Balanced | investments.md |
-| Allocation | Deviation ≥ 0.5% → Underweight/Overweight | investments.md |
-| Risk | Concentration >20% → Warning | analyzers.md |
-| Risk | Concentration >40% → Critical | analyzers.md |
+| Allocation | Deviation ≤ 0.5% → Balanced | investments.md |
+| Allocation | Deviation > 0.5% → Underweight/Overweight | investments.md |
 | Auth | Duplicate email (with password) → `InvalidOperationException` | authentication.md |
 | Auth | Expired/revoked refresh token → `UnauthorizedAccessException` | authentication.md |
-| Recurring | Same (UserId, SecurityId) twice → updates existing | recurring-schedules.md |
 
 ---
 
@@ -272,18 +267,14 @@ Babylon.Alfred.Api.Tests/
 │   ├── Investments/
 │   │   ├── Controllers/
 │   │   ├── Services/
-│   │   ├── Analyzers/    ← Risk, Income, Efficiency, Trend
-│   │   └── Shared/       ← Calculator tests (Portfolio, RealizedPnL, Dividend, Statistics)
-│   ├── Authentication/
-│   │   ├── Controllers/
-│   │   └── Services/
-│   └── RecurringSchedules/
+│   │   └── Shared/       ← Calculator tests (Portfolio, FIFO, RealizedPnL, splits)
+│   └── Authentication/
 │       ├── Controllers/
 │       └── Services/
-├── Infrastructure/
-│   └── YahooFinance/
-└── Shared/
-    └── Repositories/
+├── Infrastructure/       ← YahooMarketDataService
+├── Shared/               ← Controllers, Middlewares, Models, Repositories
+└── Worker/
+    └── Services/         ← Snapshot, RealizedPnL backfill
 ```
 
 ---
