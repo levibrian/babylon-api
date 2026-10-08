@@ -9,4 +9,5 @@ Judged against the north star in `../decisions.md`. One pass, not a revamp.
 | **No table drops** | Both unwired tables are kept by decision; dropping them loses stored data. |
 
 ## Follow-up
-- `investments.md`, `architecture.md`, `testing.md`, `data-model.md` and `README.md` still describe removed controllers and services (Analytics, Insights, Rebalancing, GeminiOptimizer, Telegram, repositories that don't exist). These docs are loaded into every session via `CLAUDE.md`.
+- Done: context docs and README aligned with the code.
+- `/api/v1/securities` has no `[Authorize]`.
