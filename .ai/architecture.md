@@ -2,7 +2,7 @@
 
 ## Business Context
 
-Babylon is a personal investment portfolio management platform. Named after Batman's butler Alfred, it serves as an automated assistant that tracks stock portfolio transactions, manages positions, calculates portfolio metrics, and provides rebalancing recommendations. Frontend is an Angular application deployed at `babylonfinance.vercel.app`.
+Babylon is a personal investment portfolio API. Named after Batman's butler Alfred, it tracks transactions across brokers, computes FIFO positions and P&L, and (once wired up) tells the user what to buy or sell to hit target allocations. Backend only — clients are AI agents via MCP (planned) and any future frontend.
 
 ---
 
@@ -13,17 +13,15 @@ Babylon is a personal investment portfolio management platform. Named after Batm
 | Language | C# 12, .NET 9.0 |
 | Web Framework | ASP.NET Core |
 | ORM | Entity Framework Core 8.0 |
-| Database | PostgreSQL 16 (Npgsql) |
+| Database | PostgreSQL 17 on AWS RDS (Npgsql) |
 | Logging | Serilog (structured, Console + File sinks) |
 | API Docs | Swagger / Swashbuckle |
 | Auth | JWT Bearer + Google OAuth + BCrypt |
 | Scheduling | Quartz.NET |
 | External Data | Yahoo Finance API |
-| AI | Google Gemini 2.5 Flash (feature-flagged) |
-| Messaging | Telegram Bot SDK (in progress) |
-| Testing | xUnit, Moq, AutoMoq, AutoFixture, FluentAssertions, EF Core InMemory |
+| Testing | xUnit, Moq, Moq.AutoMock, AutoFixture, FluentAssertions, EF Core InMemory |
 | IaC | Terraform (AWS VPC, RDS, Secrets Manager) |
-| Deploy | Fly.io (Docker containers), region: CDG (Paris) |
+| Deploy | Fly.io (API + Worker containers), region: CDG (Paris) |
 | CI/CD | GitHub Actions (build + test on push/PR to main) |
 
 ---
@@ -93,11 +91,12 @@ All endpoints return a standard envelope:
 ## Middleware Pipeline (order matters)
 
 1. `UseCors()` — **must be first** to handle preflight OPTIONS
-2. `RequestLoggingMiddleware` — logs all requests with timing
-3. `GlobalErrorHandlerMiddleware` — catches unhandled exceptions, returns `ApiErrorResponse`
-4. Swagger UI at `/swagger`
-5. `UseAuthorization()`
-6. `MapControllers()`
+2. `UseStaticFiles()` — serves `wwwroot/` (architecture diagram)
+3. `RequestLoggingMiddleware` — logs all requests with timing
+4. `GlobalErrorHandlerMiddleware` — catches unhandled exceptions, returns `ApiErrorResponse`
+5. Swagger UI at `/swagger`
+6. `UseAuthorization()`
+7. `MapControllers()`
 
 ---
 
@@ -105,18 +104,18 @@ All endpoints return a standard envelope:
 
 - **Default lifetime**: Scoped (per-request) for all services and repositories
 - **Primary constructor injection**: C# 12 syntax everywhere
-- **Feature registration pattern**: Each feature has `Add{FeatureName}Feature()` or `Register{FeatureName}()` wired into `Features/Startup/Extensions/ServiceCollectionExtensions.RegisterFeatures()`
-- Current registration order: Telegram → Investments → RecurringSchedules → Authentication
+- **Feature registration pattern**: Each feature registers via an extension method wired into `Features/Startup/Extensions/ServiceCollectionExtensions.RegisterFeatures()`
+- Current registration: `RegisterInvestmentServices()`, then Authentication services inline
 
 ---
 
 ## Controller Conventions
 
-- Inherit from `ControllerBase` (never `Controller`)
+- Inherit from `BabylonControllerBase`
 - `[ApiController]` attribute
-- `[Authorize]` on all protected endpoints
+- `[Authorize]` on all user-data endpoints (Securities currently has none — see investments.md)
 - Extract user ID: `User.GetUserId()` (reads `Sub` claim from JWT)
-- Return: `Ok(new ApiResponse<T> { Success = true, Data = result })`
+- Return via base helpers: `Success(data)`, `Created(data)`, `Fail(error, statusCode)`
 - Zero business logic — delegate everything to service
 
 ---
@@ -184,8 +183,9 @@ Use `LoggerExtensions` extension methods — never raw `logger.LogX()`:
 
 ## Deployment
 
-- **API**: Fly.io, 1 shared CPU, 512MB RAM, port 8080, HTTPS enforced, health check at `GET /health`
-- **Database**: Fly.io managed PostgreSQL, always-on
+- **API**: Fly.io (`fly.api.toml`), port 8080, HTTPS enforced, health check at `GET /health`
+- **Worker**: Fly.io (`fly.worker.toml`)
+- **Database**: AWS RDS PostgreSQL (`iac/`), treated as a development database until the planned Fly Postgres migration (`fly.db.prod.toml`)
 - **Docker**: Multi-stage build. Base: `mcr.microsoft.com/dotnet/aspnet:9.0`
 - **CI/CD**: GitHub Actions on push/PR to `main`. Build + test in Release mode.
 
@@ -198,24 +198,17 @@ Use `LoggerExtensions` extension methods — never raw `logger.LogX()`:
 | Health | `/health` | GET (public) |
 | Auth | `/api/v1/auth` | POST google, login, register, refresh, logout |
 | Portfolios | `/api/v1/portfolios` | GET |
+| Portfolio history | `/api/v1/portfolios/history` | GET, GET latest |
 | Transactions | `/api/v1/transactions` | POST, POST bulk, GET, PUT, DELETE |
-| Securities | `/api/v1/securities` | GET, GET by ticker, POST, POST search-and-create |
-| Allocations | `/api/v1/allocations` | GET, POST |
-| Analytics | `/api/v1/analytics` | GET |
-| Insights | `/api/v1/insights` | GET |
-| Rebalancing | `/api/v1/rebalancing` | POST suggestions, POST apply-smart-rebalancing |
-| History | `/api/v1/history` | GET |
-| Market | `/api/v1/market` | GET prices |
-| Cash | `/api/v1/cash` | GET, PUT |
-| User | `/api/v1/user` | User profile endpoints |
-| Recurring | `/api/v1/recurring-schedules` | GET, POST, DELETE |
+| Securities | `/api/v1/securities` | GET, GET by ticker, POST, POST admin, PUT, DELETE |
+| Cash | `/api/v1/cash` | PUT |
 
 ---
 
 ## Adding a New Feature — Checklist
 
 - [ ] Create `Features/{FeatureName}/` with: `Controllers/`, `Services/`, `Models/Requests/`, `Models/Responses/`, `Extensions/`
-- [ ] Implement `Extensions/ServiceCollectionExtensions.cs` with `Add{FeatureName}Feature()`
+- [ ] Implement `Extensions/ServiceCollectionExtensions.cs` with a `Register{FeatureName}Services()` method
 - [ ] Wire into `Features/Startup/Extensions/ServiceCollectionExtensions.RegisterFeatures()`
 - [ ] Add test folder: `Babylon.Alfred.Api.Tests/Features/{FeatureName}/`
 - [ ] Create `.ai/features/{feature-name}.md` documenting business rules and invariants
@@ -240,6 +233,7 @@ public static class ClaimsExtensions { public static Guid GetUserId(this ClaimsP
 ## Key Anchor Files
 
 - `iac/` — Terraform infrastructure (AWS VPC, RDS, Secrets)
+- `fly.worker.toml` — Fly.io Worker deployment config
 - `.github/workflows/` — CI/CD pipelines
 - `fly.api.toml` — Fly.io API deployment config
 - `test-api.http` — HTTP request samples

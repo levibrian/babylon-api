@@ -16,11 +16,6 @@ Contains external service integrations. All infrastructure services are isolated
 - Used by `SecurityService.SearchAndCreate()` to auto-populate security records
 - HTTP client configured with browser User-Agent to avoid blocks
 
-### HistoricalPriceService
-- Fetches historical OHLCV data (Open, High, Low, Close, Volume) for a ticker
-- Used by rebalancing services to calculate price percentiles (1-year range)
-- Endpoint: `https://query2.finance.yahoo.com/v8/finance/chart/{ticker}`
-
 ### Mappers
 - **QuoteTypeMapper**: Converts Yahoo's `quoteType` (e.g., "EQUITY", "ETF", "CRYPTOCURRENCY") → domain `SecurityType` enum
 - **GeographyMapper**: Infers geography from exchange code + currency (e.g., NYSE/NASDAQ → "North America", LSE → "Europe")

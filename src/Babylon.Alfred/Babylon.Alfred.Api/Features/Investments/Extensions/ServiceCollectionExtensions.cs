@@ -27,6 +27,5 @@ public static class ServiceCollectionExtensions
 
         // External Services
         services.AddHttpClient<IYahooMarketDataService, YahooMarketDataService>();
-        services.AddHttpClient<IHistoricalPriceService, HistoricalPriceService>();
     }
 }
