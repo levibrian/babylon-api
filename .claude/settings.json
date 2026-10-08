@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"LIVE TASK LIST: for any work with 2+ steps, keep the session task list current with TaskCreate/TaskUpdate. Create tasks as soon as work is identified, mark in_progress before starting and completed immediately when done, add new tasks as they appear. The list must reflect reality at the end of every response.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}
