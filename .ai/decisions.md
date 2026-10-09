@@ -24,7 +24,7 @@ Every feature must serve this sentence. If it doesn't, it goes to `ideas.md`.
 | CSV import | Trade Republic first. Deterministic parser, fingerprint dedup, anonymised fixtures only. |
 | MCP context | One runtime context file in the repo, served by the MCP server to Claude and ChatGPT alike. |
 | Database | AWS RDS = development database for now. Hardening (secrets, network, encryption at rest) happens as part of the Fly Postgres migration. |
-| Sequence | Isolation spike → audit → backend rebalancing → TR CSV → MCP auth spike → MCP tools → profiling. DB hardening rides with the Fly migration. |
+| Sequence | Securities auth fix ∥ backend rebalancing ∥ MCP auth spike → MCP tools → session wiring → TR CSV → profiling. DB hardening rides with the Fly migration. |
 | Per-user | Every query and MCP tool is scoped by `UserId`. No onboarding/billing for other users yet. |
 | User profile | Stored in the database, one row per user: profile markdown (fixed section headings), raw interview answers, rubric version, `updated_at`. Served via MCP; the LLM reasons over it. |
 | Question guide + rubric | Shared by all users, so it lives in the repo (versioned, reviewed, deployed with the API), not in the database. |
