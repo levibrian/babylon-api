@@ -1,6 +1,8 @@
+using Babylon.Alfred.Api.Features.Mcp.Extensions;
 using Babylon.Alfred.Api.Features.Startup.Extensions;
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Api.Shared.Middlewares;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Converters;
 using Serilog;
@@ -76,6 +78,7 @@ builder.Services.AddDbContext<BabylonDbContext>(options =>
 
 // Configure services
 builder.Services.RegisterFeatures();
+builder.Services.RegisterMcpServices(builder.Configuration);
 
 // Configure JWT Authentication
 var secretKey = builder.Configuration["Authentication:Jwt:SecretKey"];
@@ -102,10 +105,17 @@ if (!string.IsNullOrEmpty(secretKey))
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
-    });
+    })
+    .AddMcpAuthentication(builder.Configuration, key);
 }
 
 var app = builder.Build();
+
+// Fly.io terminates TLS; trust X-Forwarded-Proto so OAuth/MCP metadata URLs are https.
+var forwardedHeadersOptions = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedProto };
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 // Configure the HTTP request pipeline.
 // CORS must be early in the pipeline to handle preflight requests and add headers to error responses
@@ -126,6 +136,7 @@ app.UseSwaggerUI(c =>
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapMcpFeature();
 
 Log.Information("Babylon.Alfred.Api application started successfully");
 
@@ -140,3 +151,5 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+public partial class Program;

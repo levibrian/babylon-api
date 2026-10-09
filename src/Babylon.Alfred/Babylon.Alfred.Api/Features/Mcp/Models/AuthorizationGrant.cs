@@ -1,0 +1,15 @@
+namespace Babylon.Alfred.Api.Features.Mcp.Models;
+
+public record PendingAuthorization(
+    string ClientId,
+    string ClientName,
+    string RedirectUri,
+    string CodeChallenge,
+    string? State);
+
+public record AuthorizationGrant(
+    string ClientId,
+    string RedirectUri,
+    string CodeChallenge,
+    Guid UserId,
+    DateTime ExpiresAt);
