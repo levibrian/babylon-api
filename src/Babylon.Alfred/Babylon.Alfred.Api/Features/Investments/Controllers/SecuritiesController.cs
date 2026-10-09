@@ -4,10 +4,12 @@ using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Controllers;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Babylon.Alfred.Api.Features.Investments.Controllers;
 
+[Authorize]
 [Route("api/v1/securities")]
 public class SecuritiesController(ISecurityService securityService) : BabylonControllerBase
 {

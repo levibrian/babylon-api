@@ -7,6 +7,7 @@ using Babylon.Alfred.Api.Features.Investments.Services;
 using Babylon.Alfred.Api.Shared.Data.Models;
 using Babylon.Alfred.Api.Shared.Models;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Moq.AutoMock;
@@ -234,5 +235,11 @@ public class SecuritiesControllerTests
         apiResponse.Error.Should().Be($"Security with ticker '{ticker}' not found");
         autoMocker
             .GetMock<ISecurityService>().Verify(x => x.DeleteAsync(ticker), Times.Once);
+    }
+
+    [Fact]
+    public void Controller_ShouldRequireAuthorization()
+    {
+        typeof(SecuritiesController).Should().BeDecoratedWith<AuthorizeAttribute>();
     }
 }
