@@ -20,7 +20,7 @@ North star and rules: `../decisions.md`.
 
 Order: 4a ∥ 4b ∥ 6 → 7 → 7b → 5 → 8. Data is already in the DB, so CSV import is not needed to start.
 
-- [ ] **4a. Secure the securities endpoints** — branch `fix/securities-authorize`
+- [x] **4a. Secure the securities endpoints** — branch `fix/securities-authorize` (`aace349`, PR pending)
   `[Authorize]` on `SecuritiesController`.
   _Done when:_ unauthenticated calls get 401, with tests.
 - [ ] **4b. Backend rebalancing** — branch `feat/rebalancing-targets`
