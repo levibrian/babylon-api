@@ -35,7 +35,7 @@ Every feature must serve this sentence. If it doesn't, it goes to `ideas.md`.
 | Actionable rules | Any rule that outputs an amount or buy/sell moves into structured data computed by the API, once acted on with real money. |
 | MCP hosting | MCP endpoint inside the API (`/mcp`, official C# SDK). One hop, one auth layer, one deploy. |
 | MCP auth | OAuth (authorization code + PKCE) only, login via existing Google sign-in. Dynamic Client Registration; strict redirect URI allowlist. Works in Claude Code, claude.ai, Desktop and ChatGPT. |
-| Auth server | Minimal authorization server inside the API; fall back to a hosted DCR-capable provider if the spike shows it's more than a few days of work. |
+| Auth server | Minimal authorization server inside the API, confirmed by the spike (~650 lines, one slice). Hosted fallback if real-client testing fails: WorkOS AuthKit. |
 
 ## Rejected alternatives
 
