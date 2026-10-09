@@ -16,18 +16,28 @@ North star and rules: `../decisions.md`.
   Stale context docs fixed in the same PR.
 - [x] **3b. CLAUDE.md amendment**
   Rule 0, north star gatekeeper, lightweight plan → approve → build, Angular rules removed.
-- [ ] **4. Backend rebalancing**
-  Wire `AllocationStrategy` into `PortfolioService` → `PortfolioCalculator.CalculateRebalancingAmount` (currently returns nulls).
+## Roadmap — first usable MCP from a babylon session
+
+Order: 4a ∥ 4b ∥ 6 → 7 → 7b → 5 → 8. Data is already in the DB, so CSV import is not needed to start.
+
+- [x] **4a. Secure the securities endpoints** — branch `fix/securities-authorize` (`aace349`, PR pending)
+  `[Authorize]` on `SecuritiesController`.
+  _Done when:_ unauthenticated calls get 401, with tests.
+- [ ] **4b. Backend rebalancing** — branch `feat/rebalancing-targets`
+  `AllocationStrategy` repository + target endpoints; wire targets into `PortfolioService` → `PortfolioCalculator` (currently nulls).
   _Done when:_ positions return target %, deviation, status and € buy/sell, with tests.
+- [ ] **6. MCP auth spike** — branch `spike/mcp-oauth`
+  `/mcp` in the API (official C# SDK) behind OAuth + PKCE + DCR, login via existing Google sign-in, one stub `whoami` tool. Decides build-in-API vs hosted provider.
+  _Done when:_ Claude Code connects (after Fly deploy) and `whoami` returns the right user.
+- [ ] **7. MCP tools (read-only first)** — after 4b and 6 merge
+  `get_portfolio`, `get_transactions`, `get_targets`, `get_rebalancing` as thin adapters + shared runtime context file. Write tools later.
+  _Done when:_ Claude Code and ChatGPT give the same rebalancing answer.
+- [ ] **7b. Wire MCP into babylon sessions**
+  Repo `.mcp.json` pointing at the Fly `/mcp`; `scripts/claude.sh` adds `--mcp-config .mcp.json` (keeps `--strict-mcp-config`).
+  _Done when:_ a `scripts/claude.sh` session lists only the babylon MCP server and can call it.
 - [ ] **5. Trade Republic CSV import**
   Deterministic parser, fingerprint dedup, anonymised fixtures.
   _Done when:_ re-importing the same file adds zero rows.
-- [ ] **6. MCP auth spike**
-  Stub `/mcp` in the API behind OAuth + PKCE + DCR. Decides build-in-API vs hosted provider.
-  _Done when:_ claude.ai and ChatGPT both connect and call a stub tool as the right user.
-- [ ] **7. MCP tools**
-  Thin adapters over services (holdings, transactions, targets, rebalancing) + shared runtime context file.
-  _Done when:_ Claude and ChatGPT both get the same rebalancing answer.
 - [ ] **8. Profiling**
   Profile table (markdown, raw answers, rubric version), question guide + rubric in repo, `start_profiling` prompt, `get_profile` / `save_profile`, `set_allocation_targets` with confirmation.
   _Done when:_ a Claude interview ends with a confirmed profile, and ChatGPT reads the same profile back unchanged.
