@@ -9,7 +9,8 @@ public class PortfolioService(
     ITransactionRepository transactionRepository,
     ISecurityRepository securityRepository,
     IMarketPriceService marketPriceService,
-    ICashBalanceService cashBalanceService) : IPortfolioService
+    ICashBalanceService cashBalanceService,
+    IAllocationStrategyRepository allocationStrategyRepository) : IPortfolioService
 {
     public async Task<PortfolioResponse> GetPortfolio(Guid userId)
     {
@@ -86,6 +87,9 @@ public class PortfolioService(
         var tickers = securities.Select(s => s.Ticker).ToList();
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
 
+        var targetsBySecurityId = (await allocationStrategyRepository.GetByUserIdAsync(userId))
+            .ToDictionary(a => a.SecurityId, a => a.TargetPercentage);
+
         // First pass: calculate metrics and market value for each position
         var positionData = groupedTransactions.Select(group =>
         {
@@ -129,6 +133,23 @@ public class PortfolioService(
             var currentAllocation = totalPortfolioValue > 0
                 ? PortfolioCalculator.CalculateCurrentAllocationPercentage(positionBaseValue, totalPortfolioValue)
                 : 0m;
+            var roundedCurrentAllocation = Math.Round(currentAllocation, 2, MidpointRounding.ToEven);
+
+            decimal? target = null;
+            decimal? deviation = null;
+            decimal? rebalancingAmount = null;
+            RebalancingStatus? rebalancingStatus = null;
+
+            if (totalPortfolioValue > 0 && targetsBySecurityId.TryGetValue(p.Group.Key, out var targetPercentage))
+            {
+                target = targetPercentage;
+                deviation = roundedCurrentAllocation - targetPercentage;
+                rebalancingAmount = Math.Round(
+                    PortfolioCalculator.CalculateRebalancingAmount(positionBaseValue, targetPercentage, totalPortfolioValue),
+                    2,
+                    MidpointRounding.ToEven);
+                rebalancingStatus = PortfolioCalculator.DetermineRebalancingStatus(roundedCurrentAllocation, targetPercentage);
+            }
 
             // Calculate P&L
             decimal? unrealizedPnL = null;
@@ -155,11 +176,11 @@ public class PortfolioService(
                 CurrentMarketValue = p.CurrentMarketValue > 0 ? p.CurrentMarketValue : null,
                 UnrealizedPnL = unrealizedPnL.HasValue ? Math.Round(unrealizedPnL.Value, 2) : null,
                 UnrealizedPnLPercentage = unrealizedPnLPercentage.HasValue ? Math.Round(unrealizedPnLPercentage.Value, 2) : null,
-                CurrentAllocationPercentage = totalPortfolioValue > 0 ? Math.Round(currentAllocation, 2) : null,
-                TargetAllocationPercentage = null,
-                AllocationDeviation = null,
-                RebalancingAmount = null,
-                RebalancingStatus = null
+                CurrentAllocationPercentage = totalPortfolioValue > 0 ? roundedCurrentAllocation : null,
+                TargetAllocationPercentage = target,
+                AllocationDeviation = deviation,
+                RebalancingAmount = rebalancingAmount,
+                RebalancingStatus = rebalancingStatus
             };
         }).ToList();
     }

@@ -7,7 +7,7 @@
 | User | `users` | Portfolio owner. Local + Google auth. |
 | Security | `securities` | Investment instrument (Stock, ETF, Bond, Crypto, etc.). Unique by ticker. |
 | Transaction | `transactions` | Buy/Sell/Dividend/Split records. |
-| AllocationStrategy | `allocation_strategies` | Target allocation % per security per user. Source of truth for targets. No API yet; `MarketPriceRepository` reads it to pick which securities get prices. |
+| AllocationStrategy | `allocation_strategies` | Target allocation % of the total portfolio per security per user. Source of truth for targets. Managed via `/api/v1/allocations`; `MarketPriceRepository` also reads it to pick which securities get prices. |
 | MarketPrice | `market_prices` | Cached market prices. FK to Security. Updated by Worker. |
 | CashBalance | `cash_balances` | User cash holdings. PK = UserId (one per user). |
 | PortfolioSnapshot | `portfolio_snapshots` | Hourly portfolio value snapshots (history). |
@@ -142,8 +142,9 @@ PostgreSQL via Npgsql. Retry on failure: 3 retries, 5-second max delay.
 | `ICashBalanceRepository` | CashBalance | GetByUserId, AddOrUpdate |
 | `IPortfolioSnapshotRepository` | PortfolioSnapshot | AddSnapshot, GetSnapshotsByUser, GetLatestSnapshot, GetUserIdsWithPortfolios |
 | `IRefreshTokenRepository` | RefreshToken | GetByToken, Add, Update, RevokeAllUserTokens |
+| `IAllocationStrategyRepository` | AllocationStrategy | GetByUserId (includes Security), ReplaceForUser (update matching, add new, remove missing) |
 
-`AllocationStrategy` and `RecurringSchedule` have no repository yet.
+`RecurringSchedule` has no repository yet.
 
 ### GetOpenPositionsByUser
 

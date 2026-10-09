@@ -45,6 +45,9 @@ public class PortfolioServiceTests
         autoMocker.GetMock<ICashBalanceService>()
             .Setup(x => x.GetBalanceAsync(It.IsAny<Guid>()))
             .ReturnsAsync(0m);
+        autoMocker.GetMock<IAllocationStrategyRepository>()
+            .Setup(x => x.GetByUserIdAsync(It.IsAny<Guid>()))
+            .ReturnsAsync(new List<AllocationStrategy>());
     }
 
     [Fact]

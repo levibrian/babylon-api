@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPortfolioSnapshotRepository, PortfolioSnapshotRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<ICashBalanceRepository, CashBalanceRepository>();
+        services.AddScoped<IAllocationStrategyRepository, AllocationStrategyRepository>();
 
         // Services
         services.AddScoped<ITransactionService, TransactionService>();
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMarketPriceService, MarketPriceService>();
         services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
         services.AddScoped<ICashBalanceService, CashBalanceService>();
+        services.AddScoped<IAllocationService, AllocationService>();
 
         // External Services
         services.AddHttpClient<IYahooMarketDataService, YahooMarketDataService>();
