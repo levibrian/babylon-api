@@ -20,12 +20,15 @@ North star and rules: `../decisions.md`.
 
 Order: 4a ∥ 4b ∥ 6 → 7 → 7b → 5 → 8. Data is already in the DB, so CSV import is not needed to start.
 
-- [x] **4a. Secure the securities endpoints** — branch `fix/securities-authorize` (`aace349`, PR pending)
+- [x] **4a. Secure the securities endpoints** — branch `fix/securities-authorize` (merged, #13)
   `[Authorize]` on `SecuritiesController`.
   _Done when:_ unauthenticated calls get 401, with tests.
-- [ ] **4b. Backend rebalancing** — branch `feat/rebalancing-targets`
+- [x] **4b. Backend rebalancing** — branch `feat/rebalancing-targets` (`3467e26`, PR pending)
   `AllocationStrategy` repository + target endpoints; wire targets into `PortfolioService` → `PortfolioCalculator` (currently nulls).
   _Done when:_ positions return target %, deviation, status and € buy/sell, with tests.
+- [ ] **4c. Rebalancing gaps (found in 4b)**
+  Price worker selects securities from `AllocationStrategies` only, so held securities without a target never get prices. Targets on unheld securities produce no "buy" line.
+  _Done when:_ worker prices held ∪ targeted securities, and targeted-but-unheld securities appear with a buy amount.
 - [ ] **6. MCP auth spike** — branch `spike/mcp-oauth`
   `/mcp` in the API (official C# SDK) behind OAuth + PKCE + DCR, login via existing Google sign-in, one stub `whoami` tool. Decides build-in-API vs hosted provider.
   _Done when:_ Claude Code connects (after Fly deploy) and `whoami` returns the right user.
