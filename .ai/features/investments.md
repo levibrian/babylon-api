@@ -10,8 +10,8 @@ Core feature. Tracks transactions across asset types, computes FIFO positions, r
 
 | Layer | Components |
 |-------|-----------|
-| Controllers (5) | Portfolios, PortfolioHistory, Transactions, Securities, Cash |
-| Services (6) | Portfolio, PortfolioHistory, Transaction, Security, MarketPrice, CashBalance |
+| Controllers (6) | Portfolios, PortfolioHistory, Transactions, Securities, Cash, Allocations |
+| Services (7) | Portfolio, PortfolioHistory, Transaction, Security, MarketPrice, CashBalance, Allocation |
 | Calculators | `PortfolioCalculator` (FIFO, allocation, rebalancing math), `RealizedPnLCalculator`, `DividendCalculator` |
 | Validators | `TransactionValidator`, `SecurityValidator` |
 | Helpers | `TransactionMapper`, `TransactionOrdering`, `ErrorMessages` |
@@ -26,6 +26,7 @@ Core feature. Tracks transactions across asset types, computes FIFO positions, r
 | `/api/v1/portfolios/history` | GET, GET `latest` | ✅ |
 | `/api/v1/transactions` | POST, POST `bulk`, GET, PUT `{id}`, DELETE `{id}` | ✅ |
 | `/api/v1/cash` | PUT | ✅ |
+| `/api/v1/allocations` | GET (user's targets), PUT (replace full target set) | ✅ |
 | `/api/v1/securities` | GET, GET `{ticker}`, POST (Yahoo lookup by ticker), POST `admin` (full metadata, no Yahoo), PUT `{ticker}`, DELETE `{ticker}` | ❌ none |
 
 ---
@@ -72,11 +73,24 @@ Core feature. Tracks transactions across asset types, computes FIFO positions, r
 - Market value = `TotalShares × CurrentPrice`, prices from `market_prices` (updated hourly by the Worker)
 - Cash balance is tracked separately and included in the portfolio response
 
-### Rebalancing (math only — not wired up)
+### Allocation targets
 
-- `PortfolioCalculator.CalculateRebalancingAmount` and `DetermineRebalancingStatus` exist and are tested
+- `AllocationStrategy.TargetPercentage` is the single source of truth: an explicit % of the **total portfolio** (positions + cash) per security
+- `GET /api/v1/allocations` → `[{ ticker, targetPercentage }]`, ordered by target DESC
+- `PUT /api/v1/allocations` with `{ targets: [{ ticker, targetPercentage }] }` replaces the user's full set (missing tickers are removed; empty list clears all)
+- Validation (400): each target 0–100 inclusive, total ≤ 100, ticker must exist in `securities`, no duplicate tickers. Tickers are upper-cased
+- Whatever is left below 100% is implicitly the cash target
+- `IsEnabledForWeekly/BiWeekly/Monthly` are ignored
+
+### Rebalancing
+
+- `PortfolioService` reads the user's targets and fills `TargetAllocationPercentage`, `AllocationDeviation`, `RebalancingAmount`, `RebalancingStatus` per position via `PortfolioCalculator`
+- Basis = total portfolio value = Σ position value + cash, the same basis as `CurrentAllocationPercentage`. Position value = market value, falling back to cost basis when no price
+- `RebalancingAmount` = € to buy (positive) or sell (negative), rounded to 2 dp (banker's)
+- `AllocationDeviation` = rounded current allocation − target; status uses the same rounded current allocation, so the numbers shown and the status always agree
 - Deviation ≤ 0.5% → `Balanced`; otherwise `Underweight` / `Overweight`
-- `PortfolioService` currently returns `null` for target %, deviation, amount and status — targets from `AllocationStrategy` are not read yet
+- Positions without a target keep all four fields `null`
+- Targets for securities with no open position don't appear (positions only come from transactions)
 
 ### Portfolio History
 
@@ -100,7 +114,9 @@ Core feature. Tracks transactions across asset types, computes FIFO positions, r
 - Split multiplies shares in all open lots, price = 0
 - Buy cost basis excludes Tax; Sell proceeds don't deduct Tax
 - Fully-sold positions excluded from open positions
-- Deviation ≤ 0.5% → Balanced
+- Deviation ≤ 0.5% → Balanced; > 0.5% → Underweight / Overweight
+- Position without a target → target, deviation, amount and status are `null`
+- Allocation targets: each 0–100, total ≤ 100, unknown ticker rejected; never visible across users
 
 ---
 
