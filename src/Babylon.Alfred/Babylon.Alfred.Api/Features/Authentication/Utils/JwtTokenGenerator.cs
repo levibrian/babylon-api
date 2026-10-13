@@ -11,10 +11,16 @@ public class JwtTokenGenerator(IConfiguration configuration)
 {
     public virtual string GenerateToken(User user)
     {
+        return GenerateToken(
+            user,
+            configuration["Authentication:Jwt:Issuer"],
+            configuration["Authentication:Jwt:Audience"],
+            int.Parse(configuration["Authentication:Jwt:ExpirationMinutes"] ?? "60"));
+    }
+
+    public virtual string GenerateToken(User user, string? issuer, string? audience, int expirationMinutes)
+    {
         var secretKey = configuration["Authentication:Jwt:SecretKey"];
-        var issuer = configuration["Authentication:Jwt:Issuer"];
-        var audience = configuration["Authentication:Jwt:Audience"];
-        var expirationMinutes = int.Parse(configuration["Authentication:Jwt:ExpirationMinutes"] ?? "60");
 
         if (string.IsNullOrEmpty(secretKey))
         {

@@ -16,6 +16,12 @@ public class AuthService(
 {
     public async Task<AuthResponse> GoogleLoginAsync(string idToken)
     {
+        var user = await AuthenticateGoogleUserAsync(idToken);
+        return await GenerateAuthResponseAsync(user);
+    }
+
+    public async Task<User> AuthenticateGoogleUserAsync(string idToken)
+    {
         try
         {
             var googleClientId = configuration["Authentication:Google:ClientId"];
@@ -27,11 +33,9 @@ public class AuthService(
             var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
 
             // Get or create user, automatically linking to existing account by email
-            var user = await accountLinkingService.GetOrCreateGoogleUserAsync(
+            return await accountLinkingService.GetOrCreateGoogleUserAsync(
                 payload.Email,
                 payload.Subject);
-
-            return await GenerateAuthResponseAsync(user);
         }
         catch (InvalidJwtException ex)
         {
