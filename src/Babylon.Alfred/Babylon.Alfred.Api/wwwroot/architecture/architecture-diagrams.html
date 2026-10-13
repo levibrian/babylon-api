@@ -77,9 +77,25 @@
   .node.dim { opacity: 0.25; }
   .node.status-planned { border-color: var(--planned); color: var(--planned); border-style: dashed; }
   .node.status-unwired { color: var(--unwired); border-style: dotted; }
-  .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 3px; margin-left: 6px; }
-  .badge.planned { background: rgba(240,180,41,.15); color: var(--planned); }
-  .badge.unwired { background: rgba(136,145,163,.15); color: var(--unwired); }
+  .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 3px 7px; border-radius: 3px; margin-left: 6px; border: 1px solid transparent; }
+  .badge.planned { background: rgba(240,180,41,.18); color: var(--planned); border-color: rgba(240,180,41,.5); }
+  .badge.unwired { background: rgba(136,145,163,.18); color: var(--unwired); border-color: rgba(136,145,163,.5); }
+  .section-label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .section-label::before { content: ''; width: 8px; height: 8px; border-radius: 2px; }
+  .section-label.type-components { color: var(--text-dim); }
+  .section-label.type-components::before { background: var(--text-dim); }
+  .section-label.type-endpoints { color: #6ee7b7; }
+  .section-label.type-endpoints::before { background: #6ee7b7; }
+  .section-label.type-rules { color: var(--planned); }
+  .section-label.type-rules::before { background: var(--planned); }
+  .feat-endpoint > summary.node { border-left: 3px solid #6ee7b7; }
+  .feat-rule > summary.node { border-left: 3px solid var(--planned); }
+  .feature-breadcrumb { position: sticky; top: 0; z-index: 5; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin: 0 0 16px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .feature-breadcrumb .crumb { font-family: var(--mono); font-size: 13px; }
+  .feature-breadcrumb .crumb .dim { color: var(--text-dim); }
+  .expand-controls { display: flex; gap: 8px; }
+  .expand-controls button { background: var(--panel); border: 1px solid var(--border); color: var(--text-dim); font-family: var(--mono); font-size: 10px; padding: 4px 9px; border-radius: 4px; cursor: pointer; }
+  .expand-controls button:hover { color: var(--accent); border-color: var(--accent); }
   svg.edges { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
   path.edge { fill: none; stroke: var(--border); stroke-width: 1.5; }
   path.edge.flow { stroke: var(--accent); stroke-dasharray: 6 4; animation: flow 0.6s linear; }
@@ -130,13 +146,15 @@
   <span class="sub">living architecture doc — snapshot, manually updated</span>
 </header>
 <nav>
-  <button data-view="components" class="active">Components</button>
-  <button data-view="dbschema">DB Schema</button>
-  <button data-view="endpoints">Endpoints &amp; Sequences</button>
-  <button data-view="rules">Business Rules</button>
+  <button data-view="features" class="active">Features</button>
+  <button data-view="components">Components (overview)</button>
+  <button data-view="dbschema">DB Schema (overview)</button>
+  <button data-view="endpoints">Endpoints &amp; Sequences (overview)</button>
+  <button data-view="rules">Business Rules (overview)</button>
 </nav>
 <main>
-  <div id="view-components" class="view active rel-container"></div>
+  <div id="view-features" class="view active rel-container"></div>
+  <div id="view-components" class="view rel-container"></div>
   <div id="view-dbschema" class="view rel-container"></div>
   <div id="view-endpoints" class="view rel-container"></div>
   <div id="view-rules" class="view rel-container"></div>
@@ -156,33 +174,33 @@
     { "id": "broker-controller", "name": "BrokerController", "feature": "BrokerIntegration", "layer": "Controller", "status": "planned", "connectsTo": ["trade-republic-client"] },
     { "id": "trade-republic-client", "name": "ITradeRepublicClient", "feature": "BrokerIntegration", "layer": "External", "status": "planned", "connectsTo": [] },
 
-    { "id": "cash-controller", "name": "CashController", "feature": "Investments", "layer": "Controller", "connectsTo": ["cash-balance-service"] },
-    { "id": "portfolio-history-controller", "name": "PortfolioHistoryController", "feature": "Investments", "layer": "Controller", "connectsTo": ["portfolio-history-service"] },
-    { "id": "portfolios-controller", "name": "PortfoliosController", "feature": "Investments", "layer": "Controller", "connectsTo": ["portfolio-service"] },
-    { "id": "securities-controller", "name": "SecuritiesController", "feature": "Investments", "layer": "Controller", "connectsTo": ["security-service"] },
-    { "id": "transactions-controller", "name": "TransactionsController", "feature": "Investments", "layer": "Controller", "connectsTo": ["transaction-service"] },
+    { "id": "cash-controller", "name": "CashController", "feature": "Investments", "subfeature": "Cash", "layer": "Controller", "connectsTo": ["cash-balance-service"] },
+    { "id": "portfolio-history-controller", "name": "PortfolioHistoryController", "feature": "Investments", "subfeature": "PortfolioHistory", "layer": "Controller", "connectsTo": ["portfolio-history-service"] },
+    { "id": "portfolios-controller", "name": "PortfoliosController", "feature": "Investments", "subfeature": "Portfolio", "layer": "Controller", "connectsTo": ["portfolio-service"] },
+    { "id": "securities-controller", "name": "SecuritiesController", "feature": "Investments", "subfeature": "Securities", "layer": "Controller", "connectsTo": ["security-service"] },
+    { "id": "transactions-controller", "name": "TransactionsController", "feature": "Investments", "subfeature": "Transactions", "layer": "Controller", "connectsTo": ["transaction-service"] },
 
-    { "id": "cash-balance-service", "name": "CashBalanceService", "feature": "Investments", "layer": "Service", "connectsTo": ["cash-balance-repository"] },
-    { "id": "market-price-service", "name": "MarketPriceService", "feature": "Investments", "layer": "Service", "connectsTo": ["market-price-repository"] },
-    { "id": "portfolio-history-service", "name": "PortfolioHistoryService", "feature": "Investments", "layer": "Service", "connectsTo": ["portfolio-snapshot-repository"] },
-    { "id": "portfolio-service", "name": "PortfolioService", "feature": "Investments", "layer": "Service", "connectsTo": ["transaction-repository", "security-repository", "market-price-service", "cash-balance-service"] },
-    { "id": "security-service", "name": "SecurityService", "feature": "Investments", "layer": "Service", "connectsTo": ["security-repository", "yahoo-market-data-service"] },
-    { "id": "transaction-service", "name": "TransactionService", "feature": "Investments", "layer": "Service", "connectsTo": ["transaction-repository", "security-repository", "yahoo-market-data-service", "cash-balance-service", "portfolio-calculator", "realized-pnl-calculator"] },
+    { "id": "cash-balance-service", "name": "CashBalanceService", "feature": "Investments", "subfeature": "Cash", "layer": "Service", "connectsTo": ["cash-balance-repository"] },
+    { "id": "market-price-service", "name": "MarketPriceService", "feature": "Investments", "subfeature": "MarketData", "layer": "Service", "connectsTo": ["market-price-repository"] },
+    { "id": "portfolio-history-service", "name": "PortfolioHistoryService", "feature": "Investments", "subfeature": "PortfolioHistory", "layer": "Service", "connectsTo": ["portfolio-snapshot-repository"] },
+    { "id": "portfolio-service", "name": "PortfolioService", "feature": "Investments", "subfeature": "Portfolio", "layer": "Service", "connectsTo": ["transaction-repository", "security-repository", "market-price-service", "cash-balance-service"] },
+    { "id": "security-service", "name": "SecurityService", "feature": "Investments", "subfeature": "Securities", "layer": "Service", "connectsTo": ["security-repository", "yahoo-market-data-service"] },
+    { "id": "transaction-service", "name": "TransactionService", "feature": "Investments", "subfeature": "Transactions", "layer": "Service", "connectsTo": ["transaction-repository", "security-repository", "yahoo-market-data-service", "cash-balance-service", "portfolio-calculator", "realized-pnl-calculator"] },
 
-    { "id": "portfolio-calculator", "name": "PortfolioCalculator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
-    { "id": "realized-pnl-calculator", "name": "RealizedPnLCalculator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
-    { "id": "dividend-calculator", "name": "DividendCalculator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
-    { "id": "transaction-ordering", "name": "TransactionOrdering", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
-    { "id": "transaction-validator", "name": "TransactionValidator", "feature": "Investments", "layer": "Utility", "connectsTo": [] },
+    { "id": "portfolio-calculator", "name": "PortfolioCalculator", "feature": "Investments", "subfeature": "Shared", "layer": "Utility", "connectsTo": [] },
+    { "id": "realized-pnl-calculator", "name": "RealizedPnLCalculator", "feature": "Investments", "subfeature": "Shared", "layer": "Utility", "connectsTo": [] },
+    { "id": "dividend-calculator", "name": "DividendCalculator", "feature": "Investments", "subfeature": "Transactions", "layer": "Utility", "connectsTo": [] },
+    { "id": "transaction-ordering", "name": "TransactionOrdering", "feature": "Investments", "subfeature": "Transactions", "layer": "Utility", "connectsTo": [] },
+    { "id": "transaction-validator", "name": "TransactionValidator", "feature": "Investments", "subfeature": "Transactions", "layer": "Utility", "connectsTo": [] },
 
-    { "id": "transaction-repository", "name": "TransactionRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
-    { "id": "security-repository", "name": "SecurityRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
-    { "id": "market-price-repository", "name": "MarketPriceRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
-    { "id": "portfolio-snapshot-repository", "name": "PortfolioSnapshotRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
-    { "id": "cash-balance-repository", "name": "CashBalanceRepository", "feature": "Investments", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "transaction-repository", "name": "TransactionRepository", "feature": "Investments", "subfeature": "Transactions", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "security-repository", "name": "SecurityRepository", "feature": "Investments", "subfeature": "Securities", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "market-price-repository", "name": "MarketPriceRepository", "feature": "Investments", "subfeature": "MarketData", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "portfolio-snapshot-repository", "name": "PortfolioSnapshotRepository", "feature": "Investments", "subfeature": "PortfolioHistory", "layer": "Repository", "connectsTo": ["db-context"] },
+    { "id": "cash-balance-repository", "name": "CashBalanceRepository", "feature": "Investments", "subfeature": "Cash", "layer": "Repository", "connectsTo": ["db-context"] },
 
-    { "id": "yahoo-market-data-service", "name": "YahooMarketDataService", "feature": "Investments", "layer": "External", "connectsTo": [] },
-    { "id": "historical-price-service", "name": "HistoricalPriceService", "feature": "Investments", "layer": "External", "status": "unwired", "connectsTo": [] },
+    { "id": "yahoo-market-data-service", "name": "YahooMarketDataService", "feature": "Investments", "subfeature": "Securities", "layer": "External", "connectsTo": [] },
+    { "id": "historical-price-service", "name": "HistoricalPriceService", "feature": "Investments", "subfeature": "MarketData", "layer": "External", "status": "unwired", "connectsTo": [] },
 
     { "id": "health-controller", "name": "HealthController", "feature": "Startup", "layer": "Controller", "connectsTo": [] },
 
@@ -1152,6 +1170,168 @@ function renderRuleIllustration(ruleId) {
 }
 
 renderRules();
+
+const FEATURE_COLORS = {
+  Authentication: '#5ec7ff',
+  BrokerIntegration: '#f0b429',
+  Investments: '#6ee7b7',
+  Startup: '#f472b6'
+};
+
+function featureSubfeatures(name) {
+  const subfeatures = [...new Set(API_DATA.components.filter(c => c.feature === name).map(c => c.subfeature).filter(Boolean))];
+  subfeatures.sort((a, b) => a === 'Shared' ? 1 : b === 'Shared' ? -1 : a.localeCompare(b));
+  return subfeatures;
+}
+
+function renderFeatures() {
+  const container = document.getElementById('view-features');
+  const featureOrder = ['Authentication', 'BrokerIntegration', 'Investments', 'Startup'];
+  let html = '<div style="display:flex;gap:32px;">';
+  html += '<div id="feature-list" style="min-width:240px;">';
+  featureOrder.forEach(f => {
+    const subfeatures = featureSubfeatures(f);
+    if (!subfeatures.length) {
+      html += `<div class="node feature-node" data-feature="${f}" style="padding:12px 14px;margin-bottom:6px;border-left:3px solid ${FEATURE_COLORS[f]};cursor:pointer;">${f}</div>`;
+    } else {
+      html += `<details open style="margin-bottom:6px;border-left:3px solid ${FEATURE_COLORS[f]};border-radius:6px;overflow:hidden;">
+        <summary class="node feature-node" data-feature="${f}" style="padding:12px 14px;border:none;border-radius:0;cursor:pointer;">${f}</summary>
+        <div style="display:flex;flex-direction:column;gap:4px;padding:6px 8px 10px 20px;">`;
+      subfeatures.forEach(sf => {
+        html += `<div class="node subfeature-node" data-feature="${f}" data-subfeature="${sf}" style="padding:7px 10px;font-size:11px;cursor:pointer;">${sf}</div>`;
+      });
+      html += `</div></details>`;
+    }
+  });
+  html += '</div>';
+  html += '<div id="feature-panel" style="flex:1;min-width:0;"><p style="color:var(--text-dim);">Click a feature or subfeature to see everything that belongs to it — components, sequence diagrams, business rules.</p></div>';
+  html += '</div>';
+  container.innerHTML = html;
+
+  document.querySelectorAll('.feature-node').forEach(node => {
+    node.addEventListener('click', () => selectFeature(node.dataset.feature, null));
+  });
+  document.querySelectorAll('.subfeature-node').forEach(node => {
+    node.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      selectFeature(node.dataset.feature, node.dataset.subfeature);
+    });
+  });
+
+  selectFeature(featureOrder[0], null);
+}
+
+function renderFeatureSlice(components, endpoints, rules, layerOrder) {
+  let html = '<div class="section-label type-components">Components</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">';
+  layerOrder.forEach(layer => {
+    const inLayer = components.filter(c => c.layer === layer);
+    if (!inLayer.length) return;
+    html += `<div><div class="feature-lane-label" style="margin-bottom:4px;">${layer}</div><div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+    inLayer.forEach(c => {
+      const statusClass = c.status ? ` status-${c.status}` : '';
+      const badge = c.status ? `<span class="badge ${c.status}">${c.status}</span>` : '';
+      html += `<div class="node${statusClass}" style="cursor:default;padding:6px 10px;font-size:11px;">${c.name}${badge}</div>`;
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  html += `<div class="section-label type-endpoints">Endpoints (${endpoints.length})</div>`;
+  html += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">';
+  if (!endpoints.length) {
+    html += '<p style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">none</p>';
+  }
+  endpoints.forEach(e => {
+    const statusClass = e.status ? ` status-${e.status}` : '';
+    const badge = e.status ? `<span class="badge ${e.status}">${e.status}</span>` : '';
+    let body;
+    if (!e.sequence.length) {
+      body = `<p style="color:var(--planned);margin:10px 0 0 0;">Planned — not implemented yet. No sequence to show.</p>`;
+    } else {
+      body = `<div style="overflow-x:auto;margin:10px 0;">${buildSequenceSvg(e.sequence, e.notes)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">${renderRequestPanel(e)}${renderResponsePanel(e)}</div>`;
+    }
+    html += `<details class="feat-endpoint"><summary class="node${statusClass}" style="font-size:11px;cursor:pointer;">${e.method} ${e.path}${badge}</summary><div style="padding:10px 4px 4px 4px;">${body}</div></details>`;
+  });
+  html += '</div>';
+
+  html += `<div class="section-label type-rules">Business Rules (${rules.length})</div>`;
+  html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+  if (!rules.length) {
+    html += '<p style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">none</p>';
+  }
+  rules.forEach(r => {
+    const anchors = r.anchorsTo.map(resolveAnchorName).join(', ');
+    const body = `${renderRuleIllustration(r.id)}
+      <div style="overflow-x:auto;margin:10px 0;">${buildSequenceSvg(r.flow, r.flowNotes)}</div>
+      <p style="margin:10px 0 4px 0;font-size:11px;color:var(--text-dim);font-family:var(--mono);">${r.description}</p>
+      <p style="margin:0;font-size:10px;color:var(--text-dim);font-family:var(--mono);">anchors: ${anchors}</p>`;
+    html += `<details class="feat-rule"><summary class="node" style="font-size:11px;cursor:pointer;">${r.title}</summary><div style="padding:10px 4px 4px 4px;">${body}</div></details>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function selectFeature(name, subfeature) {
+  document.querySelectorAll('#feature-list .node').forEach(n => n.classList.remove('highlight'));
+  const activeNode = subfeature
+    ? document.querySelector(`.subfeature-node[data-feature="${name}"][data-subfeature="${subfeature}"]`)
+    : document.querySelector(`.feature-node[data-feature="${name}"]`);
+  if (activeNode) activeNode.classList.add('highlight');
+
+  const panel = document.getElementById('feature-panel');
+  const layerOrder = ['Controller', 'Service', 'Utility', 'Repository', 'External'];
+  const componentById = {};
+  API_DATA.components.forEach(c => { componentById[c.id] = c; });
+
+  const allComponents = API_DATA.components.filter(c => c.feature === name);
+  const allControllerNames = new Set(allComponents.filter(c => c.layer === 'Controller').map(c => c.name));
+  const allEndpoints = API_DATA.endpoints.filter(e => allControllerNames.has(e.controller));
+  const allRules = API_DATA.businessRules.filter(r => r.anchorsTo.some(id => componentById[id] && componentById[id].feature === name));
+
+  let html = `<div class="feature-breadcrumb">
+    <span class="crumb"><span style="color:${FEATURE_COLORS[name]};">${name}</span>${subfeature ? ` <span class="dim">/</span> <span style="color:var(--text);">${subfeature}</span>` : ''}</span>
+    <span class="expand-controls">
+      <button type="button" data-expand-all>Expand all</button>
+      <button type="button" data-collapse-all>Collapse all</button>
+    </span>
+  </div>`;
+
+  if (subfeature) {
+    const sfComponents = allComponents.filter(c => c.subfeature === subfeature);
+    const sfControllerNames = new Set(sfComponents.filter(c => c.layer === 'Controller').map(c => c.name));
+    const sfEndpoints = allEndpoints.filter(e => sfControllerNames.has(e.controller));
+    const sfRules = allRules.filter(r => r.anchorsTo.some(id => componentById[id] && componentById[id].subfeature === subfeature));
+    html += renderFeatureSlice(sfComponents, sfEndpoints, sfRules, layerOrder);
+  } else {
+    const subfeatures = featureSubfeatures(name);
+    if (!subfeatures.length) {
+      html += renderFeatureSlice(allComponents, allEndpoints, allRules, layerOrder);
+    } else {
+      subfeatures.forEach(sf => {
+        const sfComponents = allComponents.filter(c => c.subfeature === sf);
+        const sfControllerNames = new Set(sfComponents.filter(c => c.layer === 'Controller').map(c => c.name));
+        const sfEndpoints = allEndpoints.filter(e => sfControllerNames.has(e.controller));
+        const sfRules = allRules.filter(r => r.anchorsTo.some(id => componentById[id] && componentById[id].subfeature === sf));
+        html += `<details style="margin-bottom:16px;" open><summary style="cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:10px;">${sf}${sf === 'Shared' ? ' <span style="color:var(--text-dim);font-weight:normal;">— used across subfeatures</span>' : ''}</summary>`;
+        html += renderFeatureSlice(sfComponents, sfEndpoints, sfRules, layerOrder);
+        html += '</details>';
+      });
+    }
+  }
+
+  panel.innerHTML = html;
+  panel.querySelectorAll('.io-panel').forEach(wireIoPanel);
+  panel.querySelector('[data-expand-all]').addEventListener('click', () => {
+    panel.querySelectorAll('details').forEach(d => { d.open = true; });
+  });
+  panel.querySelector('[data-collapse-all]').addEventListener('click', () => {
+    panel.querySelectorAll('details').forEach(d => { d.open = false; });
+  });
+}
+
+renderFeatures();
 </script>
 </body>
 </html>
