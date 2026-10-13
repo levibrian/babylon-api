@@ -21,7 +21,7 @@ Babylon is a personal investment portfolio API. Named after Batman's butler Alfr
 | External Data | Yahoo Finance API |
 | Testing | xUnit, Moq, Moq.AutoMock, AutoFixture, FluentAssertions, EF Core InMemory |
 | IaC | Terraform (AWS VPC, RDS, Secrets Manager) |
-| Deploy | Fly.io (API + Worker containers), region: CDG (Paris) |
+| Deploy | Fly.io (API, Worker and MCP containers), region: CDG (Paris) |
 | CI/CD | GitHub Actions (build + test on push/PR to main) |
 
 ---
@@ -41,12 +41,14 @@ Babylon.Alfred.Api/          ← REST API (main project)
 └── Infrastructure/          ← External adapters (Yahoo Finance)
 
 Babylon.Alfred.Worker/       ← Background jobs (Quartz.NET)
+Babylon.Alfred.Mcp/          ← MCP server + OAuth authorization server
 Babylon.Alfred.Api.Tests/    ← xUnit test project (mirrors API structure)
 ```
 
 ### Projects
 - **Babylon.Alfred.Api**: REST API. Vertical slice architecture.
 - **Babylon.Alfred.Worker**: Background job service. References API project for models, repos, calculators.
+- **Babylon.Alfred.Mcp**: MCP server (`/mcp`) and its OAuth authorization server. References the API project and calls its services in-process; exposes no REST routes. Excludes the API's `appsettings*.json` from its output.
 - **Babylon.Alfred.Api.Tests**: xUnit tests. Mirrors API folder structure exactly.
 
 ---
@@ -185,6 +187,7 @@ Use `LoggerExtensions` extension methods — never raw `logger.LogX()`:
 
 - **API**: Fly.io (`fly.api.toml`), port 8080, HTTPS enforced, health check at `GET /health`
 - **Worker**: Fly.io (`fly.worker.toml`)
+- **MCP**: Fly.io (`fly.mcp.toml`, app `babylon-mcp`), exactly one machine (in-memory auth state), own JWT signing key
 - **Database**: AWS RDS PostgreSQL (`iac/`), treated as a development database until the planned Fly Postgres migration (`fly.db.prod.toml`)
 - **Docker**: Multi-stage build. Base: `mcr.microsoft.com/dotnet/aspnet:9.0`
 - **CI/CD**: GitHub Actions on push/PR to `main`. Build + test in Release mode.

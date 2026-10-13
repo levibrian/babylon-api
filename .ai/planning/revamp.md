@@ -29,16 +29,16 @@ Order: 4a ∥ 4b ∥ 6 → 7 → 7b → 5 → 8. Data is already in the DB, so C
 - [ ] **4c. Rebalancing gaps (found in 4b)**
   Price worker selects securities from `AllocationStrategies` only, so held securities without a target never get prices. Targets on unheld securities produce no "buy" line.
   _Done when:_ worker prices held ∪ targeted securities, and targeted-but-unheld securities appear with a buy amount.
-- [x] **6. MCP auth spike** — branch `spike/mcp-oauth` (`3a784e6`, `b77f29f`, PR pending)
-  Works locally: `/mcp` + `whoami`, metadata, DCR, PKCE S256, single-use codes, rotating refresh, REST/MCP token separation. Findings: `mcp-auth-spike.md`. Recommendation: keep it in the API.
+- [x] **6. MCP auth spike** — branch `spike/mcp-oauth` (PR pending)
+  Own project `Babylon.Alfred.Mcp` (Worker pattern, own Fly app `babylon-mcp`): `/mcp` + `whoami`, metadata, DCR, PKCE S256, single-use codes, rotating refresh, own signing key. Findings and manual steps: `mcp-auth-spike.md`.
 - [ ] **6b. MCP auth hardening + first connect** — before any real client connects
-  Nullable `ClientId` on refresh tokens (manual migration) so REST logins don't revoke MCP sessions and `/auth/refresh` rejects MCP tokens. Confirm `Authentication__Jwt__SecretKey` is a real Fly secret. Deploy, connect Claude Code, call `whoami`.
-  _Done when:_ Claude Code calls `whoami` against Fly as Brian, and a web login doesn't disconnect it.
+  Nullable `ClientId` on refresh tokens (manual migration) so REST logins don't revoke MCP sessions and `/auth/refresh` rejects MCP tokens. Create `babylon-mcp` with its own secrets, deploy, scale to 1 machine, add the CI deploy job, connect Claude Code, call `whoami`.
+  _Done when:_ Claude Code calls `whoami` against `babylon-mcp` as Brian, and a web login doesn't disconnect it.
 - [ ] **7. MCP tools (read-only first)** — after 4b and 6 merge
   `get_portfolio`, `get_transactions`, `get_targets`, `get_rebalancing` as thin adapters + shared runtime context file. Write tools later.
   _Done when:_ Claude Code and ChatGPT give the same rebalancing answer.
 - [ ] **7b. Wire MCP into babylon sessions**
-  Repo `.mcp.json` pointing at the Fly `/mcp`; `scripts/claude.sh` adds `--mcp-config .mcp.json` (keeps `--strict-mcp-config`).
+  Repo `.mcp.json` pointing at `https://babylon-mcp.fly.dev/mcp`; `scripts/claude.sh` adds `--mcp-config .mcp.json` (keeps `--strict-mcp-config`).
   _Done when:_ a `scripts/claude.sh` session lists only the babylon MCP server and can call it.
 - [ ] **5. Trade Republic CSV import**
   Deterministic parser, fingerprint dedup, anonymised fixtures.

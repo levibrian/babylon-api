@@ -33,9 +33,9 @@ Every feature must serve this sentence. If it doesn't, it goes to `ideas.md`.
 | Shared rubric | The guide defines the profile dimensions and how answers map to them, so Claude and ChatGPT read the same answers the same way. Raw answers are kept so profiles can be re-derived when the rubric changes. |
 | Target guardrail | The interview may suggest targets; they reach `AllocationStrategy` only via `set_allocation_targets` after explicit user confirmation. |
 | Actionable rules | Any rule that outputs an amount or buy/sell moves into structured data computed by the API, once acted on with real money. |
-| MCP hosting | MCP endpoint inside the API (`/mcp`, official C# SDK). One hop, one auth layer, one deploy. |
+| MCP hosting | Own project `Babylon.Alfred.Mcp` in the same solution, own Fly app (`babylon-mcp`), Worker pattern: references the Api project and calls its services in-process. Own JWT signing key. |
 | MCP auth | OAuth (authorization code + PKCE) only, login via existing Google sign-in. Dynamic Client Registration; strict redirect URI allowlist. Works in Claude Code, claude.ai, Desktop and ChatGPT. |
-| Auth server | Minimal authorization server inside the API, confirmed by the spike (~650 lines, one slice). Hosted fallback if real-client testing fails: WorkOS AuthKit. |
+| Auth server | Minimal authorization server in the MCP service, confirmed by the spike (~650 lines). Hosted fallback if real-client testing fails: WorkOS AuthKit. |
 
 ## Rejected alternatives
 
@@ -52,7 +52,8 @@ Every feature must serve this sentence. If it doesn't, it goes to `ideas.md`.
 | Plan-only agent | Two agents, two configs, double the drift. |
 | User-level `CLAUDE_CONFIG_DIR` alias | Brian wants nothing stored outside the repo. |
 | Rules applied by the LLM from prose | Claude and ChatGPT would compute different sell amounts. |
-| Separate MCP service calling the API | Two deploys and token forwarding for no gain. |
+| MCP service calling the REST API over HTTP | Token forwarding, retries and an extra hop; the Worker pattern gives the same isolation without them. |
+| MCP inside the API process | No failure isolation: the public OAuth server and MCP traffic would share the REST API's process and signing key. |
 | Finance-quiz questions ("bonds or ETFs?") | People misjudge their own risk appetite; behaviour is more honest. |
 | Inferring horizon, runway and tax from personality | Willingness to take risk is not capacity for it; guessing these is guessing about money. |
 | Profile as a file in the API | Per-user data belongs in the database. |

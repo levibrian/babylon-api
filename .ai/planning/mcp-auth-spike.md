@@ -1,8 +1,8 @@
 # MCP auth spike (step 6)
 
-**Result: build it in the API.** A minimal authorization server works locally against the spec. It took well under the "few days" budget, and what's left is small. No hosted provider needed.
+**Result: build it ourselves, in the MCP service.** A minimal authorization server works locally against the spec. It took well under the "few days" budget, and what's left is small. No hosted provider needed.
 
-Branch `spike/mcp-oauth`. Code lives in `Features/Mcp/`.
+Branch `spike/mcp-oauth`. Code lives in its own project, `Babylon.Alfred.Mcp` (Worker pattern: references the Api project, calls its services in-process, deploys as its own Fly app `babylon-mcp`).
 
 ## What works (locally, covered by tests)
 
@@ -15,15 +15,15 @@ Branch `spike/mcp-oauth`. Code lives in `Features/Mcp/`.
 | DCR | `POST /register`. Stateless: the `client_id` is the HMAC-signed registration (redirect URIs + name), so there's no table and registrations survive restarts and Fly auto-stop. Every redirect URI must be on the allowlist. |
 | Authorize | `GET /authorize` checks the client, the redirect URI (registered **and** allowlisted, otherwise an error page, never a redirect), `response_type=code`, PKCE S256 and `resource`. It renders a "Sign in with Google" page that shows the client name and redirect host. `POST /authorize/google` validates the ID token through the existing `AuthService` (same account linking), then redirects with `code`, `state` and `iss`. |
 | Token | `POST /token` (form). `authorization_code` checks a single-use code with 60 s expiry, the same client, the same redirect URI, the PKCE verifier and `resource`. `refresh_token` rotates the token (single use). |
-| Tokens | Same HS256 key as the REST API, but issuer `{BaseUrl}` and audience `{BaseUrl}/mcp`. A separate `McpBearer` scheme means REST tokens are rejected at `/mcp` and MCP tokens are rejected by the REST API (RFC 8707 audience binding). Access tokens last 60 min. Refresh tokens last 30 days and are stored in the existing `RefreshTokens` table. |
+| Tokens | HS256 with the MCP app's own `Authentication__Jwt__SecretKey` (must differ from the API's), issuer `{BaseUrl}`, audience `{BaseUrl}/mcp`. REST tokens are rejected at `/mcp`, and MCP tokens are rejected by the REST API (different key and audience). Access tokens last 60 min. Refresh tokens last 30 days and are stored in the existing `RefreshTokens` table. |
 | Redirect allowlist | Config `Mcp:AllowedRedirectUris`. Matching is exact, except loopback `http://localhost/...` and `http://127.0.0.1/...`, which match any port (RFC 8252). |
-| Tests | `Babylon.Alfred.Api.Tests/Features/Mcp/` (65 tests): PKCE with the RFC 7636 vector, allowlist rejection cases, code single-use and expiry, `whoami` scoping, a `WebApplicationFactory` test for 401 + header, a REST token rejected at `/mcp`, and a real `tools/call whoami` over HTTP. |
+| Tests | `Babylon.Alfred.Api.Tests/Mcp/` (66 tests, incl. REST routes returning 404 on the MCP host): PKCE with the RFC 7636 vector, allowlist rejection cases, code single-use and expiry, `whoami` scoping, a `WebApplicationFactory` test for 401 + header, a REST token rejected at `/mcp`, and a real `tools/call whoami` over HTTP. |
 
 Small changes outside the slice:
 - `AuthService.AuthenticateGoogleUserAsync`, extracted from `GoogleLoginAsync` (no behaviour change).
 - A `JwtTokenGenerator.GenerateToken` overload that takes issuer, audience and lifetime.
-- Forwarded headers (`X-Forwarded-Proto`) in `Program.cs`, so metadata URLs are `https` behind Fly.
-- `public partial class Program` for tests.
+- The MCP host's `Program.cs` trusts `X-Forwarded-Proto` (metadata URLs are `https` behind Fly) and removes the Api assembly's controllers, so no REST route is exposed on it.
+- The MCP csproj excludes the Api's `appsettings*.json` from build and publish output, so the API's config never ships in the MCP image.
 
 ## Not done / gaps (in priority order)
 
@@ -38,7 +38,7 @@ Small changes outside the slice:
    - advertising the flag.
 
    About 0.5–1 day. This contradicts the decision "MCP auth = DCR", so worth revisiting in `decisions.md`.
-3. **Single instance only.** Pending sign-ins and auth codes are in memory (minutes and seconds). That's fine for one Fly machine. A restart only aborts a sign-in that's in flight.
+3. **Single instance only.** Pending sign-ins and auth codes are in memory (minutes and seconds). Run exactly one Fly machine (`fly scale count 1 -a babylon-mcp`; Fly creates two by default). A restart only aborts a sign-in that's in flight.
 4. **No scopes.** Nothing in `scopes_supported` and no `scope` in the challenge (both are SHOULD). One "full access" grant. Add scopes only if read-only connectors become useful.
 5. **No revocation endpoint and no consent screen beyond the Google page.** Disconnecting in the client simply drops its tokens, and refresh tokens expire after 30 days.
 6. **No CORS on `/mcp`.** Browser-based clients such as MCP Inspector-in-browser would need it. claude.ai and ChatGPT connect server-side.
@@ -55,21 +55,21 @@ Small changes outside the slice:
 
 ## Manual steps for Brian
 
-1. **Google Cloud console**, existing OAuth client `68098676036-…`. Under *Authorized JavaScript origins*, add:
-   - `https://babylon-api.fly.dev` (or whatever the public API host is),
-   - `http://localhost` and `http://localhost:5000` for local testing.
+1. **Ship gap 1 first** (the `ClientId` migration, step 6b). Otherwise every web-app login disconnects the MCP clients, and MCP refresh tokens work at `/api/v1/auth/refresh`.
+2. **Create the Fly app**: `fly apps create babylon-mcp`, then set its secrets:
+   - `Authentication__Jwt__SecretKey`: a NEW random value, different from the API's (`openssl rand -base64 48`)
+   - `ConnectionStrings__DefaultConnection`: same database as the API
+   - `Mcp__BaseUrl` only if the host isn't `https://babylon-mcp.fly.dev`
+3. **Check the API's own key**: `fly secrets list -a babylon-api` must show `Authentication__Jwt__SecretKey`; `appsettings.json` only has a placeholder.
+4. **Google Cloud console**, existing OAuth client. Under *Authorized JavaScript origins*, add `https://babylon-mcp.fly.dev`, plus `http://localhost` and `http://localhost:5100` for local testing. No redirect URIs are needed (popup/JS-callback flow).
+5. **Deploy**: `fly deploy -c fly.mcp.toml`, then `fly scale count 1 -a babylon-mcp`. Smoke test:
+   - `curl -si -X POST https://babylon-mcp.fly.dev/mcp` → 401 with the `WWW-Authenticate` header above
+   - `curl https://babylon-mcp.fly.dev/.well-known/oauth-authorization-server` → AS metadata
+6. **Claude Code**: `claude mcp add --transport http babylon https://babylon-mcp.fly.dev/mcp`, then `/mcp` → authenticate → Google sign-in → call `whoami`.
+7. **claude.ai**: Settings → Connectors → Add custom connector → `https://babylon-mcp.fly.dev/mcp`.
+8. **ChatGPT**: developer mode → add MCP server `https://babylon-mcp.fly.dev/mcp`. If the management page shows a `connector/oauth/{callback_id}` redirect, add it to `Mcp:AllowedRedirectUris`.
 
-   No redirect URIs are needed, because the button uses the popup/JS-callback flow.
-2. **Fly config.**
-   - Confirm the public host. If it isn't `https://babylon-api.fly.dev`, run `fly secrets set Mcp__BaseUrl=https://<host> -a babylon-api` (not secret, but env overrides config), or change `appsettings.json`.
-   - **Check that `Authentication__Jwt__SecretKey` is a real secret on Fly** (`fly secrets list -a babylon-api`). `appsettings.json` only has a placeholder. If prod uses it, anyone can mint tokens for both the REST API and MCP.
-3. **Deploy**: `fly deploy -c fly.api.toml`. Smoke test:
-   - `curl -si -X POST https://<host>/mcp` should return 401 with the `WWW-Authenticate` header above.
-   - `curl https://<host>/.well-known/oauth-authorization-server` should return the AS metadata.
-4. **Claude Code**: `claude mcp add --transport http babylon https://<host>/mcp`, then `/mcp` → authenticate → Google sign-in → ask it to call `whoami`.
-5. **claude.ai**: Settings → Connectors → Add custom connector → `https://<host>/mcp`. Desktop picks it up from the account.
-6. **ChatGPT**: developer mode → add MCP server `https://<host>/mcp`. If the management page shows a `connector/oauth/{callback_id}` redirect, add it to `Mcp:AllowedRedirectUris`.
-7. Before connecting real clients, decide whether gap 1 (the `ClientId` migration) ships first. Otherwise every web-app login disconnects the MCP clients.
+There is no CI deploy job for `babylon-mcp` yet; it's added in step 6b, after the app exists and gap 1 is fixed.
 
 ## Remaining effort
 
@@ -82,7 +82,7 @@ MCP tools themselves are step 7.
 
 ## Recommendation
 
-**Keep the authorization server in the API.** It's about 650 lines of non-test code in one slice, reuses Google sign-in, users and refresh tokens, adds no new service or vendor account, and passes the protocol checks locally.
+**Build the authorization server ourselves, in the MCP service.** It's about 650 lines of non-test code, reuses Google sign-in, users and refresh tokens from the Api project, needs no vendor account, and passes the protocol checks locally.
 
 Fallback, if real-client testing turns up something nasty: **WorkOS AuthKit**. It is a hosted AS with DCR and CIMD built for MCP, and federates Google. The API would then validate WorkOS-issued JWTs (JWKS) instead of issuing its own, and user mapping would be by email.
 
