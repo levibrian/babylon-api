@@ -15,6 +15,7 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
+      mcp: ${{ steps.filter.outputs.mcp }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,6 +36,11 @@ jobs:
               - 'src/Babylon.Alfred/Babylon.Alfred.Api/**'
               - 'src/Babylon.Alfred/Babylon.Alfred.Worker/**'
               - 'fly.worker.toml'
+            mcp:
+              # Mcp has a ProjectReference to the API project (in-process Worker pattern).
+              - 'src/Babylon.Alfred/Babylon.Alfred.Api/**'
+              - 'src/Babylon.Alfred/Babylon.Alfred.Mcp/**'
+              - 'fly.mcp.toml'
 
   # ─── Step 2: Build and test (required before any deployment) ─────────────────
   build-and-test:
@@ -93,5 +99,24 @@ jobs:
 
       - name: Deploy Worker to Fly.io
         run: flyctl deploy --config fly.worker.toml --remote-only --wait-timeout 300
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # ─── Step 3c: Deploy MCP ──────────────────────────────────────────────────
+  deploy-mcp:
+    name: Deploy MCP
+    needs: [detect-changes, build-and-test]
+    if: needs.detect-changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy MCP to Fly.io
+        run: flyctl deploy --config fly.mcp.toml --remote-only --wait-timeout 300
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
