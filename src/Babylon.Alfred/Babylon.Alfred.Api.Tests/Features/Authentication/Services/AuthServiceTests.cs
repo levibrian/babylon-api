@@ -126,6 +126,31 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task RefreshTokenAsync_WithMcpBoundToken_ShouldThrowUnauthorized()
+    {
+        // Arrange
+        var refreshTokenStr = "mcp-refresh-token";
+        var storedToken = new RefreshToken
+        {
+            Token = refreshTokenStr,
+            ClientId = "some-mcp-client",
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+            IsRevoked = false
+        };
+
+        autoMocker.GetMock<IRefreshTokenRepository>()
+            .Setup(x => x.GetByTokenAsync(refreshTokenStr))
+            .ReturnsAsync(storedToken);
+
+        // Act
+        Func<Task> act = () => sut.RefreshTokenAsync(refreshTokenStr);
+
+        // Assert
+        await act.Should().ThrowAsync<UnauthorizedAccessException>()
+            .WithMessage("Invalid or expired refresh token");
+    }
+
+    [Fact]
     public async Task LogoutAsync_WithValidToken_ShouldRevokeToken()
     {
         // Arrange

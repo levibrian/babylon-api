@@ -28,7 +28,7 @@ public class RefreshTokenRepository(BabylonDbContext context) : IRefreshTokenRep
     public async Task RevokeAllUserTokensAsync(Guid userId)
     {
         var tokens = await context.RefreshTokens
-            .Where(t => t.UserId == userId && !t.IsRevoked)
+            .Where(t => t.UserId == userId && !t.IsRevoked && t.ClientId == null)
             .ToListAsync();
 
         foreach (var token in tokens)

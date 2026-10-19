@@ -114,7 +114,7 @@ public class McpOAuthService(
         return request.GrantType switch
         {
             "authorization_code" => await ExchangeCode(client, request),
-            "refresh_token" => await ExchangeRefreshToken(request),
+            "refresh_token" => await ExchangeRefreshToken(client, request),
             _ => OAuthResult<TokenResponse>.Fail("unsupported_grant_type")
         };
     }
@@ -133,14 +133,13 @@ public class McpOAuthService(
         var user = await userRepository.GetUserAsync(grant.UserId);
         return user is null
             ? OAuthResult<TokenResponse>.Fail("invalid_grant")
-            : OAuthResult<TokenResponse>.Ok(await IssueTokens(user));
+            : OAuthResult<TokenResponse>.Ok(await IssueTokens(user, client.ClientId));
     }
 
-    // TODO(mcp): bind refresh tokens to client_id and keep them out of REST login's revoke-all (needs a RefreshToken column).
-    private async Task<OAuthResult<TokenResponse>> ExchangeRefreshToken(TokenRequest request)
+    private async Task<OAuthResult<TokenResponse>> ExchangeRefreshToken(RegisteredClient client, TokenRequest request)
     {
         var stored = request.RefreshToken is null ? null : await refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
-        if (stored is null || !stored.IsActive)
+        if (stored is null || !stored.IsActive || stored.ClientId != client.ClientId)
         {
             return OAuthResult<TokenResponse>.Fail("invalid_grant");
         }
@@ -148,16 +147,17 @@ public class McpOAuthService(
         stored.IsRevoked = true;
         await refreshTokenRepository.UpdateAsync(stored);
 
-        return OAuthResult<TokenResponse>.Ok(await IssueTokens(stored.User));
+        return OAuthResult<TokenResponse>.Ok(await IssueTokens(stored.User, client.ClientId));
     }
 
-    private async Task<TokenResponse> IssueTokens(User user)
+    private async Task<TokenResponse> IssueTokens(User user, string clientId)
     {
         var refreshToken = jwtTokenGenerator.GenerateRefreshToken();
         await refreshTokenRepository.AddAsync(new RefreshToken
         {
             Token = refreshToken,
             UserId = user.Id,
+            ClientId = clientId,
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddDays(Options.RefreshTokenDays)
         });

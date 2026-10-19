@@ -111,7 +111,7 @@ public class AuthService(
     {
         var storedToken = await refreshTokenRepository.GetByTokenAsync(refreshToken);
 
-        if (storedToken == null || !storedToken.IsActive)
+        if (storedToken == null || !storedToken.IsActive || storedToken.ClientId != null)
         {
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }

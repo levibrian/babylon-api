@@ -13,6 +13,7 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
         entity.Property(e => e.ExpiresAt).IsRequired();
         entity.Property(e => e.IsRevoked).IsRequired().HasDefaultValue(false);
+        entity.Property(e => e.ClientId).IsRequired(false);
 
         entity.HasOne(d => d.User)
             .WithMany(p => p.RefreshTokens)

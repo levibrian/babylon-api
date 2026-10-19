@@ -124,7 +124,7 @@ public class McpOAuthServiceTests
     [Fact]
     public async Task ExchangeToken_WithRefreshToken_RotatesIt()
     {
-        var stored = new RefreshToken { Token = "refresh", User = user, UserId = user.Id, ExpiresAt = DateTime.UtcNow.AddDays(1) };
+        var stored = new RefreshToken { Token = "refresh", User = user, UserId = user.Id, ClientId = clientId, ExpiresAt = DateTime.UtcNow.AddDays(1) };
         refreshTokenRepository.Setup(x => x.GetByTokenAsync("refresh")).ReturnsAsync(stored);
 
         var result = await sut.ExchangeToken(new TokenRequest { GrantType = "refresh_token", RefreshToken = "refresh", ClientId = clientId });
@@ -132,13 +132,26 @@ public class McpOAuthServiceTests
         result.IsSuccess.Should().BeTrue();
         stored.IsRevoked.Should().BeTrue();
         result.Value!.RefreshToken.Should().NotBe("refresh");
+        refreshTokenRepository.Verify(x => x.AddAsync(It.Is<RefreshToken>(t => t.ClientId == clientId)), Times.Once);
     }
 
     [Fact]
     public async Task ExchangeToken_WithRevokedRefreshToken_IsRejected()
     {
         refreshTokenRepository.Setup(x => x.GetByTokenAsync("refresh"))
-            .ReturnsAsync(new RefreshToken { Token = "refresh", User = user, IsRevoked = true, ExpiresAt = DateTime.UtcNow.AddDays(1) });
+            .ReturnsAsync(new RefreshToken { Token = "refresh", User = user, ClientId = clientId, IsRevoked = true, ExpiresAt = DateTime.UtcNow.AddDays(1) });
+
+        var result = await sut.ExchangeToken(new TokenRequest { GrantType = "refresh_token", RefreshToken = "refresh", ClientId = clientId });
+
+        result.Error.Should().Be("invalid_grant");
+    }
+
+    [Fact]
+    public async Task ExchangeToken_WithRefreshTokenFromAnotherClient_IsRejected()
+    {
+        var otherClient = clients.Register(new ClientRegistrationRequest { RedirectUris = [McpTestOptions.ClaudeCallback] }).Value!.ClientId;
+        var stored = new RefreshToken { Token = "refresh", User = user, UserId = user.Id, ClientId = otherClient, ExpiresAt = DateTime.UtcNow.AddDays(1) };
+        refreshTokenRepository.Setup(x => x.GetByTokenAsync("refresh")).ReturnsAsync(stored);
 
         var result = await sut.ExchangeToken(new TokenRequest { GrantType = "refresh_token", RefreshToken = "refresh", ClientId = clientId });
 
