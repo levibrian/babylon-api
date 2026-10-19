@@ -7,25 +7,26 @@ namespace Babylon.Alfred.Api.Tests.Mcp.Logging;
 public class EndpointNameVersionEnricherTests
 {
     [Theory]
-    [InlineData("Server (Babylon.Alfred.Mcp 1.0.0.0)", "Server (Babylon.Alfred.Mcp)")]
-    [InlineData("Client (Babylon.Alfred.Mcp 1.2.3)", "Client (Babylon.Alfred.Mcp)")]
-    public void StripVersion_WithVersionedEndpointName_ShouldRemoveVersion(string input, string expected)
+    [InlineData("Server (Babylon.Alfred.Mcp 1.0.0.0)", "Server")]
+    [InlineData("Client (Babylon.Alfred.Mcp 1.2.3)", "Client")]
+    [InlineData("Server (Babylon.Alfred.Mcp)", "Server")]
+    public void StripName_WithParenthesizedSuffix_ShouldRemoveSuffix(string input, string expected)
     {
         // Act
-        var result = EndpointNameVersionEnricher.StripVersion(input);
+        var result = EndpointNameVersionEnricher.StripName(input);
 
         // Assert
         result.Should().Be(expected);
     }
 
     [Fact]
-    public void StripVersion_WithoutVersion_ShouldReturnUnchanged()
+    public void StripName_WithoutParens_ShouldReturnUnchanged()
     {
         // Arrange
-        var input = "Server (Babylon.Alfred.Mcp)";
+        var input = "Server";
 
         // Act
-        var result = EndpointNameVersionEnricher.StripVersion(input);
+        var result = EndpointNameVersionEnricher.StripName(input);
 
         // Assert
         result.Should().Be(input);

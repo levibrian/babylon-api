@@ -9,17 +9,17 @@ namespace Babylon.Alfred.Mcp.Logging;
 // rewrite the EndpointName property before it's rendered.
 public class EndpointNameVersionEnricher : ILogEventEnricher
 {
-    private static readonly Regex VersionSuffix = new(@"\s\d+(\.\d+){1,3}\)$", RegexOptions.Compiled);
+    private static readonly Regex ParenthesizedSuffix = new(@"\s\(.*\)$", RegexOptions.Compiled);
 
-    public static string StripVersion(string endpointName) =>
-        VersionSuffix.Replace(endpointName, ")");
+    public static string StripName(string endpointName) =>
+        ParenthesizedSuffix.Replace(endpointName, string.Empty);
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
     {
         if (logEvent.Properties.TryGetValue("EndpointName", out var value) &&
             value is ScalarValue { Value: string endpointName })
         {
-            logEvent.AddOrUpdateProperty(propertyFactory.CreateProperty("EndpointName", StripVersion(endpointName)));
+            logEvent.AddOrUpdateProperty(propertyFactory.CreateProperty("EndpointName", StripName(endpointName)));
         }
     }
 }
