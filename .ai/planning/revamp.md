@@ -18,7 +18,7 @@ North star and rules: `../decisions.md`.
   Rule 0, north star gatekeeper, lightweight plan → approve → build, Angular rules removed.
 ## Roadmap — first usable MCP from a babylon session
 
-Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 4c, 4d, or 7.** Data is already in the DB, so CSV import is not needed to start.
+Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 7.** Data is already in the DB, so CSV import is not needed to start.
 
 - [x] **4a. Secure the securities endpoints** — branch `fix/securities-authorize` (merged, #13)
   `[Authorize]` on `SecuritiesController`.
@@ -26,13 +26,13 @@ Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 
 - [x] **4b. Backend rebalancing** — branch `feat/rebalancing-targets` (merged, #15)
   `AllocationStrategy` repository + target endpoints; wire targets into `PortfolioService` → `PortfolioCalculator` (currently nulls).
   _Done when:_ positions return target %, deviation, status and € buy/sell, with tests.
-- [x] **4c. Rebalancing gaps (found in 4b)** — branch `fix/rebalancing-gaps`
+- [x] **4c. Rebalancing gaps (found in 4b)** — branch `fix/rebalancing-gaps` (merged, #18)
   Price worker selects securities from `AllocationStrategies` only, so held securities without a target never get prices. Targets on unheld securities produce no "buy" line.
   _Done when:_ worker prices held ∪ targeted securities, and targeted-but-unheld securities appear with a buy amount.
   _Fixed:_ `MarketPriceRepository.GetSecuritiesNeedingUpdateAsync` now unions targeted securities with securities held (net shares > 0) across all users, instead of targets-only. `PortfolioService.GetPortfolio`/`CreatePositionsAsync` now seed a zero-shares entry for every targeted security with no transactions, so it survives the open-position filter and produces a positive `RebalancingAmount` from 0% current allocation. TDD throughout; 365/367 tests pass (2 pre-existing skips).
 - [x] **6. MCP auth spike** — branch `spike/mcp-oauth` (merged, #16)
   Own project `Babylon.Alfred.Mcp` (Worker pattern, own Fly app `babylon-mcp`): `/mcp` + `whoami`, metadata, DCR, PKCE S256, single-use codes, rotating refresh, own signing key. Findings and manual steps: `mcp-auth-spike.md`.
-- [x] **4d. Worker ships the API's config** — branch `fix/worker-appsettings-exclusion`
+- [x] **4d. Worker ships the API's config** — branch `fix/worker-appsettings-exclusion` (merged, #19)
   Worker publish output contains the Api's `appsettings.json`, not its own, so production Worker likely runs on API config. Apply the same exclusion as `Babylon.Alfred.Mcp.csproj` after checking which settings the Worker needs.
   _Done when:_ Worker publish output contains only the Worker's own `appsettings*.json` and the Worker still starts.
   _Found:_ confirmed by direct repro — published `appsettings.json` was Api's file verbatim (wrong Serilog sinks, Api's Auth/CORS/Rebalancing sections, missing Worker's Quartz logging). Root cause was two-fold: Worker (plain `Microsoft.NET.Sdk`, not `.Web`) never had its own appsettings copied to begin with — it was only ever reaching the output via Api's transitive copy. Fix: copied the Mcp exclusion targets (`_ApiAppSettingsPath` + `ExcludeApiAppSettingsFromOutput`/`FromPublish`) AND added explicit `<None Include="appsettings.json" CopyToOutputDirectory=.../>` items so Worker's own file is actually copied. Verified via `dotnet publish` + content diff + running the published binary (clean startup, correct Serilog file sink). 361/363 tests pass.
