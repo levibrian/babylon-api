@@ -19,12 +19,14 @@ public class PortfolioService(
 
         // Get Buy transactions to determine which securities have open positions
         var buyTransactions = (await transactionRepository.GetOpenPositionsByUser(effectiveUserId)).ToList();
+        var targetsBySecurityId = (await allocationStrategyRepository.GetByUserIdAsync(effectiveUserId))
+            .ToDictionary(a => a.SecurityId, a => a.TargetPercentage);
 
         var positions = new List<PortfolioPositionDto>();
         decimal totalInvested = 0;
         decimal totalAssetsValue = 0;
 
-        if (buyTransactions.Count > 0)
+        if (buyTransactions.Count > 0 || targetsBySecurityId.Count > 0)
         {
             // Get SecurityIds that have open positions
             var securityIdsWithPositions = buyTransactions.Select(t => t.SecurityId).Distinct().ToList();
@@ -35,8 +37,18 @@ public class PortfolioService(
                 .ToList();
 
             // Group by SecurityId instead of Ticker
-            var groupedTransactions = allTransactions.GroupBy(t => t.SecurityId).ToList();
-            positions = await CreatePositionsAsync(groupedTransactions, effectiveUserId, cashAmount);
+            var transactionsBySecurityId = allTransactions
+                .GroupBy(t => t.SecurityId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Targeted securities with no transactions at all still need a (empty) group,
+            // so they survive into positionData as a zero-shares buy recommendation.
+            foreach (var targetedSecurityId in targetsBySecurityId.Keys)
+            {
+                transactionsBySecurityId.TryAdd(targetedSecurityId, new List<Transaction>());
+            }
+
+            positions = await CreatePositionsAsync(transactionsBySecurityId, targetsBySecurityId, cashAmount);
 
             // Order by total invested (descending), so largest positions appear first
             positions = positions
@@ -70,16 +82,16 @@ public class PortfolioService(
     }
 
     /// <summary>
-    /// Creates position DTOs from grouped transactions.
-    /// Fetches all securities, market prices, and allocation strategies, then processes everything in memory.
+    /// Creates position DTOs from transactions grouped by security.
+    /// Fetches all securities and market prices, then processes everything in memory.
     /// </summary>
     private async Task<List<PortfolioPositionDto>> CreatePositionsAsync(
-        List<IGrouping<Guid, Transaction>> groupedTransactions,
-        Guid userId,
+        Dictionary<Guid, List<Transaction>> transactionsBySecurityId,
+        Dictionary<Guid, decimal> targetsBySecurityId,
         decimal cashAmount)
     {
         // Fetch all securities by SecurityId
-        var securityIds = groupedTransactions.Select(g => g.Key).ToList();
+        var securityIds = transactionsBySecurityId.Keys.ToList();
         var securities = await securityRepository.GetByIdsAsync(securityIds);
         var securitiesLookup = securities.ToDictionary(s => s.Id, s => s);
 
@@ -87,15 +99,12 @@ public class PortfolioService(
         var tickers = securities.Select(s => s.Ticker).ToList();
         var marketPrices = await marketPriceService.GetCurrentPricesAsync(tickers);
 
-        var targetsBySecurityId = (await allocationStrategyRepository.GetByUserIdAsync(userId))
-            .ToDictionary(a => a.SecurityId, a => a.TargetPercentage);
-
         // First pass: calculate metrics and market value for each position
-        var positionData = groupedTransactions.Select(group =>
+        var positionData = transactionsBySecurityId.Select(group =>
         {
             var security = securitiesLookup.GetValueOrDefault(group.Key);
             var ticker = security?.Ticker ?? string.Empty;
-            var positionTransactions = MapToTransactionDtos(group);
+            var positionTransactions = MapToTransactionDtos(group.Value);
             var fifoResult = PortfolioCalculator.Calculate(positionTransactions);
             var totalShares = fifoResult.TotalShares;
             var averageSharePrice = fifoResult.AverageSharePrice;
@@ -106,7 +115,7 @@ public class PortfolioService(
 
             return new
             {
-                Group = group,
+                SecurityId = group.Key,
                 Security = security,
                 Ticker = ticker,
                 TotalShares = totalShares,
@@ -115,7 +124,8 @@ public class PortfolioService(
                 CurrentMarketValue = currentMarketValue
             };
         })
-        .Where(p => p.TotalShares > 0) // Only include positions with open shares
+        // Keep positions with open shares, plus targeted-but-unheld securities (buy recommendation)
+        .Where(p => p.TotalShares > 0 || targetsBySecurityId.ContainsKey(p.SecurityId))
         .ToList();
 
         // Calculate total portfolio values
@@ -140,7 +150,7 @@ public class PortfolioService(
             decimal? rebalancingAmount = null;
             RebalancingStatus? rebalancingStatus = null;
 
-            if (totalPortfolioValue > 0 && targetsBySecurityId.TryGetValue(p.Group.Key, out var targetPercentage))
+            if (totalPortfolioValue > 0 && targetsBySecurityId.TryGetValue(p.SecurityId, out var targetPercentage))
             {
                 target = targetPercentage;
                 deviation = roundedCurrentAllocation - targetPercentage;
