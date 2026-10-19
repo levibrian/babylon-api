@@ -31,9 +31,10 @@ Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 
   _Done when:_ worker prices held ∪ targeted securities, and targeted-but-unheld securities appear with a buy amount.
 - [x] **6. MCP auth spike** — branch `spike/mcp-oauth` (merged, #16)
   Own project `Babylon.Alfred.Mcp` (Worker pattern, own Fly app `babylon-mcp`): `/mcp` + `whoami`, metadata, DCR, PKCE S256, single-use codes, rotating refresh, own signing key. Findings and manual steps: `mcp-auth-spike.md`.
-- [ ] **4d. Worker ships the API's config**
+- [x] **4d. Worker ships the API's config** — branch `fix/worker-appsettings-exclusion`
   Worker publish output contains the Api's `appsettings.json`, not its own, so production Worker likely runs on API config. Apply the same exclusion as `Babylon.Alfred.Mcp.csproj` after checking which settings the Worker needs.
   _Done when:_ Worker publish output contains only the Worker's own `appsettings*.json` and the Worker still starts.
+  _Found:_ confirmed by direct repro — published `appsettings.json` was Api's file verbatim (wrong Serilog sinks, Api's Auth/CORS/Rebalancing sections, missing Worker's Quartz logging). Root cause was two-fold: Worker (plain `Microsoft.NET.Sdk`, not `.Web`) never had its own appsettings copied to begin with — it was only ever reaching the output via Api's transitive copy. Fix: copied the Mcp exclusion targets (`_ApiAppSettingsPath` + `ExcludeApiAppSettingsFromOutput`/`FromPublish`) AND added explicit `<None Include="appsettings.json" CopyToOutputDirectory=.../>` items so Worker's own file is actually copied. Verified via `dotnet publish` + content diff + running the published binary (clean startup, correct Serilog file sink). 361/363 tests pass.
 - [x] **6b. MCP auth hardening + first connect** — before any real client connects
   Nullable `ClientId` on refresh tokens (manual migration) so REST logins don't revoke MCP sessions and `/auth/refresh` rejects MCP tokens. Create `babylon-mcp` with its own secrets, deploy, scale to 1 machine, add the CI deploy job, connect Claude Code, call `whoami`.
   _Done when:_ Claude Code calls `whoami` against `babylon-mcp` as Brian, and a web login doesn't disconnect it.

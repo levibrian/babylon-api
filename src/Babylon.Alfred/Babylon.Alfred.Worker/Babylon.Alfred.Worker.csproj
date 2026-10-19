@@ -25,5 +25,28 @@
       <ProjectReference Include="..\Babylon.Alfred.Api\Babylon.Alfred.Api.csproj" />
     </ItemGroup>
 
+    <!-- Microsoft.NET.Sdk (unlike Microsoft.NET.Sdk.Web) doesn't auto-copy appsettings*.json,
+         so without this the Worker's own config never reaches the output directory. -->
+    <ItemGroup>
+        <None Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <None Include="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('appsettings.Development.json')" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <_ApiAppSettingsPath>$([System.IO.Path]::Combine('Babylon.Alfred.Api', 'appsettings'))</_ApiAppSettingsPath>
+    </PropertyGroup>
+
+    <Target Name="ExcludeApiAppSettingsFromOutput" AfterTargets="GetCopyToOutputDirectoryItems">
+        <ItemGroup>
+            <_TransitiveItemsToCopyToOutputDirectory Remove="@(_TransitiveItemsToCopyToOutputDirectory)" Condition="$([System.String]::Copy('%(_TransitiveItemsToCopyToOutputDirectory.FullPath)').Contains('$(_ApiAppSettingsPath)'))" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="ExcludeApiAppSettingsFromPublish" AfterTargets="_ComputeCopyToPublishDirectoryItems">
+        <ItemGroup>
+            <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(ResolvedFileToPublish.FullPath)').Contains('$(_ApiAppSettingsPath)'))" />
+        </ItemGroup>
+    </Target>
+
 </Project>
 
