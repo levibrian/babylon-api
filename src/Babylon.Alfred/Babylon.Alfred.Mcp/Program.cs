@@ -2,6 +2,7 @@ using System.Text;
 using Babylon.Alfred.Api.Features.Startup.Extensions;
 using Babylon.Alfred.Api.Shared.Data;
 using Babylon.Alfred.Mcp.Extensions;
+using Babylon.Alfred.Mcp.Logging;
 using McpExtensions = Babylon.Alfred.Mcp.Extensions.ServiceCollectionExtensions;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -11,7 +12,8 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
+    configuration.ReadFrom.Configuration(context.Configuration)
+        .Enrich.With<EndpointNameVersionEnricher>());
 
 try
 {

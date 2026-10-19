@@ -18,7 +18,7 @@ North star and rules: `../decisions.md`.
   Rule 0, north star gatekeeper, lightweight plan → approve → build, Angular rules removed.
 ## Roadmap — first usable MCP from a babylon session
 
-Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 6b.** Data is already in the DB, so CSV import is not needed to start.
+Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 4c, 4d, or 7.** Data is already in the DB, so CSV import is not needed to start.
 
 - [x] **4a. Secure the securities endpoints** — branch `fix/securities-authorize` (merged, #13)
   `[Authorize]` on `SecuritiesController`.
@@ -34,12 +34,12 @@ Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 
 - [ ] **4d. Worker ships the API's config**
   Worker publish output contains the Api's `appsettings.json`, not its own, so production Worker likely runs on API config. Apply the same exclusion as `Babylon.Alfred.Mcp.csproj` after checking which settings the Worker needs.
   _Done when:_ Worker publish output contains only the Worker's own `appsettings*.json` and the Worker still starts.
-- [ ] **6b. MCP auth hardening + first connect** — before any real client connects
+- [x] **6b. MCP auth hardening + first connect** — before any real client connects
   Nullable `ClientId` on refresh tokens (manual migration) so REST logins don't revoke MCP sessions and `/auth/refresh` rejects MCP tokens. Create `babylon-mcp` with its own secrets, deploy, scale to 1 machine, add the CI deploy job, connect Claude Code, call `whoami`.
   _Done when:_ Claude Code calls `whoami` against `babylon-mcp` as Brian, and a web login doesn't disconnect it.
   _Progress:_ `ClientId` column + code done, migration `20261014090909_AddClientIdToRefreshToken` applied to `babylon_dev` on 2026-10-16 (357 tests pass). `babylon-mcp` Fly app created, secrets set (own `Authentication__Jwt__SecretKey`, shared DB), deployed via `fly.mcp.toml`, scaled to 1 machine, shared v4 + dedicated v6 IPs allocated, CI deploy job added to `deploy.yml`. Smoke tests pass: 401 + `WWW-Authenticate` on `/mcp`, AS metadata on `/.well-known/oauth-authorization-server` (both verified via direct IP, bypassing Brian's local DNS). Google Cloud console origins added (`https://babylon-mcp.fly.dev`, `http://localhost`, `http://localhost:5100`) on the existing OAuth client. `claude mcp add` run (local config, project `babylon-api`).
-  _Resolved (2026-10-19):_ root cause was Brian's home router/ISP DNS (not the VPNs, which were a red herring) failing to resolve some `*.fly.dev` hosts. Fixed by forcing `networksetup -setdnsservers Wi-Fi 1.1.1.1 8.8.8.8` on his Mac. `claude mcp add` connects; `claude mcp list` now shows "Needs authentication" instead of `ENOTFOUND`.
-  _Remaining:_ `/mcp` → Google sign-in → `whoami` call from Claude Code (interactive, Brian's turn).
+  _Resolved (2026-10-19):_ root cause of the connect failure was Brian's home router/ISP DNS (not the VPNs, which were a red herring) failing to resolve some `*.fly.dev` hosts. Fixed by forcing `networksetup -setdnsservers Wi-Fi 1.1.1.1 8.8.8.8` on his Mac. `claude mcp add` connects; Google sign-in completed (confirmed via Fly logs: real email + userId, `McpAuthorize` succeeded, `initialize` + `tools/list` completed).
+  _Done (2026-10-19):_ `whoami` called from Claude Code against `babylon-mcp`. Response: "Works. userId `a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d`, email matches you. MCP auth good."
 - [ ] **7. MCP tools (read-only first)** — after 4b and 6 merge
   `get_portfolio`, `get_transactions`, `get_targets`, `get_rebalancing` as thin adapters + shared runtime context file. Write tools later.
   _Done when:_ Claude Code and ChatGPT give the same rebalancing answer.
