@@ -96,21 +96,31 @@ public class MarketPriceRepository(BabylonDbContext context, ILogger<MarketPrice
         
         var cutoffTime = DateTime.UtcNow.Subtract(maxAge);
 
-        // Get all distinct securities from allocation strategies
-        var securitiesInPortfolio = await context.AllocationStrategies
-            .Include(s => s.Security)
-            .Where(s => s.Security != null)
-            .Select(s => s.Security!)
+        // Securities with a target, across all users
+        var targetedSecurityIds = await context.AllocationStrategies
+            .Select(s => s.SecurityId)
             .Distinct()
             .ToListAsync();
 
-        if (securitiesInPortfolio.Count == 0)
+        // Securities currently held (net shares > 0), across all users
+        var heldSecurityIds = await context.Transactions
+            .Where(t => t.TransactionType == TransactionType.Buy || t.TransactionType == TransactionType.Sell)
+            .GroupBy(t => t.SecurityId)
+            .Where(g => g.Sum(t => t.TransactionType == TransactionType.Buy ? t.SharesQuantity : -t.SharesQuantity) > 0)
+            .Select(g => g.Key)
+            .ToListAsync();
+
+        var securityIds = targetedSecurityIds.Union(heldSecurityIds).ToList();
+
+        if (securityIds.Count == 0)
         {
-            logger.LogInformation("No securities found in allocation strategies");
+            logger.LogInformation("No held or targeted securities found");
             return new List<Security>();
         }
 
-        var securityIds = securitiesInPortfolio.Select(s => s.Id).ToList();
+        var securitiesInPortfolio = await context.Securities
+            .Where(s => securityIds.Contains(s.Id))
+            .ToListAsync();
 
         // Get securities that have stale prices
         var securitiesWithStalePrices = await context.MarketPrices

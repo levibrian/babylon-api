@@ -545,5 +545,34 @@ public class PortfolioServiceTests
         result.Positions.First().Ticker.Should().Be("AAPL");
         result.Positions.First().CurrentAllocationPercentage.Should().Be(50m);
     }
+
+    [Fact]
+    public async Task GetPortfolio_WithTargetButNoHoldings_ShouldAppearWithBuyAmount()
+    {
+        // Arrange — user has no VOO shares and no transactions, but set a 20% VOO target.
+        // VOO must still appear as a position with a positive RebalancingAmount (buy).
+        var userId = Guid.NewGuid();
+        var cashAmount = 1000m;
+        var voo = fixture.Build<Security>().With(s => s.Ticker, "VOO").With(s => s.Id, Guid.NewGuid()).Create();
+
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetOpenPositionsByUser(userId)).ReturnsAsync(new List<Transaction>());
+        autoMocker.GetMock<ITransactionRepository>().Setup(x => x.GetAllByUser(userId)).ReturnsAsync(new List<Transaction>());
+        autoMocker.GetMock<ISecurityRepository>().Setup(x => x.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+            .ReturnsAsync((IEnumerable<Guid> securityIds) =>
+                securityIds.Contains(voo.Id) ? new List<Security> { voo } : new List<Security>());
+        autoMocker.GetMock<ICashBalanceService>().Setup(x => x.GetBalanceAsync(userId)).ReturnsAsync(cashAmount);
+        autoMocker.GetMock<IAllocationStrategyRepository>().Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(new List<AllocationStrategy> { new() { SecurityId = voo.Id, TargetPercentage = 20m } });
+
+        // Act
+        var result = await sut.GetPortfolio(userId);
+
+        // Assert — target market value = 20% of 1000 cash = 200; current = 0 -> buy 200
+        result.Positions.Should().ContainSingle(p => p.Ticker == "VOO");
+        var vooPosition = result.Positions.Single(p => p.Ticker == "VOO");
+        vooPosition.TotalShares.Should().Be(0m);
+        vooPosition.TargetAllocationPercentage.Should().Be(20m);
+        vooPosition.RebalancingAmount.Should().Be(200m);
+    }
 }
 

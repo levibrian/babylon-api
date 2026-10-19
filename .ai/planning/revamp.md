@@ -26,9 +26,10 @@ Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 
 - [x] **4b. Backend rebalancing** — branch `feat/rebalancing-targets` (merged, #15)
   `AllocationStrategy` repository + target endpoints; wire targets into `PortfolioService` → `PortfolioCalculator` (currently nulls).
   _Done when:_ positions return target %, deviation, status and € buy/sell, with tests.
-- [ ] **4c. Rebalancing gaps (found in 4b)**
+- [x] **4c. Rebalancing gaps (found in 4b)** — branch `fix/rebalancing-gaps`
   Price worker selects securities from `AllocationStrategies` only, so held securities without a target never get prices. Targets on unheld securities produce no "buy" line.
   _Done when:_ worker prices held ∪ targeted securities, and targeted-but-unheld securities appear with a buy amount.
+  _Fixed:_ `MarketPriceRepository.GetSecuritiesNeedingUpdateAsync` now unions targeted securities with securities held (net shares > 0) across all users, instead of targets-only. `PortfolioService.GetPortfolio`/`CreatePositionsAsync` now seed a zero-shares entry for every targeted security with no transactions, so it survives the open-position filter and produces a positive `RebalancingAmount` from 0% current allocation. TDD throughout; 365/367 tests pass (2 pre-existing skips).
 - [x] **6. MCP auth spike** — branch `spike/mcp-oauth` (merged, #16)
   Own project `Babylon.Alfred.Mcp` (Worker pattern, own Fly app `babylon-mcp`): `/mcp` + `whoami`, metadata, DCR, PKCE S256, single-use codes, rotating refresh, own signing key. Findings and manual steps: `mcp-auth-spike.md`.
 - [ ] **4d. Worker ships the API's config**
