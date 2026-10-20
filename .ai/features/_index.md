@@ -8,6 +8,7 @@
 | **Authentication** | Production | [authentication.md](authentication.md) | JWT + Google OAuth. Unified accounts (one email = one user). Refresh tokens, account linking. |
 | **Worker** | Production | [worker.md](worker.md) | Quartz.NET background jobs. Price fetching (hourly), portfolio snapshots (hourly+15m), realized PnL backfill (daily 3AM). |
 | **Infrastructure** | Production | [infrastructure.md](infrastructure.md) | Yahoo Finance integration: security search and metadata. |
+| **Import** | Production | [import.md](import.md) | Trade Republic CSV import. Deterministic parser, ISIN→security resolution, fingerprint dedup, reuses `TransactionService.CreateBulk`. |
 | **Startup** | Internal | _(see architecture.md)_ | Health check endpoint, root DI registration (`RegisterFeatures()`). |
 
 ---

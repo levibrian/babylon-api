@@ -20,11 +20,16 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         entity.Property(e => e.RealizedPnL).HasPrecision(18, 4);
         entity.Property(e => e.RealizedPnLPct).HasPrecision(18, 4);
         entity.Property(e => e.UserId);
+        entity.Property(e => e.ImportSource).HasMaxLength(50);
+        entity.Property(e => e.ImportFingerprint).HasMaxLength(100);
 
         entity.ToTable("transactions");
 
         entity.HasIndex(e => e.SecurityId);
         entity.HasIndex(e => e.UserId);
+        entity.HasIndex(e => new { e.UserId, e.ImportFingerprint })
+            .IsUnique()
+            .HasFilter("\"ImportFingerprint\" IS NOT NULL");
 
         // Transactions -> User Configuration
         entity.HasOne(t => t.User)

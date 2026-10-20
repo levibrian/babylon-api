@@ -15,6 +15,10 @@
         <ProjectReference Include="..\Babylon.Alfred.Api\Babylon.Alfred.Api.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Include="..\..\..\.ai\mcp-context.md" Link="mcp-context.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <PropertyGroup>
         <_ApiAppSettingsPath>$([System.IO.Path]::Combine('Babylon.Alfred.Api', 'appsettings'))</_ApiAppSettingsPath>
     </PropertyGroup>

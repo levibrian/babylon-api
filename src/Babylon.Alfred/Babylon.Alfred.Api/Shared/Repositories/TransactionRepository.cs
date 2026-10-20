@@ -193,5 +193,17 @@ public class TransactionRepository(BabylonDbContext context, ILogger<Transaction
         logger.LogInformation("Transaction deleted: {TransactionId} for UserId: {UserId}", transactionId, userId);
         return transaction;
     }
+
+    public async Task<IReadOnlySet<string>> GetExistingImportFingerprintsAsync(Guid userId, IEnumerable<string> fingerprints)
+    {
+        var fingerprintList = fingerprints.ToList();
+
+        var existing = await context.Transactions
+            .Where(t => t.UserId == userId && t.ImportFingerprint != null && fingerprintList.Contains(t.ImportFingerprint))
+            .Select(t => t.ImportFingerprint!)
+            .ToListAsync();
+
+        return existing.ToHashSet();
+    }
 }
 

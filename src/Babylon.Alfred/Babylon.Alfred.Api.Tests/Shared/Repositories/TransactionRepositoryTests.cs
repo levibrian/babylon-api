@@ -1272,4 +1272,43 @@ public class TransactionRepositoryTests : IDisposable
         remainingTransaction.Should().NotBeNull();
         remainingTransaction!.Id.Should().Be(transactionId2);
     }
+
+    [Fact]
+    public async Task GetExistingImportFingerprintsAsync_ReturnsOnlyFingerprintsAlreadyImportedForUser()
+    {
+        // Arrange
+        var security = await CreateSecurityAsync("AAPL", "Apple Inc.");
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+
+        var transactions = new List<Transaction>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(), SecurityId = security.Id, TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, SharesQuantity = 1m, SharePrice = 1m,
+                UserId = userId, ImportFingerprint = "fp-1"
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), SecurityId = security.Id, TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, SharesQuantity = 1m, SharePrice = 1m,
+                UserId = userId, ImportFingerprint = null
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), SecurityId = security.Id, TransactionType = TransactionType.Buy,
+                Date = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, SharesQuantity = 1m, SharePrice = 1m,
+                UserId = otherUserId, ImportFingerprint = "fp-2"
+            }
+        };
+        await context.Transactions.AddRangeAsync(transactions);
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await sut.GetExistingImportFingerprintsAsync(userId, ["fp-1", "fp-2", "fp-not-imported"]);
+
+        // Assert
+        result.Should().BeEquivalentTo(["fp-1"]);
+    }
 }

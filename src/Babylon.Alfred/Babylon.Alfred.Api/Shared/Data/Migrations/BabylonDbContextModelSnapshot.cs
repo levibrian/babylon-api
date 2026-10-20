@@ -310,6 +310,14 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<string>("ImportFingerprint")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ImportSource")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<decimal?>("RealizedPnL")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
@@ -347,6 +355,10 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                     b.HasIndex("SecurityId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "ImportFingerprint")
+                        .IsUnique()
+                        .HasFilter("\"ImportFingerprint\" IS NOT NULL");
 
                     b.ToTable("transactions", (string)null);
                 });

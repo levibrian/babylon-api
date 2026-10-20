@@ -206,6 +206,7 @@ Use `LoggerExtensions` extension methods — never raw `logger.LogX()`:
 | Securities | `/api/v1/securities` | GET, GET by ticker, POST, POST admin, PUT, DELETE |
 | Cash | `/api/v1/cash` | PUT |
 | Allocations | `/api/v1/allocations` | GET, PUT |
+| Imports | `/api/v1/imports` | POST `trade-republic` |
 
 ---
 

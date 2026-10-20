@@ -16,5 +16,6 @@ public interface ITransactionRepository
     Task<Transaction> Update(Transaction transaction);
     Task UpdateBulkAsync(IList<Transaction> transactions, CancellationToken cancellationToken = default);
     Task<Transaction> Delete(Guid transactionId, Guid userId);
+    Task<IReadOnlySet<string>> GetExistingImportFingerprintsAsync(Guid userId, IEnumerable<string> fingerprints);
 }
 

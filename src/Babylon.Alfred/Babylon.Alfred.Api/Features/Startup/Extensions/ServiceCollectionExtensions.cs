@@ -1,3 +1,4 @@
+using Babylon.Alfred.Api.Features.Import.Extensions;
 using Babylon.Alfred.Api.Features.Investments.Extensions;
 
 namespace Babylon.Alfred.Api.Features.Startup.Extensions;
@@ -7,6 +8,7 @@ public static class ServiceCollectionExtensions
     public static void RegisterFeatures(this IServiceCollection serviceCollection)
     {
         serviceCollection.RegisterInvestmentServices();
+        serviceCollection.RegisterImportServices();
 
         // Register Authentication
         serviceCollection.AddScoped<Features.Authentication.Services.IAuthService, Features.Authentication.Services.AuthService>();

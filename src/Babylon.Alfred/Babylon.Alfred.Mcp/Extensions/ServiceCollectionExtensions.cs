@@ -25,9 +25,17 @@ public static class ServiceCollectionExtensions
             .AddAuthenticationSchemes(BearerScheme)
             .RequireAuthenticatedUser()));
 
-        services.AddMcpServer()
+        var contextPath = Path.Combine(AppContext.BaseDirectory, "mcp-context.md");
+        var serverInstructions = File.Exists(contextPath) ? File.ReadAllText(contextPath) : null;
+
+        services.AddMcpServer(options => options.ServerInstructions = serverInstructions)
             .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
-            .WithTools<WhoAmITool>();
+            .WithTools<WhoAmITool>()
+            .WithTools<PortfolioTool>()
+            .WithTools<TransactionsTool>()
+            .WithTools<TargetsTool>()
+            .WithTools<RebalancingTool>()
+            .WithTools<ImportTool>();
     }
 
     // Separate bearer scheme: MCP tokens carry the /mcp resource as audience, so REST tokens

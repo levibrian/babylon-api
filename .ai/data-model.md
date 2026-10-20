@@ -57,6 +57,7 @@ Security (1) ──> (N) RecurringSchedule
 | AllocationStrategy | `(UserId, SecurityId)` — unique composite index |
 | MarketPrice | `SecurityId` — unique (one price per security) |
 | CashBalance | `UserId` — primary key |
+| Transaction | `(UserId, ImportFingerprint)` — unique partial index (where `ImportFingerprint IS NOT NULL`); dedupes CSV re-imports |
 
 ---
 
@@ -136,7 +137,7 @@ PostgreSQL via Npgsql. Retry on failure: 3 retries, 5-second max delay.
 | Interface | Entity | Key Operations |
 |-----------|--------|---------------|
 | `IUserRepository` | User | GetUser, GetUserByEmail, GetUserByUsername, GetUserByEmailOrUsername, CreateUser, UpdateUser |
-| `ITransactionRepository` | Transaction | Add, GetAll, GetAllByUser, **GetOpenPositionsByUser**, GetDividendTransactionsByUser, GetBuyAndSellTransactionsByUserAndSecurity, GetById, Update, UpdateBulk, Delete, GetDistinctUserIdsWithUnbackfilledSells |
+| `ITransactionRepository` | Transaction | Add, GetAll, GetAllByUser, **GetOpenPositionsByUser**, GetDividendTransactionsByUser, GetBuyAndSellTransactionsByUserAndSecurity, GetById, Update, UpdateBulk, Delete, GetDistinctUserIdsWithUnbackfilledSells, GetExistingImportFingerprintsAsync |
 | `ISecurityRepository` | Security | GetByTicker, GetByTickers, GetByIds, GetByIsin, GetAllByIsin, GetAll, AddOrUpdate, Delete |
 | `IMarketPriceRepository` | MarketPrice | GetByTicker, GetByTickers, UpsertMarketPrice, MarkSecurityAsNotFound, GetSecuritiesNeedingUpdate |
 | `ICashBalanceRepository` | CashBalance | GetByUserId, AddOrUpdate |

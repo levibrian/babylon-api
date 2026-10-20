@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "babylon": {
+      "type": "http",
+      "url": "https://babylon-mcp.fly.dev/mcp"
+    }
+  }
+}

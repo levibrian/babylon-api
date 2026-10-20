@@ -14,4 +14,7 @@ public record CreateTransactionRequest
     public decimal? TotalAmount { get; init; } // For dividends: Net Amount (Gross - Tax)
 
     public Guid? UserId { get; init; }
+
+    public string? ImportSource { get; init; }
+    public string? ImportFingerprint { get; init; }
 }

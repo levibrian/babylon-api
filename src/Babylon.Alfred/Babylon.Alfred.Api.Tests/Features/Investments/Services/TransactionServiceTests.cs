@@ -83,6 +83,42 @@ public class TransactionServiceTests
     }
 
     [Fact]
+    public async Task Create_WithImportFields_ShouldPersistImportSourceAndFingerprint()
+    {
+        // Arrange
+        var request = fixture.Build<CreateTransactionRequest>()
+            .With(r => r.Tax, 0m)
+            .With(r => r.SharesQuantity, 10m)
+            .With(r => r.SharePrice, 100m)
+            .With(r => r.Fees, 5m)
+            .With(r => r.ImportSource, "TradeRepublic")
+            .With(r => r.ImportFingerprint, "fp-123")
+            .Create();
+        var security = fixture.Build<Security>()
+            .With(c => c.Ticker, request.Ticker)
+            .With(c => c.Id, Guid.NewGuid())
+            .Create();
+
+        autoMocker.GetMock<ISecurityRepository>()
+            .Setup(x => x.GetByTickerAsync(request.Ticker))
+            .ReturnsAsync(security);
+
+        Transaction? capturedTransaction = null;
+        autoMocker.GetMock<ITransactionRepository>()
+            .Setup(x => x.Add(It.IsAny<Transaction>()))
+            .Callback<Transaction>(t => capturedTransaction = t)
+            .ReturnsAsync((Transaction t) => t);
+
+        // Act
+        await sut.Create(Guid.NewGuid(), request);
+
+        // Assert
+        capturedTransaction.Should().NotBeNull();
+        capturedTransaction!.ImportSource.Should().Be("TradeRepublic");
+        capturedTransaction.ImportFingerprint.Should().Be("fp-123");
+    }
+
+    [Fact]
     public async Task Create_WithNullTicker_ShouldThrowArgumentException()
     {
         // Arrange

@@ -274,7 +274,9 @@ public class TransactionService(
             SharePrice = sharePrice,
             Fees = request.Fees,
             Tax = request.Tax,
-            UserId = userId
+            UserId = userId,
+            ImportSource = request.ImportSource,
+            ImportFingerprint = request.ImportFingerprint
         };
     }
 

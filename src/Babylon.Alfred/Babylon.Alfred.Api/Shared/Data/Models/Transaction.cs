@@ -25,6 +25,10 @@ public class Transaction
     public decimal? RealizedPnL { get; set; }
     public decimal? RealizedPnLPct { get; set; }
 
+    // Set when this transaction came from a CSV import, to dedupe re-imports of the same file
+    public string? ImportSource { get; set; }
+    public string? ImportFingerprint { get; set; }
+
 
     [NotMapped]
     public decimal Amount => SharesQuantity * SharePrice;
