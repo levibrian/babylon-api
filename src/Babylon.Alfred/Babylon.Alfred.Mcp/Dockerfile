@@ -8,6 +8,7 @@ RUN dotnet restore src/Babylon.Alfred/Babylon.Alfred.Mcp/Babylon.Alfred.Mcp.cspr
 
 COPY src/Babylon.Alfred/Babylon.Alfred.Mcp/ src/Babylon.Alfred/Babylon.Alfred.Mcp/
 COPY src/Babylon.Alfred/Babylon.Alfred.Api/ src/Babylon.Alfred/Babylon.Alfred.Api/
+COPY .ai/mcp-context.md .ai/mcp-context.md
 
 RUN dotnet publish src/Babylon.Alfred/Babylon.Alfred.Mcp/Babylon.Alfred.Mcp.csproj \
     -c Release -o /app/publish /p:UseAppHost=false
