@@ -58,6 +58,7 @@ Order: 4a ∥ 4b ∥ 6 → 6b → (4c ∥ 4d ∥ 7) → 7b → 5 → 8. **Next: 
 - [ ] **8. Profiling**
   Profile table (markdown, raw answers, rubric version), question guide + rubric in repo, `start_profiling` prompt, `get_profile` / `save_profile`, `set_allocation_targets` with confirmation.
   _Done when:_ a Claude interview ends with a confirmed profile, and ChatGPT reads the same profile back unchanged.
+  _Design:_ `../features/profiling.md` (approved 2026-10-20, not yet implemented). No `start_profiling` MCP prompt — simplified to an on-demand `get_profiling_guide` tool instead (no `McpServerPrompt` usage exists anywhere in the repo yet; keeps the pattern consistent with the other tools).
 
 ## Open questions
 - Does ChatGPT honour MCP server instructions? Fallback: resource / `get_context` tool. (step 7)

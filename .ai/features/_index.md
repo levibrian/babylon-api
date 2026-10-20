@@ -10,6 +10,7 @@
 | **Infrastructure** | Production | [infrastructure.md](infrastructure.md) | Yahoo Finance integration: security search and metadata. |
 | **Import** | Production | [import.md](import.md) | Trade Republic CSV import. Deterministic parser, ISIN→security resolution, fingerprint dedup, reuses `TransactionService.CreateBulk`. |
 | **Startup** | Internal | _(see architecture.md)_ | Health check endpoint, root DI registration (`RegisterFeatures()`). |
+| **Profiling** | Planned | [profiling.md](profiling.md) | Investor profile (risk tolerance, facts, philosophy) via LLM-led MCP interview. `get_profiling_guide`, `get_profile`, `save_profile`, `set_allocation_targets`. Design approved, not implemented — step 8 of `../planning/revamp.md`. |
 
 ---
 
