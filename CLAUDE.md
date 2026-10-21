@@ -22,7 +22,7 @@ Overrides everything below. Prefer the smallest change that works. No speculativ
 4. **Stop and flag** if reality diverges from the plan mid-way.
 5. **Write back**: when a step's status or a decision changes, update `.ai/planning/revamp.md` / `.ai/decisions.md` in the same action.
 
-- Keep the live task list current for any multi-step work.
+- Live task list, no exceptions: the moment any work has 2+ steps, call TaskCreate for every step before starting — not after, not partway through. Mark `in_progress` the instant a step starts and `completed` the instant it finishes. This applies to everything: code, docs, research, migrations, renames, doc reconciliation — not just "big" work.
 - Answers short: lead with the result, no padding.
 - Refactor in place, never rewrite. The FIFO calculators are the trusted base.
 - Commits only when asked. Conventional commit messages, no AI attribution or co-author trailers. Never push or open PRs; provide a PR title and description in Markdown instead.
