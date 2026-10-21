@@ -1,6 +1,6 @@
 # Profiling Feature (Design — step 8 of `../planning/revamp.md`)
 
-> Status: **Design approved, not implemented.** This doc is the spec for `revamp.md`'s step 8.
+> Status: **Implemented** (2026-10-21). This doc is the spec for `revamp.md`'s step 8.
 > Decisions referenced here are locked in `../decisions.md` (lines 27-34, 59) — not re-opened by this doc.
 
 ## Overview
@@ -15,10 +15,10 @@ Scoped to Brian for now (single real user), but the schema is per-user from day 
 
 | Layer | Components |
 |-------|-----------|
-| Model (1) | `Profile` |
-| Repository (1) | `IProfileRepository` / `ProfileRepository` |
-| Service (1) | `IProfileService` / `ProfileService` (new `Features/Profiling/` slice) |
-| MCP Tools (4) | `get_profiling_guide`, `get_profile`, `save_profile` (`ProfileTool.cs`, new) · `set_allocation_targets` (added to existing `TargetsTool.cs`) |
+| Model (1) | `InvestorProfile` |
+| Repository (1) | `IInvestorProfileRepository` / `InvestorProfileRepository` — `GetByUserIdAsync`, `AddOrUpdateAsync` (mirrors `ICashBalanceRepository`, same 1-row-per-user shape) |
+| Service (1) | `IInvestorProfileService` / `InvestorProfileService` (new `Features/Profiling/` slice) |
+| MCP Tools (4) | `get_profiling_guide`, `get_profile`, `save_profile` (`InvestorProfileTool.cs`, new) · `set_allocation_targets` (added to existing `TargetsTool.cs`) |
 | Repo content (1) | `.ai/profiling-guide.md` (new — question guide + rubric, not code) |
 
 No REST controller: MCP tools call `Babylon.Alfred.Api` services in-process (Worker pattern, confirmed in `decisions.md` → "MCP hosting"/"Adapters"). No frontend work — MCP-only for now.
@@ -28,8 +28,8 @@ No REST controller: MCP tools call `Babylon.Alfred.Api` services in-process (Wor
 ## Data model
 
 ```csharp
-// Shared/Data/Models/Profile.cs
-public class Profile
+// Shared/Data/Models/InvestorProfile.cs
+public class InvestorProfile
 {
     public Guid UserId { get; set; }              // PK + FK -> User, 1:1
     public string? ProfileMarkdown { get; set; }   // fixed section headings, see below
@@ -42,7 +42,8 @@ public class Profile
 
 - PK = `UserId` (no separate `Id` — strict 1:1 with `User`, no history table; `decisions.md` rules out a version history for now, not re-opened here)
 - All three content fields nullable until the first `save_profile` call
-- EF config: `Shared/Data/Configurations/ProfileConfiguration.cs`, new migration `AddProfile`
+- EF config: `Shared/Data/Configurations/InvestorProfileConfiguration.cs`, migration `AddInvestorProfile`
+- `ToTable("investor_profiles")` — snake_case plural, matches every other table (`data-model.md` → Table Naming)
 - Column type: `text` (unbounded), not `varchar(n)`
 
 ### `ProfileMarkdown` fixed section headings
@@ -116,14 +117,14 @@ Closed multiple-choice, no finance language, no open narrative (fast to answer �
 
 ### `get_profile`
 - Read-only. Scoped to signed-in user (`ClaimsPrincipal` + `GetUserId()`, same pattern as `WhoAmITool`/`PortfolioTool`).
-- Returns `ProfileDto { ProfileMarkdown, RawAnswers, RubricVersion, UpdatedAt }`, all nullable.
+- Returns `InvestorProfileDto { ProfileMarkdown, RawAnswers, RubricVersion, UpdatedAt }`, all nullable.
 - No profile saved yet → all fields `null`, HTTP-equivalent 200 (not an error state).
 
 ### `save_profile`
 - Write, idempotent (re-saving the same content is a no-op in effect — same upsert pattern as `import_trade_republic_csv`).
 - Input: `profileMarkdown` (string, required), `rawAnswers` (string, required), `rubricVersion` (string, required).
 - Validation: any of the three empty/null → throws `ArgumentException`. No length limit.
-- Upserts the single `Profile` row for the signed-in user; sets `UpdatedAt = DateTime.UtcNow`.
+- Upserts the single `InvestorProfile` row for the signed-in user; sets `UpdatedAt = DateTime.UtcNow`.
 
 ### `set_allocation_targets` (added to existing `TargetsTool.cs`)
 - Write, idempotent — thin wrapper over `IAllocationService.ReplaceTargets(userId, request)`, which **already exists** and is already used by `AllocationsController.Put` today. Zero new business logic.
@@ -147,9 +148,9 @@ Closed multiple-choice, no finance language, no open narrative (fast to answer �
 
 ## Testing
 
-- `ProfileRepositoryTests` — upsert (insert when absent, update when present), `GetByUserIdAsync` returns null when no row exists
-- `ProfileServiceTests` (Moq'd repository) — validation of required fields before persisting
-- `Mcp/ProfileToolTests` — `get_profile`, `save_profile` happy paths + validation errors; `get_profiling_guide` happy path + missing-file case; unauthenticated → exception for all three
+- `InvestorProfileRepositoryTests` — upsert (insert when absent, update when present), `GetByUserIdAsync` returns null when no row exists
+- `InvestorProfileServiceTests` (Moq'd repository) — validation of required fields before persisting
+- `Mcp/InvestorProfileToolTests` — `get_profile`, `save_profile` happy paths + validation errors; `get_profiling_guide` happy path + missing-file case; unauthenticated → exception for all three
 - `Mcp/TargetsToolTests` — add case for `set_allocation_targets` calling `IAllocationService.ReplaceTargets` with the expected arguments
 - No integration tests (no `WebApplicationFactory`/`TestServer` infra exists anywhere in this repo today — adding it would be new cross-cutting infra, out of scope for this feature)
 

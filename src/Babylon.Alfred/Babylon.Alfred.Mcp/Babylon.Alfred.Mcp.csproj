@@ -17,6 +17,7 @@
 
     <ItemGroup>
         <None Include="..\..\..\.ai\mcp-context.md" Link="mcp-context.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <None Include="..\..\..\.ai\profiling-guide.md" Link="profiling-guide.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
     <PropertyGroup>

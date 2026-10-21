@@ -10,6 +10,10 @@ Babylon tracks the user's investment portfolio across brokers and tells them wha
 - `get_targets` — target allocation % per security (source of truth: `AllocationStrategy`).
 - `get_rebalancing` — per security: current %, target %, deviation, € amount to buy (positive) or sell (negative), and status (Balanced/Overweight/Underweight).
 - `import_trade_republic_csv` — imports a Trade Republic "Transaction export.csv" (pass the raw file content as `csvContent`). Only Buy/Sell/Dividend rows are imported; cash movements (interest, transfers) are skipped. Safe to call repeatedly with the same file — already-imported rows are deduped by Trade Republic's own transaction id and reported as `skippedDuplicates`, not re-added. Unknown securities (ISIN not yet in Babylon) are reported in `errors` and not imported — add the security first.
+- `get_profiling_guide` — returns the question guide + rubric for running an investor-profiling interview. Not scoped to a user — same guide for everyone. Fetch this before starting a profiling interview.
+- `get_profile` — returns the signed-in user's saved investor profile (risk tolerance, horizon, runway, contributions, tax residence, exclusions, philosophy). All fields are `null` if nothing has been saved yet.
+- `save_profile` — saves the signed-in user's investor profile. Only call after the user has reviewed and confirmed the exact markdown you intend to save.
+- `set_allocation_targets` — replaces the signed-in user's full set of target allocations. **Full replace, not a merge** — omitting a previously-targeted ticker removes its target. Only call after the user has explicitly confirmed the targets in conversation; this is a separate confirmation from confirming their profile. Targets are never written into the profile markdown — `AllocationStrategy` is the only source of truth for them.
 
 ## Rules for answering the user
 

@@ -35,7 +35,8 @@ public static class ServiceCollectionExtensions
             .WithTools<TransactionsTool>()
             .WithTools<TargetsTool>()
             .WithTools<RebalancingTool>()
-            .WithTools<ImportTool>();
+            .WithTools<ImportTool>()
+            .WithTools<InvestorProfileTool>();
     }
 
     // Separate bearer scheme: MCP tokens carry the /mcp resource as audience, so REST tokens

@@ -15,6 +15,7 @@ public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbCo
     public DbSet<PortfolioSnapshot> PortfolioSnapshots { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<CashBalance> CashBalances { get; set; }
+    public DbSet<InvestorProfile> InvestorProfiles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,5 +30,6 @@ public class BabylonDbContext(DbContextOptions<BabylonDbContext> options) : DbCo
         modelBuilder.ApplyConfiguration(new PortfolioSnapshotConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new CashBalanceConfiguration());
+        modelBuilder.ApplyConfiguration(new InvestorProfileConfiguration());
     }
 }

@@ -13,6 +13,7 @@
 | PortfolioSnapshot | `portfolio_snapshots` | Hourly portfolio value snapshots (history). |
 | RecurringSchedule | `recurring_schedules` | Recurring contribution plan. Table only — no code reads or writes it yet. |
 | RefreshToken | `refresh_tokens` | JWT refresh tokens with expiration and revocation. |
+| InvestorProfile | `investor_profiles` | Investor profile (risk tolerance, facts, philosophy) as markdown. PK = UserId (one per user). Built via MCP interview (`get_profiling_guide` → `save_profile`), not a fixed questionnaire. |
 
 ---
 
@@ -22,6 +23,7 @@
 User (1) ──> (N) Transaction
 User (1) ──> (N) AllocationStrategy
 User (1) ──> (1) CashBalance
+User (1) ──> (1) InvestorProfile
 User (1) ──> (N) RefreshToken
 User (1) ──> (N) PortfolioSnapshot
 User (1) ──> (N) RecurringSchedule
@@ -57,6 +59,7 @@ Security (1) ──> (N) RecurringSchedule
 | AllocationStrategy | `(UserId, SecurityId)` — unique composite index |
 | MarketPrice | `SecurityId` — unique (one price per security) |
 | CashBalance | `UserId` — primary key |
+| InvestorProfile | `UserId` — primary key |
 | Transaction | `(UserId, ImportFingerprint)` — unique partial index (where `ImportFingerprint IS NOT NULL`); dedupes CSV re-imports |
 
 ---
@@ -144,6 +147,7 @@ PostgreSQL via Npgsql. Retry on failure: 3 retries, 5-second max delay.
 | `IPortfolioSnapshotRepository` | PortfolioSnapshot | AddSnapshot, GetSnapshotsByUser, GetLatestSnapshot, GetUserIdsWithPortfolios |
 | `IRefreshTokenRepository` | RefreshToken | GetByToken, Add, Update, RevokeAllUserTokens |
 | `IAllocationStrategyRepository` | AllocationStrategy | GetByUserId (includes Security), ReplaceForUser (update matching, add new, remove missing) |
+| `IInvestorProfileRepository` | InvestorProfile | GetByUserIdAsync, AddOrUpdateAsync |
 
 `RecurringSchedule` has no repository yet.
 

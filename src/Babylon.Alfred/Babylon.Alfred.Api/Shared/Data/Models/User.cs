@@ -17,4 +17,5 @@ public class User
     public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public CashBalance? CashBalance { get; set; }
+    public InvestorProfile? InvestorProfile { get; set; }
 }

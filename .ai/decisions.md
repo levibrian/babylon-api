@@ -28,7 +28,8 @@ Every feature must serve this sentence. If it doesn't, it goes to `ideas.md`.
 | Per-user | Every query and MCP tool is scoped by `UserId`. No onboarding/billing for other users yet. |
 | User profile | Stored in the database, one row per user: profile markdown (fixed section headings), raw interview answers, rubric version, `updated_at`. Served via MCP; the LLM reasons over it. |
 | Question guide + rubric | Shared by all users, so it lives in the repo (versioned, reviewed, deployed with the API), not in the database. |
-| Profiling | LLM-led interview via MCP prompt `start_profiling` → `save_profile`. Mostly everyday-life questions; personality is inferred, never asked in finance terms. Plus a few plain fact questions for what can't be inferred: horizon, months of runway without income, contributions, tax residence, hard exclusions. No jargon. |
+| Profiling | LLM-led interview, guide fetched via MCP tool `get_profiling_guide` (not a `McpServerPrompt` — no prompt usage exists anywhere in the repo, so this keeps the pattern consistent with every other capability) → `save_profile`. Mostly everyday-life questions; personality is inferred, never asked in finance terms. Plus a few plain fact questions for what can't be inferred: horizon, months of runway without income, contributions, tax residence, hard exclusions. No jargon. |
+| MCP tool files | Grouped by domain, not strictly one-tool-per-file: a file may hold multiple related tools (e.g. `InvestorProfileTool.cs` holds `get_profiling_guide`/`get_profile`/`save_profile`; `set_allocation_targets` joins the existing `TargetsTool.cs`). Avoids single-method file sprawl as the tool count grows. |
 | Profile confirmation | The interview ends by showing the user its interpretation; nothing is saved until they confirm or correct it. |
 | Shared rubric | The guide defines the profile dimensions and how answers map to them, so Claude and ChatGPT read the same answers the same way. Raw answers are kept so profiles can be re-derived when the rubric changes. |
 | Target guardrail | The interview may suggest targets; they reach `AllocationStrategy` only via `set_allocation_targets` after explicit user confirmation. |
@@ -59,6 +60,7 @@ Every feature must serve this sentence. If it doesn't, it goes to `ideas.md`.
 | Profile as a file in the API | Per-user data belongs in the database. |
 | API-driven fixed questionnaire | More code (questions, answers, flow) and can't adapt to answers. |
 | Pre-registered OAuth client IDs | Manual setup per client and per user. |
+| Client ID Metadata Documents (now) | Spec-preferred over DCR, but no MCP client (Claude, ChatGPT) uses it yet — would be code nothing calls. Revisit if a client ever requires it. |
 | Personal access token with manual refresh | Web connectors don't accept custom headers; would be thrown away once OAuth lands. |
 
 ## Known risks

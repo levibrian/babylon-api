@@ -83,6 +83,28 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                     b.ToTable("cash_balances", (string)null);
                 });
 
+            modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.InvestorProfile", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProfileMarkdown")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawAnswers")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RubricVersion")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("investor_profiles", (string)null);
+                });
+
             modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.MarketPrice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -429,6 +451,17 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.InvestorProfile", b =>
+                {
+                    b.HasOne("Babylon.Alfred.Api.Shared.Data.Models.User", "User")
+                        .WithOne("InvestorProfile")
+                        .HasForeignKey("Babylon.Alfred.Api.Shared.Data.Models.InvestorProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.MarketPrice", b =>
                 {
                     b.HasOne("Babylon.Alfred.Api.Shared.Data.Models.Security", "Security")
@@ -509,6 +542,8 @@ namespace Babylon.Alfred.Api.Shared.Data.Migrations
             modelBuilder.Entity("Babylon.Alfred.Api.Shared.Data.Models.User", b =>
                 {
                     b.Navigation("CashBalance");
+
+                    b.Navigation("InvestorProfile");
 
                     b.Navigation("RefreshTokens");
 
