@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: babylon
+      POSTGRES_PASSWORD: babylon
+      POSTGRES_DB: babylon_load
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U babylon"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: ..
+      dockerfile: src/Babylon.Alfred/Babylon.Alfred.Api/Dockerfile
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=babylon_load;Username=babylon;Password=babylon;Port=5432"
+      Authentication__Jwt__SecretKey: "load-test-signing-key-at-least-32-characters-long"
+      Authentication__Jwt__Issuer: "babylon-load-tests"
+      Authentication__Jwt__Audience: "babylon-load-tests"
+      Authentication__Jwt__ExpirationMinutes: "60"
+      Authentication__Jwt__RefreshTokenExpirationDays: "7"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy

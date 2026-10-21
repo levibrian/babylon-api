@@ -140,3 +140,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// Exposes the entry point to WebApplicationFactory<Program> in Babylon.Alfred.Api.IntegrationTests.
+public partial class Program { }

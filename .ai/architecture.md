@@ -19,10 +19,10 @@ Babylon is a personal investment portfolio API. Named after Batman's butler Alfr
 | Auth | JWT Bearer + Google OAuth + BCrypt |
 | Scheduling | Quartz.NET |
 | External Data | Yahoo Finance API |
-| Testing | xUnit, Moq, Moq.AutoMock, AutoFixture, FluentAssertions, EF Core InMemory |
+| Testing | xUnit, Moq, Moq.AutoMock, AutoFixture, FluentAssertions, EF Core InMemory (unit); Testcontainers + WebApplicationFactory (integration/acceptance); k6 (load) |
 | IaC | Terraform (AWS VPC, RDS, Secrets Manager) |
 | Deploy | Fly.io (API, Worker and MCP containers), region: CDG (Paris) |
-| CI/CD | GitHub Actions (build + test on push/PR to main) |
+| CI/CD | GitHub Actions — unit + integration/acceptance tests on push/PR to main, load test manual-only (`workflow_dispatch`) |
 
 ---
 
@@ -42,14 +42,18 @@ Babylon.Alfred.Api/          ← REST API (main project)
 
 Babylon.Alfred.Worker/       ← Background jobs (Quartz.NET)
 Babylon.Alfred.Mcp/          ← MCP server + OAuth authorization server
-Babylon.Alfred.Api.Tests/    ← xUnit test project (mirrors API structure)
+Babylon.Alfred.Api.Tests/    ← xUnit unit tests (mirrors API structure)
+Babylon.Alfred.Api.IntegrationTests/  ← Integration/Acceptance/Functional tests (Testcontainers Postgres + WebApplicationFactory)
 ```
+
+Load tests (k6) live outside the solution, in `load/` at the repo root — see `.ai/testing.md`.
 
 ### Projects
 - **Babylon.Alfred.Api**: REST API. Vertical slice architecture.
 - **Babylon.Alfred.Worker**: Background job service. References API project for models, repos, calculators.
 - **Babylon.Alfred.Mcp**: MCP server (`/mcp`) and its OAuth authorization server. References the API project and calls its services in-process; exposes no REST routes. Excludes the API's `appsettings*.json` from its output.
-- **Babylon.Alfred.Api.Tests**: xUnit tests. Mirrors API folder structure exactly.
+- **Babylon.Alfred.Api.Tests**: xUnit unit tests. Mirrors API folder structure exactly. Mocked repos / EF InMemory, no real DB.
+- **Babylon.Alfred.Api.IntegrationTests**: Real HTTP calls through `WebApplicationFactory<Program>` against an ephemeral Postgres container (Testcontainers) — real migrations, real constraints. Never touches the RDS dev database. See `.ai/testing.md`.
 
 ---
 
@@ -190,7 +194,7 @@ Use `LoggerExtensions` extension methods — never raw `logger.LogX()`:
 - **MCP**: Fly.io (`fly.mcp.toml`, app `babylon-mcp`), exactly one machine (in-memory auth state), own JWT signing key
 - **Database**: AWS RDS PostgreSQL (`iac/`), treated as a development database until the planned Fly Postgres migration (`fly.db.prod.toml`)
 - **Docker**: Multi-stage build. Base: `mcr.microsoft.com/dotnet/aspnet:9.0`
-- **CI/CD**: GitHub Actions on push/PR to `main`. Build + test in Release mode.
+- **CI/CD**: GitHub Actions. `build-and-test.yml` on push/PR to `main` — parallel unit and integration/acceptance test jobs, each publishing a GitHub Check from its `.trx` results (`dorny/test-reporter`). `load-test.yml` — manual-only (`workflow_dispatch`), spins up Postgres + the real Api image via `load/docker-compose.load.yml`, runs `load/basic-sanity.js` (k6), writes a summary to the run's Job Summary.
 
 ---
 

@@ -52,7 +52,9 @@ _(empty — add entries as anti-patterns are discovered)_
 
 ## Testing
 
-_(empty — add entries as anti-patterns are discovered)_
+- **DON'T**: Assume `WebApplicationFactory.ConfigureWebHost(...).ConfigureAppConfiguration(...)` overrides config that `Program.cs` reads *before* `builder.Build()` (e.g. `ConnectionStrings:DefaultConnection`, `Authentication:Jwt:SecretKey` — both read directly off `builder.Configuration` pre-Build).
+- **Why**: That override only materializes *during* `Build()`, which is too late — the pre-Build read silently falls through to `appsettings.Development.json`'s real values. Cost two stray test users written to the real RDS dev DB before this was caught (via a direct DB query) and fixed.
+- **Instead**: Set real process environment variables (`Environment.SetEnvironmentVariable`, double-underscore nesting) *before* the test factory's `Services`/`CreateClient()` is first touched — `WebApplicationBuilder` reads environment variables as a first-class source immediately, so Program.cs's pre-Build reads see them regardless of WebApplicationFactory's internal timing. See `Babylon.Alfred.Api.IntegrationTests/BabylonApiFactory.cs`.
 
 ---
 
