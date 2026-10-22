@@ -28,10 +28,14 @@ Caught immediately via a direct DB query (not by the test itself — it passed, 
 
 ## Status
 
-Scaffolded and passing locally (Docker started manually for local verification): 6 tests across 3 acceptance flows (auth, transaction→portfolio, CSV import dedup) and 2 repository-level integration tests (real unique-index enforcement, fingerprint lookup). CI wiring and load test workflow written but not yet run in CI — first real CI run happens once this branch is pushed.
+**Done and verified green in CI** (2026-10-22). PR #20 merged: Unit + Integration/Acceptance jobs both pass on every PR/push to `main`, publishing GitHub Checks via `dorny/test-reporter`. Two follow-up fixes after the first manual Load Test runs surfaced real CI-only issues neither local testing nor PR review caught:
+
+- PR #21 (`fix/load-test-missing-restore`): `load-test.yml` ran `dotnet ef database update` without ever restoring the Api project first — `NETSDK1004`, missing `project.assets.json`. Worked locally only because of a stale local restore from earlier development; a fresh runner has nothing. Fixed by adding `dotnet restore` before the migration step. Verified locally by deleting `obj`/`bin` and reproducing the fresh-checkout state before committing.
+- PR #22 (`fix/load-test-k6-network`): `grafana/k6-action` runs k6 inside its own isolated Docker container, so `localhost:8080` inside that container isn't the runner's `localhost` where the Api's port is published — every request failed with `connection refused`. Fixed by installing k6 directly on the runner (apt) and running it as a normal shell step, sharing the runner's network namespace with the published container ports. Not locally verified before commit (k6 isn't installed locally, Brian opted to let CI be the judge) — both PR #21 and #22 are examples of exactly why: issues that only show up on a genuinely fresh runner / real container networking, not reproducible by a developer's already-warmed-up local state.
+
+All three workflows — `CI - Build and Test` (unit + integration jobs) and `Load Test` — are green on `main` as of commit `bdb4617`.
 
 ## Next
 
-- Push `feat/testing-infrastructure`, open a PR, let CI run both new jobs for real.
-- Run the load workflow manually once via the Actions tab to confirm `grafana/k6-action` + the compose stack work end-to-end in CI (not locally verified — k6 isn't installed on this machine).
 - Grow the suite organically as features are added — no fixed target count.
+- Revisit load test VUs/duration if this ever has more than one real user and throughput starts to matter (currently basic sanity only, per design).
