@@ -24,6 +24,9 @@ jobs:
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
 
+      - name: Restore
+        run: dotnet restore src/Babylon.Alfred/Babylon.Alfred.sln
+
       - name: Start Postgres + Api
         run: docker compose -f load/docker-compose.load.yml up -d --build
 
