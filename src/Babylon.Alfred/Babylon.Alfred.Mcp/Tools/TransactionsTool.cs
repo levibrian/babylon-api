@@ -21,4 +21,16 @@ public class TransactionsTool
 
         return transactionService.GetAllByUser(user.GetUserId());
     }
+
+    [McpServerTool(Name = "delete_transaction")]
+    [Description("Deletes a transaction (Buy/Sell/Dividend/Split) by id for the signed-in Babylon user.")]
+    public static Task DeleteTransaction(ClaimsPrincipal? user, ITransactionService transactionService, Guid transactionId)
+    {
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            throw new UnauthorizedAccessException("Not authenticated");
+        }
+
+        return transactionService.Delete(user.GetUserId(), transactionId);
+    }
 }

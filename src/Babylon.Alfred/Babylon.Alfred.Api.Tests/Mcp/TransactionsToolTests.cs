@@ -34,6 +34,29 @@ public class TransactionsToolTests
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
     }
 
+    [Fact]
+    public async Task DeleteTransaction_CallsServiceWithCallerUserId()
+    {
+        var userId = Guid.NewGuid();
+        var transactionId = Guid.NewGuid();
+        var user = Principal(userId);
+        var transactionService = new Mock<ITransactionService>();
+
+        await TransactionsTool.DeleteTransaction(user, transactionService.Object, transactionId);
+
+        transactionService.Verify(x => x.Delete(userId, transactionId), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteTransaction_WithoutAuthenticatedUser_Throws()
+    {
+        var transactionService = new Mock<ITransactionService>();
+
+        Func<Task> act = () => TransactionsTool.DeleteTransaction(new ClaimsPrincipal(new ClaimsIdentity()), transactionService.Object, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
     private static ClaimsPrincipal Principal(Guid userId)
         => new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.ToString())], "test"));
 }
