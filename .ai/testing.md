@@ -279,10 +279,38 @@ Babylon.Alfred.Api.Tests/
 
 ---
 
+## Test Suites
+
+| Suite | Project | What | DB |
+|-------|---------|------|-----|
+| Unit | `Babylon.Alfred.Api.Tests` | Everything above this section — mocked repos, EF InMemory | None / InMemory |
+| Integration + Acceptance + Functional | `Babylon.Alfred.Api.IntegrationTests` | Real HTTP calls through `WebApplicationFactory<Program>`, real Postgres via Testcontainers, real migrations | Ephemeral, per CI run |
+| Load | `load/` (k6, not a .NET project) | Basic sanity (10 VUs/30s) against a few endpoints — not a capacity benchmark | Ephemeral, docker-compose |
+
+Combined Integration/Acceptance/Functional into one project rather than three — for an API-only backend with no UI, the distinction between them is mostly academic; splitting would be speculative structure per Rule 0.
+
+### Integration/Acceptance project (`Babylon.Alfred.Api.IntegrationTests`)
+
+- `BabylonApiFactory : WebApplicationFactory<Program>, IAsyncLifetime` — one Postgres container (Testcontainers) + one Api host, shared across the whole assembly via `[Collection(IntegrationTestCollection.Name)]`.
+- **Config override gotcha (read this before touching `BabylonApiFactory`):** Program.cs reads `ConnectionStrings:DefaultConnection` and `Authentication:Jwt:SecretKey` *before* `builder.Build()` is called. `WebApplicationFactory.ConfigureWebHost(...).ConfigureAppConfiguration(...)` only materializes *during* `Build()` — too late for those reads, which silently fall through to `appsettings.Development.json`'s real RDS connection string. `BabylonApiFactory` sets real process environment variables (`Environment.SetEnvironmentVariable`, double-underscore keys) *before* first touching `Services`, which `WebApplicationBuilder` picks up as a first-class config source immediately. This was caught the hard way — an early version wrote two stray test users to the real RDS dev DB before the fix.
+- Tests use random tickers/usernames/emails per test (`Guid.NewGuid()`) rather than a reset-between-tests strategy — fine for the current handful of tests; revisit if the suite grows large enough for that to matter.
+- `factory.SeedSecurityAsync(...)` inserts a `Security` directly, bypassing the live Yahoo Finance lookup `TransactionService.Create` would otherwise trigger — keeps tests deterministic and offline.
+- Requests/responses use Newtonsoft.Json (`HttpClientJsonExtensions.PostJsonAsync`/`ReadJsonAsync`), matching the Api's actual wire format (`AddNewtonsoftJson`) — not `System.Text.Json`, which the built-in `HttpClient` JSON helpers default to.
+
+### Load (`load/`)
+
+- `docker-compose.load.yml` — plain Postgres + the real Api Docker image, both ephemeral, torn down after the run.
+- `basic-sanity.js` — k6 script, 10 VUs/30s against `/health` + a couple of authenticated GETs. Thresholds: <1% failure rate, p95 <1s. Bump if this app ever has more than one real user and throughput starts to matter.
+- Manual-only (`workflow_dispatch`), never runs on push/PR — it's slower and spins up real containers.
+
+---
+
 ## Running Tests
 
 ```bash
-dotnet test                                              # all tests
+dotnet test                                              # all tests (unit + integration, if Docker is running)
+dotnet test src/Babylon.Alfred/Babylon.Alfred.Api.Tests/Babylon.Alfred.Api.Tests.csproj                # unit only
+dotnet test src/Babylon.Alfred/Babylon.Alfred.Api.IntegrationTests/Babylon.Alfred.Api.IntegrationTests.csproj   # integration/acceptance (needs Docker running locally)
 dotnet test --filter "FullyQualifiedName~Investments"   # feature-specific
 dotnet test /p:CollectCoverage=true                     # with coverage
 ```

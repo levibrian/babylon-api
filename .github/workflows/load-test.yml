@@ -1,0 +1,89 @@
+name: Load Test
+
+on:
+  workflow_dispatch: {}
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  LOAD_DB_CONNECTION: "Host=localhost;Database=babylon_load;Username=babylon;Password=babylon;Port=5432"
+
+jobs:
+  load-test:
+    name: Basic Sanity Load Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Start Postgres + Api
+        run: docker compose -f load/docker-compose.load.yml up -d --build
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            docker compose -f load/docker-compose.load.yml exec -T postgres pg_isready -U babylon && break
+            sleep 2
+          done
+
+      - name: Apply migrations
+        working-directory: src/Babylon.Alfred/Babylon.Alfred.Api
+        env:
+          ConnectionStrings__DefaultConnection: ${{ env.LOAD_DB_CONNECTION }}
+        run: dotnet ef database update --connection "${{ env.LOAD_DB_CONNECTION }}"
+
+      - name: Wait for Api health
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo 000)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+
+      - name: Register a load-test user and capture token
+        run: |
+          response=$(curl -s -X POST http://localhost:8080/api/v1/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"username":"load_test_user","email":"load-test@example.com","password":"correct-horse-battery-staple"}')
+          token=$(echo "$response" | jq -r '.data.token')
+          echo "TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Run k6 load test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: load/basic-sanity.js
+        env:
+          BASE_URL: http://localhost:8080
+          TOKEN: ${{ env.TOKEN }}
+          K6_SUMMARY_EXPORT: k6-summary.json
+
+      - name: Write summary
+        if: always()
+        run: |
+          if [ -f k6-summary.json ]; then
+            {
+              echo "## Load test summary"
+              echo '```json'
+              cat k6-summary.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: k6-summary.json
+
+      - name: Stop Postgres + Api
+        if: always()
+        run: docker compose -f load/docker-compose.load.yml down -v

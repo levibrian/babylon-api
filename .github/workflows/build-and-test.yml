@@ -9,9 +9,14 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
-  build-and-test:
-    name: Build and Test
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -29,9 +34,51 @@ jobs:
       - name: Build
         run: dotnet build src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-restore
 
-      - name: Run tests
-        run: dotnet test src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-build --verbosity normal
+      - name: Run unit tests
+        run: >
+          dotnet test src/Babylon.Alfred/Babylon.Alfred.Api.Tests/Babylon.Alfred.Api.Tests.csproj
+          --configuration Release --no-build --verbosity normal
+          --logger "trx;LogFileName=unit-tests.trx"
+          --results-directory TestResults
 
-      - name: Test Summary
-        if: success()
-        run: echo "✅ All tests passed successfully!"
+      - name: Publish unit test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Results
+          path: TestResults/unit-tests.trx
+          reporter: dotnet-trx
+
+  integration-tests:
+    name: Integration & Acceptance Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore src/Babylon.Alfred/Babylon.Alfred.sln
+
+      - name: Build
+        run: dotnet build src/Babylon.Alfred/Babylon.Alfred.sln --configuration Release --no-restore
+
+      - name: Run integration & acceptance tests
+        run: >
+          dotnet test src/Babylon.Alfred/Babylon.Alfred.Api.IntegrationTests/Babylon.Alfred.Api.IntegrationTests.csproj
+          --configuration Release --no-build --verbosity normal
+          --logger "trx;LogFileName=integration-tests.trx"
+          --results-directory TestResults
+
+      - name: Publish integration test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Integration & Acceptance Test Results
+          path: TestResults/integration-tests.trx
+          reporter: dotnet-trx
