@@ -58,6 +58,7 @@ try
     forwardedHeadersOptions.KnownProxies.Clear();
     app.UseForwardedHeaders(forwardedHeadersOptions);
 
+    app.UseStaticFiles();
     app.UseAuthentication();
     app.UseAuthorization();
 

@@ -6,5 +6,7 @@ public abstract record AuthorizeOutcome
 
     public sealed record ShowSignIn(string RequestId, string ClientName, string RedirectHost) : AuthorizeOutcome;
 
+    public sealed record ShowConsent(string RequestId, string ClientName, string UserEmail, string RedirectHost) : AuthorizeOutcome;
+
     public sealed record RedirectTo(string Url) : AuthorizeOutcome;
 }

@@ -1,0 +1,118 @@
+/* Vendored subset of @babylon/tokens (dark palette + typography/spacing/radius).
+   Dark-only page — no light variant. Re-copy by hand if @babylon/tokens changes. */
+:root {
+  --color-bg-base: #080808;
+  --color-bg-surface: #101010;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a3a3a3;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-accent: #7b2fbe;
+  --color-accent-hover: #9d4edd;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-size-heading-1: 22px;
+  --font-size-body: 13px;
+  --font-size-body-sm: 12px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-lg: 10px;
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  margin: var(--space-6);
+  padding: var(--space-8) var(--space-6);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  text-align: center;
+}
+
+.logo {
+  height: 32px;
+  margin-bottom: var(--space-4);
+}
+
+h1 {
+  font-size: var(--font-size-heading-1);
+  font-weight: 600;
+  margin: 0 0 var(--space-4);
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-3);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-body-sm);
+  color: var(--color-text-primary);
+}
+
+.permissions {
+  text-align: left;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-4);
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+button {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+  font-weight: 500;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.btn-secondary:hover {
+  color: var(--color-text-primary);
+}

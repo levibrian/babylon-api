@@ -32,6 +32,11 @@ public class OAuthController(IMcpOAuthService oauthService, IClientRegistrationS
     public async Task<IActionResult> AuthorizeGoogle([FromForm(Name = "request_id")] string? requestId, [FromForm(Name = "credential")] string? credential)
         => Render(await oauthService.CompleteGoogleSignIn(requestId, credential));
 
+    [HttpPost("/authorize/consent")]
+    [Consumes("application/x-www-form-urlencoded")]
+    public async Task<IActionResult> AuthorizeConsent([FromForm(Name = "request_id")] string? requestId, [FromForm(Name = "decision")] string? decision)
+        => Render(await oauthService.CompleteConsent(requestId, decision));
+
     [HttpPost("/token")]
     [Consumes("application/x-www-form-urlencoded")]
     public async Task<IActionResult> Token([FromForm] TokenRequest request)
@@ -63,6 +68,11 @@ public class OAuthController(IMcpOAuthService oauthService, IClientRegistrationS
                 signIn.RequestId,
                 signIn.ClientName,
                 signIn.RedirectHost)),
+            AuthorizeOutcome.ShowConsent consent => Html(AuthorizePage.Consent(
+                consent.ClientName,
+                consent.UserEmail,
+                consent.RedirectHost,
+                consent.RequestId)),
             AuthorizeOutcome.ShowError showError => Html(AuthorizePage.Error(showError.Message), StatusCodes.Status400BadRequest),
             _ => throw new InvalidOperationException("Unknown authorize outcome")
         };

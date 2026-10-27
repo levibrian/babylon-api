@@ -221,10 +221,70 @@ public class McpOAuthServiceTests
         (await sut.CompleteGoogleSignIn("unknown", "good-id-token")).Should().BeOfType<AuthorizeOutcome.ShowError>();
     }
 
-    private async Task<string> SignIn()
+    [Fact]
+    public async Task CompleteGoogleSignIn_WithValidToken_ShowsConsent()
+    {
+        var signIn = (AuthorizeOutcome.ShowSignIn)sut.Authorize(AuthorizeRequest());
+
+        var outcome = await sut.CompleteGoogleSignIn(signIn.RequestId, "good-id-token");
+
+        var consent = outcome.Should().BeOfType<AuthorizeOutcome.ShowConsent>().Subject;
+        consent.ClientName.Should().Be("Claude");
+        consent.UserEmail.Should().Be(user.Email);
+        consent.RedirectHost.Should().Be(new Uri(McpTestOptions.ClaudeCallback).Host);
+    }
+
+    [Fact]
+    public async Task CompleteConsent_WithAuthorizeDecision_IssuesCodeAndRedirects()
+    {
+        var consent = await SignInToConsent();
+
+        var outcome = await sut.CompleteConsent(consent.RequestId, "authorize");
+
+        var redirect = outcome.Should().BeOfType<AuthorizeOutcome.RedirectTo>().Subject;
+        redirect.Url.Should().StartWith(McpTestOptions.ClaudeCallback + "?");
+        var query = QueryHelpers.ParseQuery(new Uri(redirect.Url).Query);
+        query["state"].ToString().Should().Be("xyz");
+        query["iss"].ToString().Should().Be("https://babylon.test");
+        query["code"].ToString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task CompleteConsent_WithDenyDecision_RedirectsWithAccessDenied()
+    {
+        var consent = await SignInToConsent();
+
+        var outcome = await sut.CompleteConsent(consent.RequestId, "deny");
+
+        var redirect = outcome.Should().BeOfType<AuthorizeOutcome.RedirectTo>().Subject;
+        redirect.Url.Should().StartWith(McpTestOptions.ClaudeCallback).And.Contain("error=access_denied").And.NotContain("code=");
+    }
+
+    [Fact]
+    public async Task CompleteConsent_WithUnknownRequest_ShowsError()
+    {
+        (await sut.CompleteConsent("unknown", "authorize")).Should().BeOfType<AuthorizeOutcome.ShowError>();
+    }
+
+    [Fact]
+    public async Task CompleteConsent_WithUnrecognizedDecision_ShowsError()
+    {
+        var consent = await SignInToConsent();
+
+        (await sut.CompleteConsent(consent.RequestId, "maybe")).Should().BeOfType<AuthorizeOutcome.ShowError>();
+    }
+
+    private async Task<AuthorizeOutcome.ShowConsent> SignInToConsent()
     {
         var signIn = sut.Authorize(AuthorizeRequest()).Should().BeOfType<AuthorizeOutcome.ShowSignIn>().Subject;
-        var redirect = (await sut.CompleteGoogleSignIn(signIn.RequestId, "good-id-token"))
+        return (await sut.CompleteGoogleSignIn(signIn.RequestId, "good-id-token"))
+            .Should().BeOfType<AuthorizeOutcome.ShowConsent>().Subject;
+    }
+
+    private async Task<string> SignIn()
+    {
+        var consent = await SignInToConsent();
+        var redirect = (await sut.CompleteConsent(consent.RequestId, "authorize"))
             .Should().BeOfType<AuthorizeOutcome.RedirectTo>().Subject;
 
         redirect.Url.Should().StartWith(McpTestOptions.ClaudeCallback + "?");

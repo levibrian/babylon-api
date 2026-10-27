@@ -87,8 +87,34 @@ public class McpOAuthService(
             return RedirectWithError(pending.RedirectUri, pending.State, "access_denied");
         }
 
-        var code = authorizationStore.IssueCode(pending, user.Id);
-        logger.LogOperationSuccess("McpAuthorize", context: new { UserId = user.Id, pending.ClientName });
+        var consentRequestId = authorizationStore.SavePending(pending with { UserId = user.Id, UserEmail = user.Email });
+
+        return new AuthorizeOutcome.ShowConsent(consentRequestId, pending.ClientName, user.Email, new Uri(pending.RedirectUri).Host);
+    }
+
+    public Task<AuthorizeOutcome> CompleteConsent(string? requestId, string? decision)
+    {
+        var pending = authorizationStore.TakePending(requestId);
+        if (pending is null || pending.UserId is null)
+        {
+            return Task.FromResult<AuthorizeOutcome>(
+                new AuthorizeOutcome.ShowError("This sign-in request has expired. Start again from your MCP client."));
+        }
+
+        AuthorizeOutcome outcome = decision switch
+        {
+            "authorize" => IssueAuthorizationCode(pending),
+            "deny" => RedirectWithError(pending.RedirectUri, pending.State, "access_denied"),
+            _ => new AuthorizeOutcome.ShowError("Unrecognized consent decision.")
+        };
+
+        return Task.FromResult(outcome);
+    }
+
+    private AuthorizeOutcome.RedirectTo IssueAuthorizationCode(PendingAuthorization pending)
+    {
+        var code = authorizationStore.IssueCode(pending, pending.UserId!.Value);
+        logger.LogOperationSuccess("McpAuthorize", context: new { UserId = pending.UserId, pending.ClientName });
 
         return new AuthorizeOutcome.RedirectTo(BuildRedirect(pending.RedirectUri, new Dictionary<string, string?>
         {

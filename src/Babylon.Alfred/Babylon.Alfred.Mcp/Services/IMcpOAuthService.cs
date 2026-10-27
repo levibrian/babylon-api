@@ -9,5 +9,6 @@ public interface IMcpOAuthService
     AuthorizationServerMetadataResponse GetMetadata();
     AuthorizeOutcome Authorize(AuthorizeRequest request);
     Task<AuthorizeOutcome> CompleteGoogleSignIn(string? requestId, string? credential);
+    Task<AuthorizeOutcome> CompleteConsent(string? requestId, string? decision);
     Task<OAuthResult<TokenResponse>> ExchangeToken(TokenRequest request);
 }

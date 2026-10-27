@@ -5,7 +5,9 @@ public record PendingAuthorization(
     string ClientName,
     string RedirectUri,
     string CodeChallenge,
-    string? State);
+    string? State,
+    Guid? UserId = null,
+    string? UserEmail = null);
 
 public record AuthorizationGrant(
     string ClientId,
